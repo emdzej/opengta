@@ -30,6 +30,12 @@ static uint32_t pads[4];
 void plat_log(const char *msg) { gasm_log(msg, (uint32_t)strlen(msg)); }
 uint32_t plat_pad(int player) { return player >= 0 && player < 4 ? pads[player] : 0; }
 bool plat_param(const char *name, char *dst, size_t cap) { return gasm_param_str(name, dst, (uint32_t)cap); }
+static double frame_hz = APP_FRAME_HZ;
+void plat_set_frame_rate(double hz)
+{
+    frame_hz = hz;
+    gasm_set_frame_rate(hz);
+}
 void plat_present(const uint32_t *rgba, int w, int h) { gasm_video_present(rgba, (uint32_t)w, (uint32_t)h, (uint32_t)w * 4); }
 
 /* ---- raw keyboard (gasm 0.5) ---- */
@@ -228,7 +234,7 @@ GASM_EXPORT("gasm_frame") void og_gasm_frame(void)
         app_exit();
         __wasi_proc_exit(0);
     }
-    audio_acc += APP_AUDIO_RATE / APP_FRAME_HZ;
+    audio_acc += APP_AUDIO_RATE / frame_hz;
     unsigned n = (unsigned)audio_acc;
     audio_acc -= n;
     app_audio(audio_buf, n);

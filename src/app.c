@@ -1,13 +1,19 @@
-/* The application state machine (one app_frame per gasm frame, no blocking loops):
-   - APP_FRONT: the frontend, one iteration of WinMain's menu loop (front_frame, 0x437230) per frame;
-   - APP_LEVEL: the level, for now the development city viewer (viewer_*: the ported in-game frame,
-     Game_Frame 0x430b20 + Game_Render 0x430d40, minus what isn't ported yet) around a movable camera
-     target. Esc returns to the frontend as an abandoned game. Game_Run 0x4148a0 replaces it.
+/* The application state machine (one app_frame per platform frame, no blocking loops):
+   - APP_FRONT: the frontend, one iteration of WinMain's menu loop (front_frame, 0x437230) per frame, at
+     1000/35 Hz;
+   - APP_GAME: Game_Run 0x4148a0, one game_run_step per frame at 70 Hz (one tick of the sound timer: the
+     game runs a frame every 3rd call, 23.33 a second, as the original); when it ends, the frontend's
+     results / cutscene screens (front_game_over), or the same mission again (F12, quit code 3);
+   - APP_VIEWER: the development city viewer (viewer_*), a movable camera target without the game.
 
-   Launch params: front=0 (straight into the viewer), map=nyc|sanb|miami, x=, y=, z= (the viewer's target
-   cell, exe convention: z = 0 is the top layer; default NYC mission 1's player start (105,119,4)).
-   Viewer keys: arrows / d-pad move the target (Shift: faster), Page Up / Page Down (pad L / R) change z. */
+   Launch params: front=0 (straight into the viewer: map=nyc|sanb|miami, x=, y=, z= the target cell, exe
+   convention z = 0 top; default NYC mission 1's player start (105,119,4)), mission=<MISSION.INI section>
+   (straight into that mission). Viewer keys: arrows / d-pad move the target (Shift: faster), Page Up /
+   Page Down (pad L / R) change z, Esc goes to the frontend. */
 #include "app.h"
+#include "audio/audio.h"
+#include "game/game.h"
+#include "game/mission.h"
 #include "exe.h"
 #include "front/front.h"
 #include "text.h"
@@ -133,48 +139,131 @@ static void viewer_free(Viewer *v)
 
 /* ---- app ---- */
 
-enum { APP_FRONT, APP_LEVEL };
+enum { APP_FRONT, APP_GAME, APP_VIEWER };
 
 static int state;
 static Front front;
 static Surface front_screen;
+static uint32_t game_fb[SCREEN_W * SCREEN_H], game_rgba[SCREEN_W * SCREEN_H];
+static int game_section;
 
-static bool start_level(int city)
+/* Gfx_Present 0x414b10: the back buffer (X8R8G8B8) to the platform's RGBA bytes. */
+static void game_present_cb(void *ctx)
 {
-    if (!(viewer = calloc(1, sizeof *viewer))) { plat_log("out of memory"); return false; }
-    if (!viewer_init(viewer, city)) return false;
-    state = APP_LEVEL;
+    (void)ctx;
+    for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
+        uint32_t c = game_fb[i];
+        game_rgba[i] = 0xff000000u | (c & 0xff) << 16 | (c & 0xff00) | (c >> 16 & 0xff);
+    }
+    plat_present(game_rgba, SCREEN_W, SCREEN_H);
+}
+
+static void game_fatal_cb(const char *msg) { plat_log(msg); }
+
+static bool start_game(int section)
+{
+    poly_set_screen_rows(game_fb, SCREEN_W * 4, SCREEN_H);
+    poly_set_clip(0, 0, SCREEN_W - 1, SCREEN_H - 1);
+    g_game.present = game_present_cb;
+    g_game.on_fatal = game_fatal_cb;
+    game_set_screen(SCREEN_W, SCREEN_H);
+    map_clear_name();
+    if (!mission_set_ini_section(section)) { plat_log("OpenGTA: no such mission.ini section"); return false; }
+    game_section = section;
+    if (!game_run_begin()) plat_log("OpenGTA: the game didn't start");
+    state = APP_GAME;
+    plat_set_frame_rate(APP_GAME_HZ);
     return true;
 }
 
-static void end_level(void)
+/* WinMain after Game_Run: the frontend again (or the same mission after F12). */
+static bool end_game(void)
+{
+    int code = game_run_end();
+    if (code == GAME_QUIT_RELOAD) return start_game(game_section);
+    if (!front_screen.px) return false;   /* started with mission=: quit */
+    FrontGameResult res = { .run_code = code, .reason = g_game.result, .local = 0, .score = { 0, -1, -1, -1 } };
+    if (!front_game_over(&front, &res)) { plat_log(front.error); return false; }
+    state = APP_FRONT;
+    plat_set_frame_rate(APP_FRAME_HZ);
+    return true;
+}
+
+static bool start_viewer(int city)
+{
+    if (!(viewer = calloc(1, sizeof *viewer))) { plat_log("out of memory"); return false; }
+    if (!viewer_init(viewer, city)) return false;
+    state = APP_VIEWER;
+    return true;
+}
+
+static void end_viewer(void)
 {
     viewer_free(viewer);
     free(viewer);
     viewer = NULL;
 }
 
+/* ---- the frontend's calls into sound and the game (FrontHooks) ---- */
+
+static void hk_volumes(int sfx, int music)   /* Front_ApplyVolumes 0x4280b0 */
+{
+    Snd_SetSfxEnabled(sfx != 0);
+    Snd_SetSfxVolume(sfx);
+    Snd_SetMusicEnabled(music != 0);
+    Snd_SetMusicVolume(music);
+}
+static void hk_enter(int sfx, int music)     /* Front_Enter 0x42b690 */
+{
+    Audio_EnterFrontend();
+    Snd_SetSfxVolume(sfx);
+    if (music >= 0) Snd_SetMusicVolume(music);
+}
+static void hk_mission(int section) { mission_set_ini_section(section); }
+static void hk_level_options(int pager, int effects, int sequential)
+{
+    (void)pager, (void)effects;   /* HUD_SetPagerSpeed, 0x5031e4: with the HUD port */
+    if (sequential >= 0) Music_SetSequential(sequential != 0);
+}
+
+static bool init_front(void)
+{
+    text_init_language(TEXT_ENGLISH);
+    front_screen = (Surface){ calloc(SCREEN_W * SCREEN_H, 4), SCREEN_W, SCREEN_H, SCREEN_W };
+    front.net_active = true;   /* Net_IsActive: the network entries show (DirectPlay is stubbed) */
+    front.hooks = (FrontHooks){
+        .sample = Snd_PlaySampleN, .sfx = Snd_PlaySfx, .voice_status = Snd_GetCutsceneVoiceStatus,
+        .voice_play = Snd_PlayCutsceneVoice, .voice_stop = Snd_StopCutsceneVoice, .volumes = hk_volumes,
+        .enter = hk_enter, .update = Audio_Update, .mission = hk_mission, .level_options = hk_level_options,
+    };
+    if (!front_screen.px || !front_init(&front)) { plat_log(front.error[0] ? front.error : "frontend failed"); return false; }
+    state = APP_FRONT;
+    plat_set_frame_rate(APP_FRAME_HZ);
+    return true;
+}
+
 bool app_init(void)
 {
-    char err[256];
+    char err[256], b[16];
     if (!exe_init(err, sizeof err)) { plat_log(err); return false; }
     math_init_tables();
     if (!camera_init_tables()) { plat_log("camera tables: exe data missing"); return false; }
-    char b[16] = "1";
+    GameOptions o;
+    game_default_options(&o);   /* WinMain's Game_SetOptions 0x4146d0 (also the sound options) */
+    game_set_options(&o);
     if (plat_param("front", b, sizeof b) && !strcmp(b, "0")) {
         char name[16] = "nyc";
         plat_param("map", name, sizeof name);
         int city = 0;
         for (int i = 0; i < 3; i++)
             if (!strcmp(name, MAPS[i][0])) city = i;
-        return start_level(city);
+        return start_viewer(city);
     }
-    text_init_language(TEXT_ENGLISH);
-    front_screen = (Surface){ calloc(SCREEN_W * SCREEN_H, 4), SCREEN_W, SCREEN_H, SCREEN_W };
-    front.net_active = true;   /* Net_IsActive: the network entries show (DirectPlay is stubbed) */
-    if (!front_screen.px || !front_init(&front)) { plat_log(front.error[0] ? front.error : "frontend failed"); return false; }
-    state = APP_FRONT;
-    return true;
+    if (plat_param("mission", b, sizeof b)) {
+        text_init_language(TEXT_ENGLISH);
+        return start_game(atoi(b));
+    }
+    return init_front();
 }
 
 static bool front_step_frame(void)
@@ -187,9 +276,9 @@ static bool front_step_frame(void)
     if (r.code == FRONT_QUIT) return false;
     if (r.code == FRONT_PLAY) {
         char m[96];
-        snprintf(m, sizeof m, "OpenGTA: start mission.ini [%d], level %d, player %d", r.section, r.level, r.player);
+        snprintf(m, sizeof m, "OpenGTA: mission.ini [%d], level %d, player %d", r.section, r.level, r.player);
         plat_log(m);
-        return start_level(r.level / 2 % 3);   /* two levels per city */
+        return start_game(r.section);
     }
     return true;
 }
@@ -197,29 +286,26 @@ static bool front_step_frame(void)
 bool app_frame(void)
 {
     if (state == APP_FRONT) return front_step_frame();
+    if (state == APP_GAME) return game_run_step() == GAME_STEP_DONE ? end_game() : true;
     uint16_t keys[16];
     int n = plat_key_presses(keys, 16);
-    bool esc = false;
-    for (int i = 0; i < n; i++) esc |= keys[i] == 0x01;
-    if (esc && front_screen.px) {
-        /* back to the frontend as an abandoned game (Game_SetExit 0x4309e0 reason 7) */
-        end_level();
-        FrontGameResult res = { .reason = 7, .local = 0, .score = { 0, -1, -1, -1 } };
-        if (!front_game_over(&front, &res)) { plat_log(front.error); return false; }
-        state = APP_FRONT;
-        return true;
-    }
+    for (int i = 0; i < n; i++)
+        if (keys[i] == 0x01) {   /* Esc: the viewer back to the frontend */
+            end_viewer();
+            return front_screen.px || init_front();
+        }
     viewer_frame(viewer);
     return true;
 }
 
 void app_exit(void)
 {
-    if (viewer) end_level();
+    if (viewer) end_viewer();
+    if (state == APP_GAME) game_run_end();
     if (front_screen.px) front_shutdown(&front);
     free(front_screen.px);
     front_screen.px = NULL;
     exe_free();
 }
 
-void app_audio(float *out, unsigned frames) { memset(out, 0, frames * 2 * sizeof *out); }
+void app_audio(float *out, unsigned frames) { audio_render(out, frames); }

@@ -27,14 +27,9 @@ void net_sync_frame_inputs(uint32_t *controls);   /* Net_SyncFrameInputs 0x44b93
 uint32_t input_read_controls(void);          /* Input_ReadControls 0x432e00 (see stub_controls) */
 extern uint32_t (*stub_controls)(void);      /* test hook: the control word of the frame */
 void player_apply_input(uint32_t control);   /* Player_ApplyInput 0x463ec0 */
-void snd_update_game(void);                  /* Snd_UpdateGame 0x405510 */
-void snd_update_frontend(void);              /* Snd_UpdateFrontend 0x4054f0 */
-void music_shutdown(void);                   /* Music_Shutdown 0x40c490 */
-void music_init(void);                       /* Music_Init 0x40c470 */
 void gfx_select_mode(void);                  /* Gfx_GetModeIndex 0x414d30 / Gfx_SelectMode 0x414cc0, Style_ConvertPalettes */
 
 /* ---- Game_Init 0x430a20 / Game_Shutdown 0x430b10 ---- */
-void audio_enter_game(void);                 /* Audio_EnterGame 0x414640 */
 void replay_begin(void);                     /* Replay_Begin 0x432c90 */
 void replay_end_save(void);                  /* Replay_EndSave 0x432d80 */
 void replay_tick_frame(void);                /* Replay_TickFrame 0x433790 */
@@ -51,8 +46,6 @@ void fire_init(void);                        /* Fire_Init 0x42e600 */
 void expl_init(void);                        /* Expl_Init 0x425c50 */
 void blockanim_reset(void);                  /* BlockAnim_Reset 0x402240 */
 void hunt_init(void);                        /* Hunt_Init 0x4317f0 */
-void snd_reset(int style);                   /* Snd_Reset 0x4056e0 */
-void snd_stop_all(void);                     /* Snd_StopAll 0x405760 */
 void powerup_init_all(void);                 /* PowerUp_InitAll 0x46a0a0 */
 void area_localize_names(void);              /* Area_LocalizeNames 0x44b4a0 */
 
@@ -85,9 +78,6 @@ void hud_pause_off(void);                    /* HUD_PauseOff 0x481530 */
 void hud_restore_subtitle(void);             /* HUD_RestoreSubtitle 0x482070 */
 void hud_refresh_zone(void);                 /* HUD_RefreshZone 0x482290 */
 void pager_resume(void);                     /* Pager_Resume 0x482fb0 */
-void snd_pause(void);                        /* Snd_Pause 0x404db0 */
-void snd_resume(void);                       /* Snd_Resume 0x404de0 */
-void music_next_station(void);               /* Music_NextStation_thunk 0x404c60 */
 void net_build_chat_prefix(int to);          /* Net_BuildChatPrefix 0x44c1b0 */
 void player_add_ammo(int player, int weapon, int n);   /* Player_AddAmmo 0x461b50 */
 

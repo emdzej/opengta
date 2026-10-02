@@ -80,10 +80,6 @@ typedef struct {
     bool speed_limit;           /* 0x502f34 the 3-tick frame limiter (F8 toggles) */
     uint32_t controls[4];       /* 0x5031a8 per-player control words of this frame */
     int32_t frame_time, frame_time_sum, frame_time_n;   /* 0x5031d4, 0x5031c0, 0x502f30 (timing option) */
-    /* 70 Hz pacing timer (Timer_Start 0x47dc00, ticks 0x775580) driven by the caller's clock */
-    bool timer_on;              /* 0x775584 */
-    uint32_t timer_ticks;       /* 0x775580 */
-    uint64_t timer_us;          /* sub-tick remainder of the caller's clock */
     int sub;                    /* game_run_step: 0 at the top of the loop, 1 waiting for the timer */
     /* fatal errors (Error_Fatal 0x422900) */
     void (*on_fatal)(const char *msg);  /* called before exiting (default: the message to stderr) */
@@ -99,7 +95,6 @@ typedef struct {
 extern GameState g_game;
 extern int g_session_players;               /* 0x74f838 players in the session (Net_InitPlayers 0x44b8b0) */
 extern bool g_cheat_ammo_key;               /* 0x503198 frontend cheat: keypad * gives ammo */
-extern int g_audio_mode;                    /* 0x5031f8 1 in game, 2 frontend sound */
 
 void game_default_options(GameOptions *o);  /* the values WinMain 0x437230 passes */
 void game_set_options(const GameOptions *o);/* Game_SetOptions 0x4146d0 */
@@ -134,10 +129,10 @@ bool game_handle_key(int key);              /* Game_HandleKey 0x430dc0 (scan cod
 void game_set_screen(int w, int h);
 
 /* Game_Run 0x4148a0 as steps. begin: false if the network start fails (quit = 4: run_end next).
-   step: one loop iteration; elapsed_us is the caller's time since the last call (feeds the 70 Hz
-   timer). GAME_STEP_DONE once quit is set: call game_run_end. */
+   step: one loop iteration, GAME_STEP_WAIT until the 70 Hz timer (src/audio/timer.c, counting the audio
+   rendered: 315 frames per tick) has 3 ticks; GAME_STEP_DONE once quit is set: call game_run_end. */
 bool game_run_begin(void);
-int game_run_step(uint64_t elapsed_us);
+int game_run_step(void);
 int game_run_end(void);                     /* returns the quit code */
 
 /* Style request (Style_ResetRequest 0x47ced0 / Style_Request 0x47cee0) and map name (Map_ClearName

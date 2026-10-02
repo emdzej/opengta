@@ -26,14 +26,9 @@ void net_sync_frame_inputs(uint32_t *controls) { (void)controls; }   /* single p
 uint32_t (*stub_controls)(void);
 uint32_t input_read_controls(void) { return stub_controls ? stub_controls() : 0; }   /* keyboard / joystick / replay */
 void player_apply_input(uint32_t control) { (void)control; }
-void snd_update_game(void) {}
-void snd_update_frontend(void) {}
-void music_shutdown(void) {}
-void music_init(void) {}
 void gfx_select_mode(void) {}                                 /* 640x480, the format of PIXFMT_32 */
 
 /* ---- Game_Init / Game_Shutdown ---- */
-void audio_enter_game(void) {}
 void replay_begin(void) {}
 void replay_end_save(void) {}
 void replay_tick_frame(void) {}
@@ -52,8 +47,6 @@ void fire_init(void) {}
 void expl_init(void) {}
 void blockanim_reset(void) {}
 void hunt_init(void) {}
-void snd_reset(int style) { (void)style; }
-void snd_stop_all(void) {}
 void powerup_init_all(void) {}                                /* clears the 256 power-ups at 0x74f858 */
 void area_localize_names(void) {}                             /* nav zone names through the FXT */
 
@@ -86,9 +79,6 @@ void hud_pause_off(void) {}
 void hud_restore_subtitle(void) {}
 void hud_refresh_zone(void) {}
 void pager_resume(void) {}
-void snd_pause(void) {}
-void snd_resume(void) {}
-void music_next_station(void) {}
 void net_build_chat_prefix(int to) { (void)to; }
 void player_add_ammo(int player, int weapon, int n) { (void)player, (void)weapon, (void)n; }
 

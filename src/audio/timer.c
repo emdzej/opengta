@@ -44,6 +44,8 @@ bool Timer_WaitTicks(unsigned n)
     return true;
 }
 
+void Timer_SetOff(bool off) { timer_off = off; }
+
 /* Timer_Stop 0x47dcb0 */
 void Timer_Stop(void)
 {

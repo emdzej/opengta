@@ -8,6 +8,7 @@
 #include "game/car.h"
 #include "game/coll.h"
 #include "game/event.h"
+#include "audio/audio.h"
 #include "game/game.h"
 #include "game/gmath.h"
 #include "game/mission.h"
@@ -223,7 +224,8 @@ static void run_frames(const char *city)
     presents = 0;
     while (frames < 60 && calls++ < 1000) {
         memset(fb, 0xff, sizeof fb);
-        int r = game_run_step(25000);   /* 25 ms: 1.75 ticks, so about every other call waits */
+        audio_render(NULL, 551);         /* 25 ms of audio: 1.75 timer ticks, so about every other call waits */
+        int r = game_run_step();
         if (r == GAME_STEP_WAIT) { waits++; continue; }
         if (r == GAME_STEP_DONE) break;
         frames++;

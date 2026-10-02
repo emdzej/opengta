@@ -24,6 +24,9 @@ bool plat_keys(uint8_t keys[KEY_COUNT]);
 int plat_key_presses(uint16_t *codes, int cap);
 /* Launch parameter (gasm --param / URL query); false if unset. */
 bool plat_param(const char *name, char *dst, size_t cap);
+/* Calls per second of app_frame from now on (the frontend runs at 1000/35 Hz, the game at 70 Hz: one
+   tick of the original's 70 Hz sound timer per call). The audio per frame follows. */
+void plat_set_frame_rate(double hz);
 /* One frame of RGBA8 pixels (stride = w * 4). */
 void plat_present(const uint32_t *rgba, int w, int h);
 /* Persistent user files (saves, settings). */

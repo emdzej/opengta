@@ -279,4 +279,5 @@ void Timer_Start(void);                             /* 0x47dc00 (needs sound on)
 bool Timer_WaitTicks(unsigned n);
 void Timer_Stop(void);                              /* 0x47dcb0 */
 void Timer_SetEnabled(bool on);                     /* 0x502f34 */
+void Timer_SetOff(bool off);                        /* launch option 0x5031d0: no timer (unthrottled game) */
 uint32_t Timer_Ticks(void);                         /* 0x775580 */

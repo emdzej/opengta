@@ -15,6 +15,7 @@
 #include "player.h"
 #include "route.h"
 #include "stubs.h"
+#include "../audio/audio.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,7 +23,6 @@
 GameState g_game = { 0 };
 int g_session_players = 1;
 bool g_cheat_ammo_key;
-int g_audio_mode = 1;
 
 static int style_number;                     /* 0x7752d8 */
 static int style_priority;                   /* 0x7750c4 */
@@ -50,6 +50,8 @@ void game_set_options(const GameOptions *o)
     render_draw_blocks = o->draw_blocks != 0;
     render_draw_sprites = o->draw_sprites != 0;
     sprite_blend_option = o->blend_sprites != 0;
+    Snd_SetOptions(&(SndOptions){ o->sound != 0, o->demo != 0, o->opt50317d != 0 });
+    Timer_SetOff(o->no_timer != 0);
 }
 
 /* ---- errors ---- */
@@ -201,8 +203,7 @@ void game_init(void)
     const GameOptions *o = &g_game.opt;
     stubs_reset();
     player_clear_init_flag();
-    audio_enter_game();
-    g_audio_mode = 1;
+    Audio_EnterGame();   /* the audio mode 0x5031f8 = 1 */
     event_init();
     replay_begin();
     g_game.redraw = false;
@@ -226,7 +227,7 @@ void game_init(void)
     hunt_init();
     mission_load();
     mission_free_ini();
-    snd_reset(style_number);
+    Snd_Reset(style_number);
     g_game.phase = 1;
     g_game.step_mode = 0;
     g_game.quit = GAME_RUNNING;
@@ -242,7 +243,7 @@ void game_shutdown(void)
 {
     replay_end_save();
     hud_free_fonts();
-    snd_stop_all();
+    Snd_StopAll();
 }
 
 /* ---- the frame ---- */
@@ -424,18 +425,18 @@ bool game_handle_key(int key)
     case 0x3d: net_build_chat_prefix(3); break;
     case 0x3e: net_build_chat_prefix(-1); break;
     case 0x3f:                                /* F5 */
-        if (player_is_viewed_local()) music_next_station();
+        if (player_is_viewed_local()) Music_NextStation();
         break;
     case 0x40:                                /* F6: freeze */
         if (g_session_players == 1) {
             if (g->phase == 1) {
                 hud_pause_on();
                 g->phase = 2;
-                snd_pause();
+                Snd_Pause();
             } else {
                 hud_pause_off();
                 g->phase = 1;
-                snd_resume();
+                Snd_Resume();
             }
         }
         break;
@@ -501,17 +502,6 @@ void game_set_screen(int w, int h)
 
 /* ---- Game_Run 0x4148a0 ---- */
 
-/* Timer_Start 0x47dc00: the 70 Hz tick counter (with sound on and the option 0x5031d0 off). */
-static void timer_start(void)
-{
-    if (g_game.opt.sound && !g_game.opt.no_timer) {
-        g_game.timer_ticks = 0;
-        g_game.timer_us = 0;
-        g_game.timer_on = true;
-    }
-}
-static void timer_stop(void) { g_game.timer_on = false; }   /* Timer_Stop 0x47dcb0 */
-
 bool game_run_begin(void)
 {
     GameState *g = &g_game;
@@ -534,32 +524,25 @@ bool game_run_begin(void)
     style_convert_palettes(g->style, &PIXFMT_32);
     g->frame_time_sum = 0;
     g->frame_time_n = 0;
-    timer_start();
+    Timer_Start();   /* 0x47dc00: only with sound on (its ticks count the audio rendered) */
     return true;
 }
 
 /* One iteration of the loop: present the previous frame, read and exchange the controls, wait for the
    3rd tick of the 70 Hz timer (about 23 frames a second; F8 turns the limit off), apply each player's
    controls and keys, then Game_Frame, Game_Render and the sound. */
-int game_run_step(uint64_t elapsed_us)
+int game_run_step(void)
 {
     GameState *g = &g_game;
     if (g->quit != GAME_RUNNING) return GAME_STEP_DONE;
-    if (g->timer_on) {
-        g->timer_us += elapsed_us * 70;
-        g->timer_ticks += (uint32_t)(g->timer_us / 1000000);
-        g->timer_us %= 1000000;
-    }
     if (g->sub == 0) {
         game_present();
         g->controls[g_player_local] = input_read_controls();
         net_sync_frame_inputs(g->controls);
         g->sub = 1;
     }
-    if (g->speed_limit && g->timer_on) {   /* Timer_WaitTicks 0x47dc80 */
-        if (g->timer_ticks < 3) return GAME_STEP_WAIT;
-        g->timer_ticks = 0;
-    }
+    Timer_SetEnabled(g->speed_limit);                    /* 0x502f34 */
+    if (!Timer_WaitTicks(GAME_FRAME_TICKS)) return GAME_STEP_WAIT;   /* 0x47dc80 */
     g->sub = 0;
     for (int n = player_first(); n > -1; n = player_next(n)) {
         player_set_viewed(n);
@@ -574,8 +557,8 @@ int game_run_step(uint64_t elapsed_us)
     game_frame();
     game_render();
     if (g->opt.sound) {
-        if (g_audio_mode == 1) snd_update_game();
-        else if (g_audio_mode == 2) snd_update_frontend();
+        if (Audio_Mode() == 1) Snd_UpdateGame();
+        else if (Audio_Mode() == 2) Snd_UpdateFrontend();
     }
     if (g->opt.timing) {
         if (++g->frame_time_n == 100) g->frame_time_sum = 0, g->frame_time_n = 0;
@@ -588,7 +571,7 @@ int game_run_end(void)
     GameState *g = &g_game;
     if (g->quit != GAME_QUIT_NET) {
         if (g->present) g->present(g->present_ctx);   /* Gfx_Present */
-        timer_stop();
+        Timer_Stop();
         game_shutdown();
         net_unk_44b900();
     }
@@ -599,8 +582,8 @@ int game_run_end(void)
     map_free(g->map);
     g->map = NULL;
     if (g->opt.sound) {
-        music_shutdown();
-        music_init();
+        Music_Shutdown();
+        Music_Init();
     }
     return g->quit;
 }
