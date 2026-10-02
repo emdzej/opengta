@@ -68,6 +68,7 @@ valid data root: `OPENGTA_DATA=<dir>` (default `game`). `Music/Track8.wav` is sp
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
 (cd build && ctest --output-on-failure)        # or run ./build/<name>_test
 OPENGTA_DATA=installer ./build/cab_test         # the cabinet layer against ./game
+cmake -S . -B build-gcc -DCMAKE_C_COMPILER=gcc-16 -DCMAKE_C_FLAGS=-Werror && cmake --build build-gcc -j   # what CI's Linux job checks
 python3 tools/gtafmt.py map game/GTADATA/NYC.CMP out/nyc.png 4
 ```
 

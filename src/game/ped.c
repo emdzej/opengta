@@ -270,7 +270,7 @@ void ped_spawn_in_slot(int32_t x, int32_t y, int32_t z, int speed, int angle, in
 
 /* Ped_StartFiring 0x453210: on foot the ped fires unless it is in anim 0x2b / 0x73 or dead; in a
    car its driver (no checks). */
-void ped_start_firing(const int32_t ref[2])
+void ped_start_firing(const int32_t *ref)
 {
     if (ref[0] == 2) {
         Ped *p = &g_peds[(int16_t)ref[1]];
@@ -279,7 +279,7 @@ void ped_start_firing(const int32_t ref[2])
     if (ref[0] == 0) g_peds[car_get((int16_t)ref[1])->driver].firing = 1;
 }
 /* Ped_StopFiring 0x453260: on foot only (a driver keeps firing) */
-void ped_stop_firing(const int32_t ref[2])
+void ped_stop_firing(const int32_t *ref)
 {
     if (ref[0] == 2) g_peds[(int16_t)ref[1]].firing = 0;
 }
@@ -411,7 +411,7 @@ void ped_set_appearance(int id, int graphic, int colour)
 
 /* Ped_EnterExitKey 0x45f5e0: on foot (kind 2) the ped gives up its walk target and tries to get
    into a car; otherwise (in a car or on a train) a ped still alive gets out (Ped_PlayerExitCar). */
-void ped_enter_exit_key(int32_t ref[2], int ped)
+void ped_enter_exit_key(int32_t *ref, int ped)
 {
     if (ref[0] == 2) {
         Ped *p = &g_peds[ref[1]];
@@ -425,7 +425,7 @@ void ped_enter_exit_key(int32_t ref[2], int ped)
 }
 
 /* Ped_EnterExitKeyAlt 0x45f650: on foot try a car, else get out at the mission's park exit point */
-void ped_enter_exit_key_alt(int32_t ref[2])
+void ped_enter_exit_key_alt(int32_t *ref)
 {
     if (ref[0] != 2) ped_exit_car_at_park_point(ref);
     else ped_try_enter_car(ref);

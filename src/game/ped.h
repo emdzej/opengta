@@ -134,11 +134,11 @@ void ped_set_appearance(int id, int graphic, int colour);   /* Ped_SetAppearance
 void ped_remove(int id);                    /* Ped_Remove 0x45faa0 */
 /* Ped_StartFiring 0x453210 / Ped_StopFiring 0x453260: on what a player controls (kind 0 car: its
    driver, 2 on foot: the ped). `ref` is the {kind, id} pair of a player record (+0xbc). */
-void ped_start_firing(const int32_t ref[2]);
-void ped_stop_firing(const int32_t ref[2]);
+void ped_start_firing(const int32_t *ref);
+void ped_stop_firing(const int32_t *ref);
 /* Ped_EnterExitKey 0x45f5e0: the player's enter / exit key (`ref` as above, ped = the player's ped). */
-void ped_enter_exit_key(int32_t ref[2], int ped);
-void ped_enter_exit_key_alt(int32_t ref[2]);   /* Ped_EnterExitKeyAlt 0x45f650 */
+void ped_enter_exit_key(int32_t *ref, int ped);
+void ped_enter_exit_key_alt(int32_t *ref);   /* Ped_EnterExitKeyAlt 0x45f650 */
 void ped_respawn_beside_car(int fast, int ped);   /* Ped_RespawnBesideCar 0x45f980 */
 /* Ped_SetTurnInput 0x45f670: the player's turn input `*turn` (±4) to ped `ped`, scaled and clamped. */
 void ped_set_turn_input(int16_t *turn, int ped);

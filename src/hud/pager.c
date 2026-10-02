@@ -69,6 +69,15 @@ void pager_hud_init(void)
     pager_reset();
 }
 
+/* Copies src to dst (cap bytes), cut off to fit (the original's overlong mapped texts, see below). */
+static void copy_cut(char *dst, size_t cap, const char *src)
+{
+    size_t n = strlen(src);
+    if (n >= cap) n = cap - 1;
+    memcpy(dst, src, n);
+    dst[n] = 0;
+}
+
 /* Pager_AddMessage 0x4824a0. Quirks kept: the length used for appending and for the slot is that of
    the caller's text, not of its mapped UTF-8 copy (longer when it has accented letters, which are
    then cut off); a text already showing in a queued slot is dropped; a message arriving while the
@@ -85,7 +94,7 @@ void pager_add_message(const char *msg)
         PagerSlot *p = &g_pager.slot[last];
         if (p->len + 1 + len > PAGER_MAX_LEN) return;
         p->text[p->len] = ' ';
-        snprintf(p->text + p->len + 1, sizeof p->text - (size_t)p->len - 1, "%s", mapped);
+        copy_cut(p->text + p->len + 1, sizeof p->text - (size_t)p->len - 1, mapped);
         p->len += len + 1;
         p->text[p->len] = 0;
         p->width = pager_width(p->text);
@@ -102,7 +111,7 @@ void pager_add_message(const char *msg)
     if (len + c > PAGER_MAX_LEN) hud_fatal(-0x82, 0xbf, len);
     PagerSlot *p = &g_pager.slot[n];
     memset(p->text, ' ', (size_t)c);
-    snprintf(p->text + c, sizeof p->text - (size_t)c, "%s", mapped);
+    copy_cut(p->text + c, sizeof p->text - (size_t)c, mapped);
     p->len = len + c;
     p->text[p->len] = 0;
     p->width = pager_width(p->text);
