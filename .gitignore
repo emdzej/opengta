@@ -1,0 +1,37 @@
+# Original game data and anything derived from it (copyrighted: never commit)
+/game/
+/installer/
+/gta.exe
+/re/
+/out/
+*.cab
+*.hdr
+*.iso
+*.cue
+
+# Build output
+/build/
+/build*/
+/dist/
+
+# Docs site
+node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+docs/public/play/*.wasm
+docs/public/play/vendor/
+
+# Downloaded toolchains and runners (tools/fetch-gasm-sdk.sh, tools/fetch-gasm-runner.sh)
+/.deps/
+
+# Python
+tools/.venv/
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+*.swp
+.vscode/
+.idea/
+/directors/

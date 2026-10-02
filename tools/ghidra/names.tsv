@@ -1,0 +1,1796 @@
+# addr	name	module	confidence	description (see docs/re/inventory-*.md)
+00401000	Event_Init	event	high	Reset frame clock 4bbb80 and the timed-event queue: sentinel node 4bbb88 (time 0xffffffff), free list of 10 nodes (5 dwords: time,type,arg,next,prev) at 4bbb9c
+00401050	Event_Schedule	event	high	Queue event (type,arg) to fire `delay` frames from now; insert sorted by due time; fatal 0xffffffb3 if pool empty
+004010d0	Event_ScheduleExit	event	med	Schedule a type-1 (game exit) event unless one is already pending; reschedules a pending one with negative arg
+00401200	Event_Dispatch	event	high	Run event handler by type: 0 mission/car event 445580, 1 Game_SetExit 4309e0, 2/3 door open/close sound 474880/4748c0, 4 clear flag 47baf0, 5 none
+00401280	Event_Tick	event	high	Per-frame: pop and dispatch all events due at the current frame, then increment frame counter 4bbb80
+00401340	Ambu_SendToHospital	ambulance	low	Path the emergency vehicle of a crew record to the hospital coords (505898/9a/a0) via 4716f0
+00401460	Ambu_AssignVictim	ambulance	low	Per victim: attach to a nearby active emergency crew (<10 blocks) or dispatch a new one (max 10)
+004015d0	Ambu_Dispatch	ambulance	low	Spawn the emergency car (model 5 via Car_SpawnOnRoad) for an AI record, set it up as AI-driven (mode 2) and add to list 50f290
+00401700	Ambu_Remove	ambulance	low	Remove crew record from active list 50f290, free crew ped and the car
+00401790	Ambu_Update	ambulance	low	State machine of an emergency crew: drive to victims, spawn medic ped, walk to body, revive after 75 frames, return; uses rear-door anims
+00402240	BlockAnim_Reset	blockanim	high	Clear count of map face animations (4bbc68)
+00402250	BlockAnim_Create	blockanim	high	Allocate one of 64 face-animation slots (stride 0x74) for block (x,y,z) face; grab a lid/side tile remap slot (47d510/47d540)
+00402390	BlockAnim_StartForward	blockanim	high	Fill frame list with ascending tile numbers, set speed and completion event, start animating
+00402440	BlockAnim_StartReverse	blockanim	high	Same as StartForward but tiles in descending order (e.g. door closing)
+00402500	BlockAnim_SetTile	blockanim	high	Stop animation and force a specific tile on the slot
+00402550	BlockAnim_SetEvent	blockanim	high	Set the event (type,arg) fired when the animation completes
+00402580	BlockAnim_Tick	blockanim	high	Per-frame: advance active face animations, set the tile remap (47d440) and fire the completion event
+00402610	BlockAnim_GetTileSlot	blockanim	high	Return the tile remap slot of a face animation
+00402640	Snd_SetSfxEnabled	sound	high	Set sound-effects enable flag 4ab041
+00402650	Snd_SetMusicEnabled	sound	high	Set music enable flag 4ab040
+00402660	Snd_RestoreSfx	sound	high	Restore sfx flag from saved copy 4bdb08
+00402670	Snd_SuspendSfx	sound	high	Save sfx flag to 4bdb08 and disable sfx
+00402690	Snd_GatherLoops	sound	high	Per-frame: build the 10 nearest looping sources (car engines by carinfo engine/sound_function, horns/sirens, trains, heli, fires) sorted by distance into 4bdc88
+00404410	Snd_PlayTalk	sound	med	Play random speech-babble sample sized to text length (473120) if sound enabled
+00404430	Snd_UpdateLoopChannels	sound	high	Match wanted loops 4bdc88 to the 10 playing channels 4bdb60; slew pitch/volume/pan, stop unused, start new ones
+004046b0	Snd_Play3D	sound	high	Play one-shot sample at world (x,y,z): volume by Manhattan distance to camera, halved under cover, pan by dx; steals farthest of 3 channels
+004047f0	Snd_PlayAt	sound	high	Guarded Snd_Play3D(x,y,z,sample)
+00404810	Snd_PlayAtXY	sound	high	Guarded Snd_Play3D with z=0
+00404840	Snd_PlayUI	sound	med	Guarded wrapper for 472a30 (non-positional sample)
+00404860	Snd_PlaySampleN	sound	med	Guarded wrapper for 472e00 (play bank sample N)
+00404880	Snd_PoliceRadio	sound	high	Build police-scanner speech queue 4bd978 (intro, car colour, model, direction, suffix) for a sighting
+00404bf0	Snd_SetMusicVolume	sound	high	Music volume level 0..7 via table 4ab048 -> Music_SetVolume
+00404c30	Snd_SetSfxVolume	sound	high	SFX volume level 0..7 via table 4ab050 -> 472280
+00404c60	Music_NextStation_thunk	music	high	Thunk to Music_NextStation (called from radio key handling 430dc0)
+00404c70	Snd_PlayRadioStatic	sound	med	Play one of 4 tuning-static samples (0x1d..0x20)
+00404cb0	Snd_SetEmitterA	sound	med	Set positional loop emitter slot (0..4) at 4bdb10: x,y,z,active
+00404cf0	Snd_ClearEmitterA	sound	med	Disable emitter slot (0..4) at 4bdb10
+00404d10	Snd_EnableAlarmLoop	sound	low	Set flag 4bddf2 (adds loop sample 0x47 in Snd_GatherLoops)
+00404d20	Snd_DisableAlarmLoop	sound	low	Clear flag 4bddf2
+00404d30	Snd_PlaySample28	sound	low	Play non-positional sample 0x28
+00404d50	Snd_SetEmitterB	sound	med	Set positional loop emitter slot (0..3) at 4bddb0 (loop sample 0x1c)
+00404d90	Snd_ClearEmitterB	sound	med	Disable emitter slot (0..3) at 4bddb0
+00404db0	Snd_Pause	sound	med	Pause: play sample 0x2c, pause sfx (473200), stop music
+00404de0	Snd_Resume	sound	med	Resume after pause (stop music state, 473260)
+00404e00	Snd_PlayCutsceneVoice	sound	low	Start streamed voice/cutscene track (<6) through 4732f0, suspending music
+00404e40	Snd_StopCutsceneVoice	sound	low	Stop the streamed voice (4733c0)
+00404e60	Snd_GetCutsceneVoiceStatus	sound	low	Return streamed-voice status (4733e0) or -2
+00404e90	Snd_PlayVoice	sound	med	Play speech sample on the voice channel centred at full volume
+00404ed0	Snd_PlayRandomVoice	sound	low	Play random voice sample 7..10 if voice channel idle
+00404f50	Snd_PlayPedVoice	sound	med	Positional ped speech (id 0x12..0x15 + variant), rate-limited per kind
+00405090	Snd_PlayScream	sound	low	Rate-limited random positional voice 0x1e..0x32
+004051b0	Snd_PlayVoiceB	sound	low	Rate-limited random positional voice 0x34..0x3c
+004052c0	Snd_PlayVoiceC	sound	low	Rate-limited random positional voice 0x3e..0x45
+004053d0	Snd_PlayAtObject	sound	low	Play random sample 0x4c/0x4d at an object's position
+00405450	Snd_SetMusicAvailable	sound	med	Set flag 4ab058 (music system usable)
+00405460	Snd_InitFrontend	sound	med	Start frontend sound mode (471f10) and music
+004054a0	Snd_ShutdownFrontend	sound	med	Stop frontend sounds/music, optional exit jingle (sample 0xf)
+004054f0	Snd_UpdateFrontend	sound	med	Frontend sound tick: voice stream or Music_ServiceFrontend
+00405510	Snd_UpdateGame	sound	high	In-game sound tick: gather and update loops, feed police-radio queue, service radio music
+00405600	Snd_InitGame	sound	high	Start in-game sound: reset channels, load bank (471be0/472470), start music, set volumes
+004056c0	Snd_ShutdownGame	sound	med	Stop in-game sound and music
+004056e0	Snd_Reset	sound	med	Clear loop tables and speech queue
+00405760	Snd_StopAll	sound	med	Stop all channels and music
+00405790	Car_RegisterWreck	car	med	Add car (index+0x26c) to the incident/target table 50cab0 at its block position
+00405800	Car_TryRemoveWreck	car	med	Remove a wreck incident if the car is not burning and not on screen
+00405860	Car_SyncDriverSprite	car	med	Copy car position to its driver ped sprite unless car is a convertible or AI type 3
+00405910	Car_IsZPositive	car	low	Return +0x134 field < 0x8000
+00405920	Car_IsModel7or33	car	low	True if car model is 7 or 0x21
+00405960	Car_ResetSiren99	car	low	If siren state +0x11c == 99 set +0x11a=1,+0x11c=0
+00405990	Car_HasDoor	car	med	True if car info door entry n exists (nonzero door data)
+004059d0	Car_SetRemap	car	high	Set car sprite remap (sprite +0x10) and +0x24c
+00405a00	Car_AssignCycleRemap	car	med	Give car next remap from rotating counter 501559 (0 or 6..12)
+00405a80	Car_RestoreBox	car	high	Copy saved collision box (+0x1dc..+0x21c) into current box (+0x38..+0x7b)
+00405b30	Car_SaveBox	car	high	Save current collision box (+0x38..) to +0x1dc..
+00405be0	Car_BoxMoveX	car	med	Recompute collision box with only the X move applied
+00405c40	Car_BoxMoveY	car	med	Recompute collision box with only the Y move applied
+00405ca0	Car_SyncPhysics	car	high	Copy sprite pos/angle to next-pos fields and physics floats; set wheel positions from heading
+00405df0	Car_CommitMove	car	high	Apply next position/angle (+0x220..0x22c) to the sprite and rebuild box
+00405ed0	Car_BisectMove	car	high	Binary-search (8 steps) between old and new pose for the last collision-free pose by collision kind 501d10
+00406390	Car_PlayCrashSound	car	high	Crash sample 6/7/8 by speed at car position
+004063d0	Car_ResetFromInfo	car	med	Reinitialise an existing car's runtime fields from its car_info (respawn/reuse)
+004067c0	Car_Init	car	high	Initialise car slot: info by model (4be178), sprite pos/angle, stats, special models (tank turret 0x25), ground z, remap, insert into grid
+00406e90	Car_SetHorn	car	med	Horn/siren on-off (+0x11a) and nudge the car ahead (lane change) by probing 5 steps forward
+00406fc0	Car_SetHornById	car	med	Set horn state for car id (not for tank)
+00407000	Car_OnDriverEnter	car	med	Driver got in: record player index; arm car bomb (state 1->2) or schedule event for state 3
+00407070	Car_SetStatus	car	high	Set car status field +8
+004070a0	Cars_Init	car	high	Clear 400 car slots, build model->car_info index table 4be178, init traffic state (418f80)
+00407150	Cars_GetCount	car	high	Return highest-used car slot count 501554
+00407160	Car_IsSpaceFree	car	med	Query grid for cars at pos other than self/parked; 1 if free
+004071c0	Car_IsBlockedByCar	car	med	0 if another car overlaps pos (wakes it); model 0x2f ignored
+00407230	Car_IsSpaceClearOfAll	car	med	0 if any object other than own car/driver at pos
+004072a0	Car_CheckAhead	car	med	Probe grid along car for another car; 0 if blocked
+00407310	Car_SpawnOnRoad	car	high	Find free slot, spawn model on a road cell using type-map direction bits for heading; optional driver ped (200+slot)
+004075b0	Car_SpawnWithDriver	car	high	Spawn car at exact pos (heading 0) with driver ped
+004076f0	Car_SpawnModel47AtBlock	car	low	Spawn special model 0x2f at road block (x,y,z) with control mode 0x32
+004078d0	Car_SpawnEx	car	high	Mission spawn: pos, heading, model (99->7), driver flag, remap
+00407ab0	Car_SpawnExOnGround	car	high	Like Car_SpawnEx but z snapped to ground (4544e0)
+00407c30	Train_SpawnCarriages	car	med	Spawn train cars (models 0xb/0xc) from a linked list of {x,y,z,heading,type,speed}
+00407e30	Car_SnapToRoadDir	car	med	Set heading from road direction bits of current cell
+00407f00	Car_OnHit	car	med	Hit by projectile/explosion: crash sound, bike falls, knockback velocity, +20 damage
+00408090	Coll_ProjectileHit	collision	med	Test a projectile box against heli(8)/cars(6)/objects(3)/peds(1); apply hit; return kind
+00408200	Car_Get	car	high	Return pointer to car slot n (4be248 + n*0x2b0)
+00408220	Car_GetCamTarget	car	high	Fill camera target struct 50155c: x,y,z-offset,angle,speed*3,size
+004082b0	Car_SetForcedAccel	car	med	Set per-car forced accel value 4bde08[n]
+004082d0	Car_SetPhysicsControl	car	med	Set control mode 1 (physics/player) and +0xc0=1
+00408300	Car_SetDummyControl	car	med	Set control mode 0 (traffic dummy)
+00408330	Car_StartLaneChange	car	med	Begin lane change for dummy car based on road type beside it
+00408440	Car_DummyFollowRoad	car	high	Traffic AI: read type map ahead/left/right, decide turns at junctions (direction bits), slow for gaps/pavement
+00408af0	Car_UpdateWreck	car	high	When damage hits 100: explode, eject/kill driver, score, burnt sprite by vtype, then decrement burn timer
+004090b0	Car_SetWheelAngles	car	med	Update front/rear wheel headings (+0x90/+0xb4) from steering input
+00409250	Car_EmitSkidmarks	car	high	Spawn skid/tyre-mark objects (0x44cef0 types 10/11/0x11) at wheels when sliding
+00409700	Car_SnapHeading	car	med	Quantise heading toward the road direction (1/2/4/8) after a turn completes
+00409960	Car_IsNearView	car	med	1 if car is near (0x280 margin) but not inside (0x80) any player view
+00409a30	Car_DummyMove	car	high	Kinematic move for non-physics cars: wheel points along heading, ground/water checks, box, skids
+0040a1e0	Car_GetDamageById	car	high	Return damage byte (+0xfc) of car id
+0040a200	Car_AddDamage	car	high	Add damage (cap 100) unless status 99; reduce thrust when >25
+0040a280	Car_SetDamage	car	high	Set damage directly unless status 99
+0040a2e0	Car_ApplyPlayerControls	car	high	Read player throttle/brake/steer (464610/464660/464700/4646b0), set thrust and steering; tank turret rotation
+0040a5b0	Car_StopPhysics	car	med	Leave physics mode: rebuild wheel points, zero speed
+0040a640	Car_Update	car	high	Per-car step: dummy move or physics (460be0), wreck, collisions (map/objects/ground), regrid, road dir
+0040abd0	Car_Repair	car	med	Restore base sprite from car_info, damage 0, keep remap
+0040ac30	Car_SirenOff	car	med	Clear siren light deltas 0xf/0x10
+0040ac90	Car_SirenOn	car	med	Start siren light state
+0040acd0	Car_IsOnScreen	car	high	1 if car block pos is inside any player's view rect (+margin)
+0040ad40	Pos_IsNearAnyView	car	med	1 if (x,y) within 0x280 of any player view
+0040adc0	Cars_UpdateAll	car	high	Per-frame loop over cars: visibility, bombs, doors, control mode dispatch (traffic/AI/physics), burning, delete; "cars: %d" debug
+0040b660	Car_Delete	car	high	Free a car slot: remove from grid, release driver/AI, tank turret objects
+0040b8a0	Car_GetDoor1	car	med	Return door 1 anim frame (+0xc8)
+0040b8c0	Car_OpenDoor1Step	car	med	Advance door 1 delta animation; true when fully open
+0040b940	Car_CloseDoor1Step	car	med	Rewind door 1 delta animation; true when closed
+0040b9c0	Car_OpenDoor2Step	car	med	Advance door 2 (+0xd2) delta animation
+0040ba40	Car_CloseDoor2Step	car	med	Rewind door 2 delta animation
+0040bac0	Car_OpenRearDoorStep	car	med	Advance rear door (+0xd6) delta animation
+0040bb40	Car_CloseRearDoorStep	car	med	Rewind rear door delta animation
+0040bbc0	Car_SetOwnerStatus	car	med	Set +0x128 status (1 normal, 99 locked...) and reset counters
+0040bc00	Car_GetSpeedById	car	high	Return speed (+0x1c) of car id
+0040bc20	Car_SetDriverById	car	high	Set driver ped id (+2) and start entry delay
+0040bc70	Car_SteerTowards	car	med	Dummy steering: turn toward target heading, adjust speed
+0040bdb0	CarInfo_IsConvertible	car	med	car_info flag +0xa6 bit0 for car id
+0040be00	Car_IsTurning	car	high	+0x96 != 0
+0040be20	Car_SetLaneMode4	car	low	+0xc2 = 4
+0040be30	Car_SetLaneMode3	car	low	+0xc2 = 3
+0040be40	Car_IsBurning	car	med	+0xfe > 0
+0040be60	Car_IsMovingForward	car	high	speed > 0
+0040be70	Car_GetRoadDir	car	high	Return +0xa2 road direction bits
+0040be80	Car_GetPrevRoadDir	car	med	Return +0xd4
+0040be90	Car_BeginBrake	car	low	+0xb6 = 1, thrust 0
+0040beb0	Car_EndBrake	car	low	+0xb6 = 0
+0040bec0	Car_GetBlockX	car	high	x >> 22
+0040bed0	Car_GetBlockY	car	high	y >> 22
+0040bee0	Car_GetBlockZ	car	high	z >> 22
+0040bef0	Car_GetX	car	high	Return x
+0040bf00	Car_GetY	car	high	Return y
+0040bf10	Car_GetZ	car	high	Return z
+0040bf20	Car_GetCounter119	car	low	Return byte +0x119
+0040bf30	Car_IncCounter119	car	low	++ byte +0x119
+0040bf40	Car_ClearCounter119	car	low	byte +0x119 = 0
+0040bf50	Car_GetSpeed	car	high	Return speed +0x1c
+0040bf60	Car_GetMaxSpeed	car	med	Return +0x28
+0040bf70	Car_SetSpeed	car	high	Set speed +0x1c
+0040bf80	Car_SetCruiseSpeed	car	med	speed = +0x104
+0040bf90	Car_IncSpeed	car	high	speed++
+0040bfa0	Car_DecSpeed	car	high	speed--
+0040bfb0	Car_EndTurnIfDone	car	med	Clear turn state when finished or overshot
+0040c010	Car_EndTurn	car	med	Clear turn state, prev dir = current
+0040c040	Car_GetHeading	car	high	Return sprite angle +0x268 (0..1023)
+0040c050	Car_GetLaneMode	car	low	Return +0xc2
+0040c060	Car_SetLaneMode	car	low	Set +0xc2
+0040c080	Car_ClearAccel	car	med	+0x0a = 0
+0040c090	Car_SetAccelFromInfo	car	low	+0x0a = +0x20
+0040c0a0	Car_SavePos	car	med	+0x0c/+0x10 = x,y
+0040c0c0	Car_DampThrust	car	low	Reduce thrust if below fraction of car_info g1_thrust
+0040c100	CarInfo_Setup	car	high	Walk style car_info records (0xae + doors*8 bytes), store pointers at 5f2ce0, add vtype sprite bases, convert fixed->float
+0040c300	Music_CatalogTracks	music	high	Open ..\music\trackN.wav streams (Miles) and record their lengths ("CATALOG")
+0040c470	Music_Init	music	high	Start music once (Music_Startup)
+0040c490	Music_Shutdown	music	high	Save stream position, close stream, mark music off
+0040c5c0	Music_Startup	music	high	AIL_startup, catalog tracks, choose random start offsets per track ("CD_INIT")
+0040c700	Music_PlayTrack	music	high	Open/start stream for track 0..9 at saved offset, set volume, loop
+0040c830	Music_PlayCurrent	music	med	Play track n from saved/sequential position, update state
+0040c8b0	Music_SetVolume	music	high	Set stream volume and remember it (4abd38)
+0040c910	Music_Stop	music	high	Save position of current track, pause/close stream ("CD_STOP")
+0040ca00	Music_ServiceSequential	music	med	Service stream; when track ends advance to next track
+0040cb90	Music_StopSavePos	music	med	Duplicate of Music_Stop
+0040cc80	Music_ServiceFrontend	music	med	Keep frontend track looping
+0040cd40	Music_ServicePaused	music	med	Keep menu/pause track looping
+0040cde0	Music_UpdateRadio	music	high	When the player is in a car, tune to its radio station (car_info +0xa8) using station table 4ab270
+0040d140	Music_NextStation	music	high	Switch to next track of current station (or next sequential track); play static
+0040d550	Music_GetStatus	music	med	1 playing, 3 finished, 0 none
+0040d5c0	Music_Pause	music	med	Pause and close stream, state 3
+0040d620	Music_SetSequential	music	med	Select sequential track mode flag 501aa4
+0040d640	Police_InitPursuits	police	med	Init 4 pursuit records (stride 0x3a at 501ac0)
+0040d690	Police_EndPursuit	police	med	Release a pursuit: free its cop drivers, reset counters
+0040d800	Police_UpdatePursuits	police	med	Per frame: recompute wanted level from points (city thresholds), manage cop unit count
+0040da90	Police_SpawnRoadblock	police	low	Spawn cop units from a crime record near the target car/ped (465b20), register them
+0040dc80	Heli_GetPos	heli	med	Return pickup aircraft position struct 501bb0
+0040dcc0	Heli_Init	heli	med	Reset pickup aircraft state 501bc8
+0040dd10	Heli_SetExitTarget	heli	med	Set fly-away target 501bf4/501bf8
+0040dd30	Heli_Spawn	heli	med	Create pickup aircraft (car_info model 88 sprite) with shadow object, landing target
+0040de90	Heli_TurnTowards	heli	med	Rotate heading toward target by 4 units/frame; 1 when aligned
+0040df30	Heli_UpdateShadow	heli	med	Place shadow object at heading offset below the aircraft
+0040dfb0	Heli_Update	heli	med	State machine: turn, fly, descend, wait, take player, climb, fly away, end level (Event_ScheduleExit)
+0040e350	Coll_ComputeBounds	collision	high	Bounding box (min/max x,y; min z; z block range) of a 4-corner shape into 501c5c..501d18
+0040e5a0	Coll_ComputeMinZ	collision	med	Min z of the 4 corners
+0040e5f0	Coll_CircleVsShape	collision	med	Circle (x,y,r) against shape corners/bounds
+0040e710	Coll_CheckSpecialTile	collision	low	Per-city special face tile test (4abe6c) then box test (434690)
+0040e7e0	Coll_MapWalls	collision	high	Test shape against wall faces (left/right sides with collide flag) of blocks in bounds; returns 10 and contact point
+0040ebe0	Coll_MapWallsEx	collision	med	Like Coll_MapWalls but also outputs hit block coordinates
+0040f060	Coll_MapSolid	collision	high	Test shape against solid blocks via type map 55fab0
+0040f4c0	Coll_MapSlopes	collision	high	Test shape against slope/lid edges (slope type from block type_map)
+0040fac0	Coll_MapSlopesEx	collision	med	Variant of Coll_MapSlopes for z-level checks
+0040ffe0	Coll_MapAll	collision	high	Run solid/wall/slope tests, set collision kind 501d10 (2,3,4,9..12)
+004100b0	Coll_ShouldCollide	collision	med	Filter object pairs by type (1 ped,3 object,6 car,10) and object kind list
+00410280	Coll_GatherHits	collision	high	Scan 3x3 grid cells for objects overlapping shape; list up to 0x95 hits (523ff0); set collision kind
+00410470	Coll_FirstHit	collision	med	Return first overlapping car/heavy object in 3x3 cells
+00410560	Coll_CarCarImpulse	collision	high	Apply impulse between two cars (461570) using contact point
+004107d0	Coll_ProcessHits	collision	high	React to gathered hits: object kinds (sounds, damage, pickups 46a560/46a190), car-car, type 10
+00410dc0	Car_CollideObjects	collision	high	Car vs objects: gather, process, bisect back, damp velocity
+00411040	Coll_AnyObjectAt	collision	med	1 if any ped/object/car overlaps shape
+00411110	Car_AddCrashDeltas	collision	med	Add damage sprite deltas by hit corner (501c58)
+00411280	Car_CollideMap	collision	high	Car vs map: bisect pose, compute bounce from wall side, damage by speed, crash sound
+00411950	Car_ImpactSpeed	collision	med	Return relative impact speed estimate
+00411a20	Car_CollideCar	collision	high	Car-car crash: damage both, sounds, report crime (4136c0), bike falls, deltas
+004120a0	Car_PushFromWalls	collision	med	Push car out of solid neighbour cells (55fab0) via 4607b0
+00412310	Car_UpdateGround	collision	high	Ground height under wheels, falling/landing damage, water splash/sink, z clamp, ground z +0x25c
+00412950	Net_IsActive	net	med	Network mode flag 501d7c != 0
+00412960	Net_Start	net	med	Init network (487240), state 1
+00412980	Net_Stop	net	med	Shut network down (487270)
+004129b0	Net_SendFrame	net	low	If in game (state 2): 487330
+004129d0	Net_ReceiveFrame	net	low	If in game: 4873a0
+004129e0	Net_GetInputs	net	low	If in game: 487440
+00412a00	Net_Leave	net	low	If in game: 487520
+00412a10	Net_Poll	net	low	If in game: 487700
+00412a30	Net_GetLocalPlayer	net	low	If in game: 487600 else -1
+00412a50	Net_GetPlayerCount	net	low	If in game: 487650 else -1
+00412a70	Player_First	net	high	First active player index (0 in single player)
+00412a90	Player_Next	net	high	Next active player index or -1 (single player: -1)
+00412ab0	Net_Query1	net	low	If in game: 487680
+00412ad0	Net_Query2	net	low	If in game: 4876a0
+00412af0	Net_Query3	net	low	If in game: 4876b0
+00412b10	Net_Flush	net	low	If in game: 4876e0
+00412b20	Net_BeginSession	net	med	Set host/join mode 501d70, state 2
+00412b50	Net_HostSession	net	med	Create session (487000), start if >1 player
+00412b70	Net_SetAborted	net	med	Flag session aborted
+00412b80	Net_GetLobbyState	net	med	Lobby status code 1..5 for frontend
+00412bd0	Net_GetLobbyText	net	med	Text "foundgather"/"found1join"/"foundnjoin" via FXT lookup
+00412c50	Net_GetSessionTitle	net	med	Session name + "gather"/host label
+00412ce0	Net_CanStart	net	med	Joined and >1 player
+00412d00	Net_EndGame	net	med	Leave in-game state (2->1)
+00412d20	Tune_LoadFile	tuning	high	Read ..\gtadata\<file> (config.ini) "[key] value" pairs and apply each
+00412e90	Tune_SetCarParam	tuning	high	"[car N param]" -> write car_info field (centre_of_mass, mass, gear_1, tyre_adhesion, brakes, turn_ratio...)
+004131d0	Police_CopsForWanted	police	med	Wanted level 1-2 ->1, 3-4 ->2
+00413210	Police_ClearSighting	police	med	Clear sighting slot j of criminal record i
+00413250	Police_InitCriminals	police	med	Init 4 criminal records (stride 0x2c at 502dd8)
+004132c0	Police_UpdateCriminalTarget	police	low	Update tracked car/ped of a criminal record on transfer
+004133c0	Police_SetWantedCity1	police	med	Wanted points -> level 0..4 (thresholds 150/250/350/500), set player level (461910)
+004134d0	Police_SetWantedCity2	police	med	Same for city 2 (100/200/250/375)
+004135e0	Police_SetWantedCity3	police	med	Same for other cities (100/176/250/350)
+004136c0	Police_ReportCrime	police	high	Register a crime by car (0) or ped (1,2) seen by player: find/alloc criminal record, store sighting
+00414190	Police_ClearCriminal	police	med	Clear criminal record and end its pursuit
+00414230	Police_GetCriminal	police	high	Pointer to criminal record n (502dd8 + n*0x2c)
+00414250	Police_FindCriminalByPed	police	med	Index of criminal record for ped id or -1
+00414280	Police_TickRadioReports	police	med	Count down sightings; issue police scanner speech (Snd_PoliceRadio)
+00414310	Sprite_AddDelta	sprite	high	Set delta bit n in sprite delta mask (+0x1c) if n < info delta count
+00414330	Sprite_ToggleDelta	sprite	high	Toggle delta bit n
+00414360	Sprite_RemoveDelta	sprite	high	Clear delta bit n
+00414380	Sprite_ClearDeltas	sprite	high	Delta mask = 0
+00414390	Sprite_SaveDeltas	sprite	med	Copy delta mask to +0x58
+004143a0	Sprite_GetComposite	sprite	high	Return sprite bitmap with deltas applied, using 10-entry LRU cache (8 small, 2 large)
+00414590	SpriteCache_Init	sprite	high	Set up the 10 delta-composite cache buffers inside a work area
+00414620	Audio_Update	game	med	Call game or frontend sound tick by audio mode 5031f8
+00414640	Audio_EnterGame	game	med	Switch audio to in-game mode (1)
+00414670	Audio_EnterFrontend	game	med	Switch audio to frontend mode (2)
+004146a0	Audio_Shutdown	game	med	Stop whichever audio mode is active
+004146d0	Game_SetOptions	game	high	Copy 43 launch options into globals (peds 502f40, cars 503180, sound 502f6c, fps 502f50, debug text 5031e6 ...)
+004148a0	Game_Run	game	high	In-game session: load level/style, video mode, then frame loop (input, net exchange, per-player update/render, sound) until exit code 51322c set
+00414a70	Input_FlushKeys	input	med	Flush MGL event queue (48a280)
+00414a80	Input_GetKey	input	med	Wait for MGL key event; return scan code (+0x100 extended, +0x80 release)
+00414b10	Gfx_Present	gfx	high	Blit back buffer, flip pages, rebind draw surface (486830)
+00414c20	Gfx_GetModeLists	gfx	med	Return video mode list pointer and per-depth counts
+00414c70	Gfx_ValidateModeIndex	gfx	low	Clamp chosen mode index
+00414cc0	Gfx_SelectMode	gfx	high	Set display mode by index from mode list, init renderer (481030)
+00414d30	Gfx_GetModeIndex	gfx	high	Return current mode index 503224
+00414d40	Gfx_SetPalette	gfx	high	Convert 256 RGB triples to MGL palette and realize it
+00414db0	Gfx_SetVideoMode	gfx	high	Destroy/create MGL display + offscreen DC for mode (-1 frontend 640x480, -2 windowed), set pixel format globals, "cannot change to display mode"
+00415310	Gfx_InitDrivers	gfx	high	Register MGL drivers DDRAW8/16/32 and PACK8/16/32, enumerate modes (4:3 or 16:10, <=1600 wide) by depth, default 640x480
+00415840	Gfx_InsertModeSorted	gfx	high	Insert mode {id,w,h,bpp} into per-depth sorted list
+00415990	Gfx_ModeStringDtor	gfx	low	Exception-unwind cleanup for mode name string
+004159b0	Gfx_Shutdown	gfx	high	Free mode lists, MGL exit (48ddc0), pump Windows messages
+00415a50	Car_IsPathClear	carai	med	Query peds/objects/heli/type10 at pos; 0 if blocked
+00415b10	Car_UpdateWheelspin	carai	med	Wheelspin smoke at start, bike lean/wheelie frames, bike fall
+00415fe0	Car_DummyKeepLane	carai	med	Keep dummy car in lane (+0x10e offset within block), start/stop lane moves
+004162f0	Car_LaneCheckLeft	carai	low	Lane change feasibility on one side (type map + Car_CheckAhead)
+00416480	Car_LaneCheckRight	carai	low	Lane change feasibility on other side
+00416610	Car_DummyDrive	carai	high	Traffic driving per frame: look ahead for cars/peds/lights, brake, horn, junction choice, lane keeping
+004170e0	Car_DummyThrottle	carai	high	Integrate dummy speed toward target using car_info max/min speed, acceleration, braking
+004173d0	Car_DummyTurnLeft	carai	med	Junction handling variant (checks next cells, Car_IsSpaceFree)
+00417640	Car_DummyTurnRight	carai	med	Junction handling variant (other side)
+00417980	Car_DummyCheckLights	carai	low	Check traffic-light/zone (44b310 zone 2, 47df00 0x3a/0x34) ahead and stop
+00417b70	Traffic_FindRecyclable	carai	med	Find an off-screen idle traffic car to recycle
+00417d90	Traffic_RespawnCar	carai	high	Move a recycled car to a new road cell (dir 1/2/4/8), reset driver, regrid
+00418390	Traffic_AngleToDir	traffic	high	Map a 0..1023 heading to a road direction bit (1=up,2=down,4=left,8=right).
+004183d0	Traffic_SpawnAroundView	traffic	med	Per-player traffic generator: cycles over the 4 edges of the player's view rect and tries to spawn a car on a road lane just outside it.
+00418970	Traffic_TrySpawnTopEdge	traffic	med	Scan the row one block above the view rect for a vertical-lane road cell (dir 1/2) and spawn a car there via 0x417d90.
+00418ab0	Traffic_IsRoad3x3	traffic	high	True if all 8 neighbours of a cell are road type (used for wide vehicles).
+00418b40	Traffic_TrySpawnBottomEdge	traffic	med	Same as top edge, row one block below the view rect.
+00418c80	Traffic_TrySpawnLeftEdge	traffic	med	Scan the column one block left of the view rect for a horizontal-lane road cell (dir 4/8) and spawn.
+00418dc0	Traffic_TrySpawnRightEdge	traffic	med	Same as left edge, column one block right of the view rect.
+00418f00	Traffic_PrimeCarPool	traffic	low	With sound muted, creates N cars at a dummy position from the shuffled model table and immediately removes them (pre-allocates car slots/sprites).
+00418f80	Traffic_InitModelTables	traffic	med	Copy 3x100 car-model distribution tables from const data and shuffle each row with the game RNG.
+00419000	Sentinel_WarpCar	sentinel	med	Warp an AI car to the centre of a target block, facing the road direction; resolves car/car overlap by swapping; error 'Car has been warped'.
+00419400	Junction_InitOverrides	sentinel	med	Reset the 0x58-entry traffic-light junction override table and bind it to traffic-light objects (type 0x10) from the object list.
+004194e0	Sentinel_PickNearestBase	sentinel	med	For an emergency unit, pick the nearest station (police/hospital/fire list from CMP location data) to the unit's car.
+004195e0	Sentinel_PickNearestBaseTo	sentinel	med	Same as Sentinel_PickNearestBase but relative to a given block coordinate.
+004196d0	Police_AddChaser	police	low	Put a sentinel into one of 4 'chasing' slots and set its state to 0x32.
+00419740	Police_UpdateChasers	police	low	Drop chasing sentinels whose car/driver is gone (marks them returning, state 0xfe).
+00419880	Emergency_UpdateAll	sentinel	med	Per-frame dispatcher for emergency services: ambulance call queue (0x505048), police dispatch list (0x5058a8), junction override timers; decompiler fails, read from disasm.
+0041a1a0	Ambulance_RequestForPed	ambulance	med	Queue a dead/injured ped for an ambulance: store its block coords in the ped-request table (0x50cab0, stride 10) and append to the call list.
+0041a250	Ambulance_CancelForPed	ambulance	med	Remove a ped from the ambulance call list / release the assigned sentinel.
+0041a360	Car_MarkForRemoval	sentinel	low	Flag a car (non-special model) as pending removal and call the car-dispose routine.
+0041a3d0	Ambulance_ClearRequest	ambulance	med	Clear a ped's ambulance request (variant without sentinel check).
+0041a470	Car_IsMarkedForRemoval	sentinel	low	Return the 'pending removal' flag of a car.
+0041a490	Map_FindNearestRoad	map	high	Starting at a block (x,y,z bytes), follow the road direction or spiral-search up to 64 rings for the nearest road cell; updates the coords in place.
+0041a750	Sentinel_WarpToNearestRoad	sentinel	med	Move a car onto the nearest road cell (oriented to lane direction) if the spot is free.
+0041a9d0	Sentinel_PlanRouteToTarget	sentinel	med	Ask the route finder for a path from the unit's car to its target block and store the result state.
+0041aae0	Sentinel_Reset	sentinel	high	Clear one sentinel (AI driver) record to defaults.
+0041abd0	Sentinel_InitAll	sentinel	high	Init sentinels, ped requests, junction overrides; load station lists (police/hospital/fire) from map location data and count them.
+0041ad30	Sentinel_FindFree	sentinel	med	Return index of first unused sentinel slot (of first 50).
+0041ad60	Sentinel_Get	sentinel	high	Bounds-checked pointer to sentinel record i (table 0x507ea0, stride 0x98, <=0x80); error 'Illegal request for a sentinel'.
+0041adb0	Sentinel_ClearTable	sentinel	high	Reset all 128 sentinel records.
+0041aed0	Sentinel_DriveCar	sentinel	med	Main AI-driver step for a car owned by a sentinel: follows route nodes, handles junction turns, dispatches per-type logic (1 ambulance, 2 police, 6 fire, 9 hunter).
+0041da60	Sentinel_ReplanRoute	sentinel	med	Re-run the route finder from the car's current block to the stored destination.
+0041dba0	Sentinel_HandleStuck	sentinel	med	Stuck-recovery state machine: counts frames blocked, tries reversing/turning out of the lane.
+0041dff0	Sentinel_RecallRoute	sentinel	med	Recompute route for a recalled unit and switch state based on route-finder result; logs to 'adiag' when debug enabled.
+0041e140	Junction_UpdateOverrideTimers	sentinel	med	Tick junction override timers; release overrides that expire (debug log 'junc no to reset').
+0041e1c0	Sentinel_OverrideLights	sentinel	med	When an emergency vehicle approaches a traffic-light junction, force the lights to red for cross traffic.
+0041e6f0	Sentinel_IsLaneClear	sentinel	med	Probe 3 blocks ahead in a direction for cars (and type-10 objects) blocking the lane.
+0041e890	Sentinel_CheckAhead	sentinel	low	Look ahead along the route/lane for obstacles and decide to slow, overtake or swap.
+0041f030	Sentinel_CheckObstacle	sentinel	low	Collision probe in front of the car scaled by speed; returns blocking status.
+0041f290	Sentinel_Steer	sentinel	low	Large steering/turn logic for AI cars at route nodes and junctions.
+00421e50	Map_ScanLaneLength	map	low	Walk along road cells in a direction while they keep the same direction bits; returns whether the lane ends in a given direction.
+00421fb0	Sentinel_FindOvertakeLane	sentinel	low	Search adjacent parallel lanes (same direction) for a free spot to overtake.
+004223e0	Sentinel_IsBlockedByStoppedCar	sentinel	low	Probe up to 4 blocks ahead for a car that is not moving.
+00422500	Car_SwapPositions	car	med	Swap the positions/headings of two cars (used to unjam AI cars), rebuilding hitboxes and collision-grid entries.
+004227a0	Car_ReverseLane	car	med	Flip a car's lane direction (1<->2, 4<->8) and recompute its front/rear axle points.
+004228b0	Error_Init	error	high	Clear the 'current file' string and error-reentry state.
+004228c0	Error_SetFileName	error	high	Remember the file name used in subsequent file-error messages.
+004228e0	Error_Arm	error	med	Arm the error handler (state 0->1).
+00422900	Error_Fatal	error	high	Fatal error: shut subsystems down once, format 'Error <code>.<module>' plus message text and show it (does not return normally).
+00422b90	Error_GetMessage	error	high	Giant switch: error code -> message text (sprintf into buffer); NOT the mission/map loader.
+00425170	Expl_Create	explosion	med	Spawn a 4-part explosion sprite group at (x,y,z) owned by a player, register in collision grid (kind 0xc) and damage the area.
+00425480	Expl_CarExplode	explosion	med	Explosion at a car's centre and its 4 hitbox corners.
+00425520	Expl_WallBreak	explosion	low	Explosion against a building face (dir 0..3) spawning debris objects (0x2b..0x2e) and fires (0x12).
+00425780	Expl_FaceWithFire	explosion	low	Explosion on a block face plus two fire objects.
+004258d0	Expl_AtFace	explosion	low	Plain explosion on a block face (dir 0..3).
+00425960	Expl_AtFaceIfSolid	explosion	low	Explosion on a face only if the face is solid (Map_IsFaceSolid); adds fires where free.
+00425b50	thunk_Expl_Create	explosion	high	Jump thunk to Expl_Create.
+00425b60	Expl_UpdateAll	explosion	med	Advance explosion animation frames (spawn smoke at frame 10, free at frame 12/24/36/48) and fire delayed explosions.
+00425c50	Expl_Init	explosion	high	Reset the explosion pool (25 groups) and delayed list.
+00425ca0	Expl_DamageArea	explosion	med	Apply blast to peds (knock down/kill), cars (damage 100, set attacker for score) and objects within ~1 block.
+00426320	Front_LoadTexts	frontend	high	One-time lookup of all frontend FXT strings (city/mission names, menu labels, crime names...).
+004268d0	Front_SelectMission	frontend	low	Select chapter/mission index by mission number and set the multiplayer target.
+00426990	Front_GetCurrentPlayerName	frontend	high	Pointer to current player record (0x510418 + idx*0x50).
+004269b0	Front_GetCurrentPlayerIndex	frontend	high	Return current player slot byte (0x510698).
+004269c0	Front_GetMultiTarget	frontend	med	Return multiplayer win condition type (score/kills/race) and target value.
+00426a50	Front_Step	frontend	high	Per-frame frontend step: dispatch on screen id (0x5101d0) with input bits, draw, return state code to WinMain.
+00426fd0	Front_DrawEnterPrompt	frontend	med	Draw 'Enter: <label>' at bottom right.
+00427030	Front_SetScreen	frontend	high	Switch frontend screen; on enter loads cutscene fonts, updates high scores after a game and saves player_a.dat.
+00427630	Front_BuildChapterList	frontend	med	Compute how many chapters are unlocked per city for the current player.
+004276e0	Front_ScreenCommsError	frontend	med	Network failure / version mismatch screen.
+004277c0	Front_ScreenMain	frontend	high	Main city/chapter select screen (arrows, enter starts game, space = story).
+00427fc0	Front_DrawHighScores	frontend	med	Draw the 3-entry high score table for a city.
+004280b0	Front_ApplyVolumes	frontend	med	Validate and apply sfx/music volumes from settings.
+00428150	Front_ScreenSessionList	frontend	med	Network session list screen (DirectPlay sessions).
+004282c0	Front_ScreenServiceList	frontend	med	Network service/provider select screen.
+00428480	Front_ScreenEnterName	frontend	med	Text entry screen (player/session name).
+00428680	Front_ScreenLobbyHost	frontend	low	Network lobby status (host side).
+00428950	Front_ScreenLobbyJoin	frontend	low	Network lobby status (join side).
+00428bf0	Front_ScreenLoading	frontend	high	'Loading' screen: shows chapter/mission title and targets, returns start code.
+00428ee0	Front_ScreenStart	frontend	high	Top menu: Start game / Gather network / Join network / Options.
+00429180	Front_ScreenOptions	frontend	high	Options screen (sfx/music volume, radio mode, effects); saves or reverts player_a.dat.
+00429650	Front_ScreenMultiOptions	frontend	med	Multiplayer options (score target 10000..999999999 or kill target 1..1000).
+00429a20	Front_ScreenPlayerSelect	frontend	high	Choose one of 8 player slots; rename/reset entries.
+00429df0	Front_DrawPlayerScores	frontend	low	Draw per-city scores for the selected player.
+00429f60	Front_DrawPlayerPortrait	frontend	low	Blit a player's portrait (F_PLAYn) and name.
+0042a160	Front_ScreenRename	frontend	high	Rename player; typed names are compared against scrambled cheat strings that unlock cities/levels/etc.
+0042a750	Front_ScreenResults	frontend	med	End-of-game results/stats screen (crimes, time hh:mm:ss, final scores, race results).
+0042b1e0	Front_AdvanceMission	frontend	med	After a completed mission, advance the selection to the next mission/chapter.
+0042b260	Front_ScreenResetPlayer	frontend	med	Confirm reset of a player's progress.
+0042b4a0	Front_LoadSettings	frontend	high	Load player_a.dat (0x414 bytes at 0x510298) or create defaults (8 names, BILLY/PAUL/STEVE scores) and save.
+0042b690	Front_Enter	frontend	high	Enter frontend: load backgrounds, portraits, fonts and go to screen.
+0042b7a0	Front_Leave	frontend	high	Free frontend fonts and images.
+0042b800	Text_WordWrap	text	med	Word-wrap a UTF-8 string into a static buffer for a pixel width (handles '@' newline); counts lines.
+0042bad0	Font_DrawString	text	high	Draw a UTF-8 string with a font at (x,y) into the back buffer (8- or 16-bit).
+0042bc70	Font_DrawStringAlt	text	med	Same as Font_DrawString but without the Japanese font substitution.
+0042be10	Font_DrawStringClipped	text	med	Draw a string clipped to a horizontal pixel window (scrolling text).
+0042c030	Font_DrawCreditLine	text	low	Draw one scrolling credits line with clipping.
+0042c0e0	Font_StringWidth	text	high	Pixel width of a string in a font.
+0042c120	Font_StringWidthAlt	text	med	String width without Japanese substitution.
+0042c160	Font_DrawCentered	text	med	Draw a string centred in a box.
+0042c340	Front_DrawMenuItem	frontend	med	Draw numbered menu item, highlighted when selected (style A).
+0042c6b0	Front_DrawMenuItemB	frontend	med	Menu item drawing variant B.
+0042ca20	Front_DrawMenuItemC	frontend	med	Menu item drawing variant C.
+0042cd90	Front_DrawTitle	frontend	med	Draw a centred heading at a y position.
+0042cf70	Front_DrawTitleAlt	frontend	med	Centred heading variant (alt font path).
+0042d150	Font_DrawWrapped	text	med	Word-wrap then draw a text block.
+0042d1c0	Font_DrawWrappedLines	text	med	Draw the lines produced by Text_WordWrap.
+0042d2c0	Font_LoadKanjiOnly	text	med	In Japanese mode, init the kanji font.
+0042d2e0	Front_LoadFonts	frontend	high	Load frontend fonts (cuttext, f_mhead, f_mmiss, f_mtext, f_key, f[8]_city1..4).
+0042d410	Front_FreeFonts	frontend	high	Free frontend fonts.
+0042d470	Font_FreeKanji	text	med	Free the kanji font.
+0042d490	Gfx_BlitImage	frontend	med	Copy an image {w,h,pixels} to the back buffer with clip rect.
+0042d590	Gfx_SetClipRect	frontend	high	Set the frontend clip rectangle.
+0042d5c0	Gfx_ImageAlloc	frontend	high	Allocate image buffer w*h*bpp.
+0042d5f0	Gfx_LoadRawImage	frontend	high	Load '<name>.raw' (24-bit RGB -> 16-bit via DDraw masks) or '<name>.rat' (8-bit, optionally inverted) into an image.
+0042d7e0	Gfx_ImageFree	frontend	high	Free an image buffer.
+0042d810	Front_LoadCutsceneBg	frontend	med	Load a cutscene still (cutN) as the 640x480 background.
+0042d830	Front_ClearOrDrawBg	frontend	med	Clear back buffer or copy the 640x480 background image into it.
+0042d8e0	Front_DrawBackground	frontend	high	Draw the frontend backdrop: animated logo (8 frames, ~83 ms each) in top 168 lines + lower panel (312 lines).
+0042da50	thunk_Gfx_Flip	frontend	med	Thunk to the page flip routine (0x414b10).
+0042da60	Front_LoadImages	frontend	high	Allocate and load f_upper, f_logo0..7, f_lower0/1.
+0042dc40	Front_FreeImages	frontend	high	Free frontend background images.
+0042dce0	File_LoadAlloc	fileio	high	Read whole file into a newly allocated buffer, return pointer and size.
+0042de30	File_LoadOptional	fileio	med	Like File_LoadAlloc but returns -1 if missing and can load into a caller buffer.
+0042dfc0	File_LoadInto	fileio	high	Read whole file into a caller buffer with max size check; returns size.
+0042e0e0	File_Save	fileio	high	Write a buffer to a file ('wb').
+0042e180	File_Append	fileio	high	Append a buffer to a file ('ab').
+0042e220	File_Truncate	fileio	high	Create/empty a file.
+0042e270	TextFile_Open	fileio	high	Open the shared sequential input file (closing the previous one).
+0042e2e0	TextFile_Close	fileio	high	Close the shared input file.
+0042e320	TextFile_Seek	fileio	high	Seek relative in the shared input file.
+0042e390	TextFile_Read	fileio	high	fread exact size from the shared input file (used for CMP/G24 too).
+0042e400	TextFile_SkipTo	fileio	high	Skip input until a given string is matched.
+0042e440	TextFile_ReadInt	fileio	high	Parse a decimal integer terminated by ',' or '[' (whitespace tolerant) - used by mission.ini parser.
+0042e540	TextFile_ReadString	fileio	high	Read a token up to a delimiter into a buffer with max length.
+0042e600	Fire_Init	fire	high	Reset the 4 active-fire slots and 3 fire-engine slots.
+0042e680	Fire_IsNearActive	fire	med	True if an object is within 40 blocks (Manhattan) of an active fire.
+0042e6f0	Fire_Extinguish	fire	med	Remove a fire entry, release its objects and the attending engine.
+0042e7b0	Fire_FindNearestUnattended	fire	med	Nearest fire without an engine for a given sentinel car.
+0042e860	thunk_Sentinel_DriveCar	sentinel	high	Jump thunk to Sentinel_DriveCar.
+0042e870	FireEngine_Remove	fire	med	Remove a fire-engine sentinel and its car/crew.
+0042e920	FireEngine_Spawn	fire	med	Create a fire engine (car model 0x2a) at a fire station and bind a new sentinel (type 6) with crew.
+0042ea90	FireEngine_SetDestination	fire	med	Route a fire engine to a fire location.
+0042ebe0	FireEngine_ArriveCheck	fire	low	When near the fire, switch the engine into extinguish state.
+0042ec70	FireEngine_Dispatch	fire	med	Find/spawn an engine from the nearest of 4 fire stations and send it to a new fire.
+0042ee40	FireEngine_ReturnToBase	fire	med	Send a fire engine back to its nearest station.
+0042ef80	Fire_Register	fire	med	Register a new fire object (type 0x12) in a free slot and dispatch an engine if no fire nearby.
+0042f240	FireEngine_AimHoseAtObject	fire	low	Rotate water-cannon object toward a target object (+-3 per frame).
+0042f2d0	FireEngine_AimHoseAtCar	fire	low	Rotate water-cannon toward a car.
+0042f350	Fire_HasObjects	fire	low	True if a fire slot still has burning objects.
+0042f3a0	Fire_ClearObjects	fire	low	Delete all objects belonging to a fire slot.
+0042f460	FireEngine_Update	fire	med	Fire engine AI state machine (drive, stop, spray, return).
+00430400	Math_InitTables	math	high	sin[i]=trunc(sin(i*2pi/1024)*65536) for 0x500 entries at 0x511e28 (cos[i]=sin[i+256] at 0x512228); tan table 256 entries at 0x511a28.
+00430490	Math_FixedToFloat	math	high	16.16 fixed-point int -> float (multiply by 1/65536).
+004304a0	Font_InitKanji	text	med	Create a pseudo font descriptor for the kanji font and load kanji.idx/.bit.
+004304d0	Font_Load	text	high	Load a .FON file: u8 count, u8 height, per glyph u8 width + width*height bytes, optional 768-byte palette -> 16-bit.
+00430750	Font_Free	text	high	Free a font and its glyphs.
+004307c0	Font_Select	text	high	Make a font current (Japanese builds remap to the kanji font with per-font colour).
+00430840	Font_SelectRaw	text	med	Make a font current without kanji substitution.
+00430850	Font_GlyphWidth	text	high	Width of a char in the current font (space uses 'n' width; >=0x80 via remap table).
+004308d0	Font_GlyphPixels	text	high	Pixel pointer of a char glyph in the current font (or kanji cache).
+00430930	Font_Height	text	high	Height of the current font.
+00430960	Font_IsKanji	text	med	True if current font is the kanji font.
+00430970	Font_GetCurrent	text	med	Return current font pointer.
+00430980	Game_RequestRedraw	game	low	Request a one-shot redraw while paused.
+004309a0	Game_SetPauseFrames	game	low	Set pause frame counter (single player only).
+004309c0	Game_IsPaused	game	med	True if paused (pause counter non-zero).
+004309d0	Game_IsFrozen	game	med	True if game phase == 2 (frozen/paused by F6).
+004309e0	Game_RequestEnd	game	high	Request leaving the game loop with a result code (0x51322c=1, 0x513230=code).
+00430a00	Game_RequestAbandon	game	high	Request leaving with code 7 (abandoned).
+00430a20	Game_Init	game	high	Initialise all game subsystems for a level (objects, cars, peds, sentinels, routes, fires, explosions, hunts, camera...).
+00430b10	Game_Shutdown	game	med	Stop replay recording, release HUD/sound per level.
+00430b20	Game_Frame	game	high	Per-frame logic wrapper: handles pause/debug camera, runs Game_Update, camera update, render-param copy.
+00430c00	Game_Update	game	high	One logic tick: demo timer, peds, cars, objects, trains/lights checks, emergency services, explosions, sound, frame counter.
+00430d40	Game_Render	game	high	Render one frame: queue visible sprites, draw city (Render_DrawCity), HUD.
+00430da0	Game_Present	game	med	Flip/present the frame unless in step-render mode.
+00430dc0	Game_HandleKey	game	high	In-game key handler (Esc pause/quit, F-keys, F6 pause, F8 speed limit, F12 reload, debug camera keys).
+00431500	Gang_Init	gang	med	Reset Hells Angels car list (10) and per-player timers.
+00431530	Gang_AddCar	gang	med	Add a car to the Hells Angels list.
+004315b0	Gang_Update	gang	low	If a player steals a gang bike/car, after 30 frames set the rest of the gang to hunt him.
+004317f0	Hunt_Init	hunt	high	Reset the 20-entry hunt table (0x5132a0, stride 0x1c).
+00431840	Hunt_Remove	hunt	high	Remove a car from the hunt table.
+004318e0	Hunt_AddCarTarget	hunt	med	Make a car hunt a target car/ped (mode param).
+004319b0	Hunt_AddBlockTarget	hunt	med	Make a car drive to a target block (mode 4).
+00431ab0	Hunt_AddBlockTarget2	hunt	low	Variant of Hunt_AddBlockTarget with a different mode.
+00431bb0	Hunt_SteerTowards	hunt	low	Compute steering toward an angle using car model handling data.
+00431cb0	Hunt_ProbeAhead	hunt	low	Probe the road cell ahead of the car and return its direction bits.
+00431f70	Hunt_UpdateCar	hunt	low	Hunting car AI step (chase target, pathing, warp when stuck).
+00432b40	Input_Init	input	med	Init joystick, load key bindings (10 actions) and detect joystick-bound actions.
+00432c50	Replay_SetFileName	replay	high	Build '..\gtadata\<name>' replay path; flag whether it is the default replay.rep.
+00432c90	Replay_Begin	replay	high	Start of level: either load a replay (8-byte records, max 0x20000 bytes) for playback or open for recording.
+00432d80	Replay_EndSave	replay	high	Stop recording and write the replay buffer.
+00432dc0	Replay_EndSave2	replay	med	Duplicate of Replay_EndSave (called from shutdown).
+00432e00	Input_ReadControls	input	high	Build the per-frame control word from keyboard/joystick (recording) or from the replay stream (playback).
+004331f0	Input_ActionPressed	input	high	Set control-word bits for action i pressed (steer, accel, brake, fire, jump, enter...).
+004333c0	Input_ActionReleased	input	high	Clear control-word bits for action i released.
+004335a0	Input_ActionAnalog	input	med	Analogue joystick axis -> steer/accel values in the control word.
+00433730	Replay_IsPassthroughKey	replay	med	During playback, keys that are still honoured (pause, F-keys, Esc...).
+00433790	Replay_TickFrame	replay	high	Increment replay frame counter.
+004337a0	Replay_IsPlaying	replay	high	True if replay playback mode.
+004337b0	Joy_MarkAxisUsed	input	med	Mark a joystick axis as bound.
+004337d0	Joy_MarkButtonUsed	input	med	Mark joystick buttons as bound.
+004337f0	Joy_Init	input	high	joyGetDevCaps: compute centre/dead-zone ranges for X,Y,Z,R,U,V axes.
+00433b20	Joy_SetAxisRange	input	med	Store min/centre/max and 10% dead zones for one axis.
+00433ba0	Joy_Reset	input	med	Clear joystick state.
+00433bc0	Joy_Poll	input	high	joyGetPosEx and normalise axes to -127..127, buttons to bitmask.
+00433d50	Kanji_Load	text	high	Load kanji.idx and kanji.bit and allocate glyph cache.
+00433de0	Kanji_Free	text	high	Free kanji data.
+00433e30	Kanji_GetGlyph	text	med	Return (rendering into cache if needed) the bitmap for a kanji code.
+004340b0	Kanji_CacheGlyph	text	med	Expand a 1-bit kanji glyph into the cache with the current colour.
+00434160	Math_Random	math	high	Next value of the game RNG (FUN_00489abe, 15-bit additive generator); also saved at 0x523fe8.
+00434170	thunk_Math_RandomReset	math	high	Thunk: reset RNG state from seed table (deterministic replays).
+00434180	Coll_InitNodePools	collision	high	Reset all collision-grid node pools (per entity kind).
+00434300	Coll_BuildBox	collision	high	Build a rotated rectangle (4 corners x/y, centre, per-corner ground z, z, angle, id) for a hitbox.
+00434580	Coll_IsTrafficObjectNear	collision	low	True if an object of type 0xf/0x3f/0x40 is within 8 px of a point in its grid cell.
+00434690	Coll_BoxVsBox	collision	high	Rotated-box overlap test by corner-angle ranges; stores contact point floats.
+004348c0	Coll_EntityVsBox	collision	med	Build the hitbox of a ped/object/car/other entity kind and test it against a box.
+00434ac0	Coll_QueryCellBox	collision	med	Append all entities of a grid cell colliding with a box to the result list.
+00434e80	Coll_QueryBox	collision	high	Query 3x3 neighbourhood for entities hitting a box (locks the result list).
+00435040	Coll_GetFiresInBlock	collision	med	List fire objects (type 0x12) in a block.
+00435170	Coll_QueryCellCarBox	collision	med	Cell query against a car's pending hitbox (car+0x1dc).
+004354b0	Coll_QueryCarBox	collision	med	3x3 query for a car's pending hitbox.
+004356a0	Coll_QueryCellBoxFirst	collision	med	Cell query that stops at first hit (ped range prefilter).
+00435a90	Coll_QueryBoxFirst	collision	med	3x3 query returning first colliding entity.
+00435e00	Coll_BoxTouchesBlock	collision	med	True if a box's corner/centre lies in a given block and z layer.
+00435e80	Coll_QueryCellBlock	collision	med	Cell query: entities whose box touches a block.
+00436280	Coll_QueryCellCars	collision	med	Cell query listing cars (except id, skipping model 0x2f).
+00436350	Coll_FindCarAt	collision	med	True if a car of a given model sits exactly at (x,y).
+004363c0	Coll_QueryBlock	collision	high	3x3 query: entities of a kind touching a block (used for 'is lane free').
+00436650	Coll_QueryBlockAll	collision	med	Like Coll_QueryBlock with all kinds.
+004368d0	Coll_QueryCars	collision	med	3x3 query listing cars near a point.
+00436ad0	Coll_Init	collision	high	Clear grid heads, per-cell counters and node pools.
+00436b20	Coll_Unlock	collision	high	Release the query result list lock.
+00436b30	Coll_GetPedCount	collision	low	Per-cell counter A (0x51be58) read.
+00436b50	Coll_IncPedCount	collision	low	Per-cell counter A increment.
+00436b80	Coll_DecPedCount	collision	low	Per-cell counter A decrement.
+00436bb0	Coll_GetObjCount	collision	low	Per-cell counter B (0x513890) read.
+00436bd0	Coll_IncObjCount	collision	low	Per-cell counter B increment.
+00436c00	Coll_DecObjCount	collision	low	Per-cell counter B decrement.
+00436c30	Coll_Insert	collision	high	Insert an entity (kind,id,ptr) into the 128x128 grid cell of (x,y) and record the cell in the entity.
+00436e30	Coll_Remove	collision	high	Unlink an entity from its grid cell.
+00437000	Render_QueueVisibleEntities	render	med	Walk grid cells covering the player view and queue peds/objects/cars/etc. into per-z-layer sprite lists.
+004371e0	Sys_Shutdown	sys	high	Release all subsystems and the single-instance mutex (called by Error_Fatal).
+00437230	WinMain	sys	high	Mutex 'Grand Theft Auto', init, frontend loop (35 ms throttle, scancodes -> menu bits), run game (Game_Run 0x4148a0), shutdown.
+004376c0	Tile_SetSkipSide	render	low	Set per-style side tile index skipped on transparent blocks (0xc2/0xc1/0xc5).
+004376f0	Tile_BuildAuxTable	render	med	Fill 8 aux tile page pointers from style tile index table.
+00437730	Tile_SelectAux	render	med	Select an aux tile pointer as current texture.
+00437750	Tile_BuildSideTable	render	high	Fill side-tile pointer table (4 variants per tile) from style data.
+004377b0	Tile_BuildLidTable	render	high	Fill lid-tile pointer table (4 remaps per lid).
+00437830	Tile_BuildAuxSideTable	render	med	Fill the alternate side tile table.
+004378a0	Tile_SetSideEntry	render	med	Rebuild/replace one side tile entry (animation).
+004379c0	Tile_SetLidEntry	render	med	Rebuild/replace one lid tile entry (animation).
+00437ae0	Map_GetBlock	map	high	Pointer to 8-byte block info at (x,y,z) (clamped), NULL above column top.
+00437b50	Map_SetBlockType	map	high	Change a block's type_map (copy-on-write into map-change area), update the type cache.
+00437cb0	Map_SetBlockKind	map	med	Change only type bits (0x70) of a block.
+00437e70	Map_OrBlockFlags	map	med	OR flags into a block's type_map/ext.
+00438020	Map_SetBlockFace	map	med	Change one face tile (left/right/top/bottom/lid) of a block.
+00438190	Map_ClearName	map	high	Clear requested map file name.
+004381a0	Map_Free	map	high	Free the loaded map buffer.
+004381c0	Map_SetName	map	high	Set map file name (with priority) for the next Map_Load.
+00438200	Map_Load	map	high	Load CMP: header check v331, base/columns/blocks, objects, routes(+0x6c location data), nav; compute extents; build type cache; load style.
+004385b0	Tile_SelectSprite	render	low	Select sprite page pointer as current texture.
+004385e0	Tile_SelectSpriteRemap	render	low	Select sprite page with remap.
+00438650	Map_IsFaceSolid	map	high	Is face (0..4) of block (x,y,z) solid/wall, honouring slopes.
+004387b0	Map_GetLidBelow	map	med	Lid tile of the block under a fixed-point position.
+00438800	Map_IsCovered	map	med	True if there is a lid above a position (roof check).
+004388a0	Map_GetTypeAt	map	high	type_map | ext<<16 of the block at fixed-point (x,y,z).
+00438900	Map_GetTypeMap	map	high	type_map of block (x,y,z) integer coords (0 if none).
+00438950	Map_GetFace	map	high	Raw face tile byte of a block.
+004389f0	Render_DrawCity	render	high	Draw the 3D block city: for z=5..0 project layer grid, draw that layer's sprites, then blocks in visible rect from edges inward.
+00438d60	Render_DrawBlock	render	high	Draw the visible faces (4 sides + lid) of a normal block.
+00439180	Render_DrawFlatBlock	render	high	Draw a 'flat' (transparent) block: sides in back-to-front order then lid.
+004392d0	Render_DrawFlatSidesX	render	med	Flat block: one of left/right (left if visible) drawn on the left edge, transparent; skips the style skip tile 0x5c1c14.
+004393f0	Render_DrawFlatSidesY	render	med	Flat block: one of top/bottom drawn on the top edge, transparent; skips the style skip tile.
+00439530	Render_DrawFlatAbove	render	low	NYC only: after a slope, redraw the flat block above it (z-1) without lid using this layer's planes.
+004395d0	Render_DrawSlope	render	high	Dispatch slope drawing by slope class table (0x4b0c88).
+004396b0	Render_DrawSlopeUp	render	med	Draw slope class 1 (high at the north edge): side quads/triangles, top side on segment 0, lid trapezoid; intermediate corners via Sprite_WorldToScreen.
+00439e10	Render_DrawSlopeDown	render	med	Draw slope class 2 (high at the south edge); lid drawn with flip 0x200000.
+0043a620	Render_DrawSlopeLeft	render	med	Draw slope class 3 (high at the west edge); lid via Poly_DrawFaceVert.
+0043adf0	Render_DrawSlopeRight	render	med	Draw slope class 4 (high at the east edge); lid via Poly_DrawFaceVert with mirror 0x400000.
+0043b620	Render_ProjectLayer	render	high	Project 65x65 block-corner grid for layer z into screen coords (perspective by camera height).
+0043b780	Render_CopyCamera	render	med	Copy current camera parameters into render globals.
+0043b7e0	Render_ComputeVisibleRect	render	high	Per depth (k+1)*64, k=6..0: visible block rect (nx, ny even, +3) around the camera into 0x5bfab8+k*0x28; rect 6 is the grid descriptor; layer z uses rect z+1.
+0043b910	Camera_Update	camera	high	Per player (or all with -1000): follow target, clamp, compute camera height/zoom and view rect.
+0043bbd0	Camera_Follow	camera	med	Track the player's ped/car with speed-dependent look-ahead and zoom.
+0043c5d0	Camera_Snap	camera	med	Reset camera velocities and snap.
+0043c640	Camera_ResetMotion	camera	med	Clear camera motion state, set zoom from target speed.
+0043c710	Camera_InitAll	camera	high	Init cameras for all players at level start.
+0043ca30	Camera_ComputeViewRect	camera	high	Compute player view rect in pixels (left,right,top,bottom,halfwidth) used by traffic generation.
+0043cac0	Camera_StartTransition	camera	low	Start a camera move toward a new focus.
+0043cb20	Camera_DebugMove	camera	med	Accelerate debug free-camera velocities.
+0043cbb0	Camera_DebugStop	camera	med	Zero debug camera velocity.
+0043cbd0	Util_NumDigits	util	high	Number of decimal digits of an int.
+0043cc00	Mem_Alloc	mem	high	malloc with fatal error on 0 bytes / failure.
+0043cc40	Mem_AllocAligned64K	mem	high	malloc size+64K and return 64K-aligned pointer (style data).
+0043cca0	Mission_StartProcess	mission	low	Allocate a mission script process slot (32) for a line.
+0043cd30	Mission_FindLine	mission	low	Find the command index for a mission line number.
+0043cd50	Mission_RetrieveData	mission	low	Return a field of a stored 'location' record; error 'Invalid location in a retrieve data'.
+0043cdc0	Mission_KillProcesses	mission	low	Stop all mission processes except one.
+0043ce60	Mission_ClearCounter	mission	low	Remove an entry from a mission id list.
+0043ce90	Mission_RemoveFromList	mission	low	Remove an id from a compacted mission list.
+0043cef0	Mission_CleanupCars	mission	med	RESET helper: frees mission-spawned cars in list 0x6b3b90 (count 0x6b3b88) that are off-screen, compacts list
+0043cfe0	Mission_CleanupPeds	mission	med	RESET helper: frees/retargets mission peds in list 0x676390 (count 0x6b3b80)
+0043d090	Mission_CleanupObjects	mission	med	RESET helper: deletes off-screen mission objects in list 0x655e60 (count 0x656178), compacts list
+0043d150	Mission_KFProcessCars	mission	low	KF_PROCESS helper: walks flagged-object list 0x5fe010 and calls 0x475800 on cars whose driver field is set
+0043d1b0	Mission_SetProcessTrigger	mission	med	Stores trigger index that started script process N (0x6762c8[N])
+0043d1c0	Mission_GetTargetScore	mission	med	Returns TARGET_SCORE value (0x6b3b84)
+0043d1d0	Mission_GetMissionTotal	mission	med	Returns MISSION_TOTAL value (0x6b3b78) or 0
+0043d1e0	Mission_GetSecretTotal	mission	med	Returns SECRET_MISSION_COUNTER total (0x67638c) or 0
+0043d1f0	Mission_GetCounterRemaining	mission	med	MISSION_COUNTER object: target minus current
+0043d220	Mission_GetSecretRemaining	mission	med	SECRET_MISSION_COUNTER object: target minus current
+0043d250	Mission_ForgetObjectHandle	mission	med	Sets runtime handle of script object (by line number) to -1
+0043d270	Mission_PutPedInCar	mission	med	Puts ped into car as driver (state 7, objective 0x19, car id, health 100)
+0043d2b0	Mission_GetPlayerPhoneFlag	mission	low	Returns per-player byte 0x6b3b74 (set when MPHONE answered)
+0043d2c0	Mission_SpawnCar	mission	high	Object type CAR: creates car (0x475840) + driver, links to script line, adds to cleanup list
+0043d3c0	Mission_SpawnTelephone	mission	high	Object type TELEPHONE: creates phone object at block centre, stores ring param
+0043d460	Mission_SpawnPed	mission	high	Object type PED: creates ped of sub-type p1 via 0x4773f0..0x477b50 family, sets remap, type 99
+0043db30	Mission_SpawnCarBomb	mission	med	Object type CARBOMB: car with bomb (0x4764a0)
+0043dc00	Mission_SpawnHells	mission	med	Object type HELLS: car with driver, type set 0x1b
+0043dce0	Mission_SpawnDriverPark	mission	med	Object type DRIVER_PARK: parked car whose driver is ped id car+200
+0043ddc0	Mission_SpawnMovingTrig	mission	med	Object type MOVING_TRIG: trigger (kind 0xb) attached to a car
+0043dea0	Mission_SpawnSpecificBarrier	mission	med	Object type SPECIFIC_BARR: door/barrier opened by a specific car
+0043df70	Mission_SpawnSpecificDoor	mission	med	Object type SPECIFIC_DOOR: door opened by specific car
+0043e040	Mission_SpawnSpecificDoorBomb	mission	med	Object type SPECIFIC_DOOR_BOMB
+0043e100	Mission_SpawnPedCarTrig	mission	med	Object type PEDCAR_TRIG: trigger linking ped+car (kind 0x1e)
+0043e1b0	Mission_SpawnParkedPixels	mission	med	Object type PARKED_PIXELS: parked car at pixel coordinates
+0043e280	Mission_StopProcess	mission	med	Deactivates script process N, releases its linked handle 0x6b3de8
+0043e2b0	Mission_KillProcess	mission	med	Fully resets script process N (active, pc, timer, state, trigger)
+0043e310	Mission_BranchSuccess	mission	high	Returns next PC from command field 2 (0=next,-1=end process,else label)
+0043e3b0	Mission_BranchFail	mission	high	Returns next PC from command field 3
+0043e450	Mission_AwardScore	mission	high	Adds command field 5 score to process owner player (0x461f20)
+0043e4a0	Mission_EndAll	mission	med	Stops all 32 processes and stores result code for every player (0x6b3b30)
+0043e4f0	Mission_EnableObject	mission	med	ENABLE helper: per object type re-arms trigger/door (0x474db0..)
+0043e680	Mission_GetObjectPos	mission	high	Position (and size/extra) of script object by line number, per object type
+0043e870	Mission_GetObjectHealth	mission	high	Remaining health of script car/ped (0 = dead/wrecked)
+0043e980	MissionOp_LocateStopped	mission	high	Opcode 0x00 LOCATE_STOPPED
+0043eb50	MissionOp_Goto	mission	high	Opcode 0x15 GOTO: wait until player at object block
+0043ed90	MissionOp_Destroy	mission	high	Opcode 0x01 DESTROY: wait until object health 0
+0043ef80	MissionOp_Answer	mission	high	Opcode 0x02 ANSWER: ring phone, wait for player
+0043f360	MissionOp_Steal	mission	high	Opcode 0x03 STEAL: wait until player in car
+0043f580	MissionOp_DummyDriveOn	mission	high	Opcode 0x53 DUMMY_DRIVE_ON
+0043f760	MissionOp_SendTo	mission	high	Opcode 0x09 SENDTO
+0043f950	MissionOp_MakeObj	mission	high	Opcode 0x0b MAKEOBJ: creates object (0x478790)
+0043fb20	MissionOp_MPhone	mission	high	Opcode 0x10 MPHONE: multi-phone ring/answer, purges other processes on answer
+00440040	MissionOp_Crane	mission	high	Opcode 0x16 CRANE: crane delivery with messages crane0..5, score
+00440790	Mission_GetParkExitPos	mission	med	Returns park/garage exit x,y,angle (0x6765f4/0x6765f8/0x6b3b7c)
+004407c0	MissionOp_Park	mission	high	Opcode 0x17 PARK: drive car into garage, door, camera, exit player
+00441320	MissionOp_RedArrow	mission	high	Opcode 0x90 RED_ARROW: point arrow at object (0x4819b0)
+004414e0	MissionOp_RedArrowOff	mission	high	Opcode 0x92 RED_ARROW_OFF
+00441600	MissionOp_PedOn	mission	high	Opcode 0x1f PED_ON: spawn deferred ped
+00441cd0	MissionOp_CarOn	mission	high	Opcode 0x21 CAR_ON: spawn deferred car + driver
+00441fd0	MissionOp_PedSendTo	mission	high	Opcode 0x26 PED_SENDTO: walk ped to point
+004421a0	MissionOp_DoRepo	mission	high	Opcode 0x2a DO_REPO
+004423f0	MissionOp_StartModel	mission	high	Opcode 0x2f START_MODEL
+004427c0	MissionOp_DoModel	mission	high	Opcode 0x30 DO_MODEL
+00442ca0	MissionOp_ReturnControl	mission	high	Opcode 0x31 RETURN_CONTROL
+00442fc0	MissionOp_GotoDropoff	mission	high	Opcode 0x39 GOTO_DROPOFF
+004431d0	MissionOp_ModelHunt	mission	high	Opcode 0x3a MODEL_HUNT
+00443440	MissionOp_ModelFuture	mission	high	Opcode 0x3b MODEL_FUTURE
+00443690	MissionOp_ChangePedType	mission	high	Opcode 0x45 CHANGE_PED_TYPE
+00443a90	MissionOp_PedOutOfCar	mission	high	Opcode 0x4b PED_OUT_OF_CAR
+00443f20	MissionOp_GetDriverInfo	mission	high	Opcode 0x4e GET_DRIVER_INFO
+00444180	MissionOp_FrenzyBrief	mission	high	Opcode 0x87 FRENZY_BRIEF
+004442b0	MissionOp_AddALife	mission	high	Opcode 0x88 ADD_A_LIFE
+004443d0	MissionOp_KFBriefTimed	mission	high	Opcode 0x89 KF_BRIEF_TIMED
+004444b0	MissionOp_KFCancelBriefing	mission	high	Opcode 0x8a KF_CANCEL_BRIEFING
+004445d0	MissionOp_KillPed	mission	high	Opcode 0x4f KILL_PED
+004448a0	MissionOp_IsPowerupDone	mission	high	Opcode 0x85 IS_POWERUP_DONE
+00444b60	MissionOp_KFBriefGeneral	mission	high	Opcode 0x8b KF_BRIEF_GENERAL
+00444c40	MissionOp_KFCancelGeneral	mission	high	Opcode 0x8c KF_CANCEL_GENERAL
+00444d60	MissionOp_ResetKF	mission	high	Opcode 0x8e RESET_KF
+00444f30	MissionOp_WaitForPlayers	mission	high	Opcode 0x8f WAIT_FOR_PLAYERS
+004450f0	MissionOp_IsATrainWrecked	mission	high	Opcode 0x93 IS_A_TRAIN_WRECKED
+00445290	MissionOp_IncHeads	mission	high	Opcode 0x94 INC_HEADS
+004453c0	MissionOp_IsPedStunned	mission	high	Opcode 0x95 IS_PED_STUNNED
+00445580	Mission_OnBriefDone	mission	low	Callback with event/brief code: resets flags, wakes car/ped ids >=200
+00445670	Mission_GetResultText	mission	high	Appends localized result text (m22success/failed/dead/arrest/timeout/score...) and returns local score
+00445800	Mission_Load	mission	high	Parses the mission section: header ints, object list (type table 0x4b0d98), command list (opcode table 0x4b0ec0), resets all script state
+00446fe0	Mission_Update	mission	high	Per-frame: runs every active script process (0..31), player respawn countdown, ends level when all inactive
+004471a0	Mission_StepProcess	mission	high	Script interpreter: executes current command of process 0x6b3b70 (switch over 150 opcodes)
+0044ab40	Dbg_Nop	mission	med	Empty stub (debug trace stripped), called from many places
+0044ab50	Mission_SetIniSection	mission_ini	high	Selects mission.ini section number (0..2000) to load
+0044ab80	Mission_GetIniSection	mission_ini	high	Returns selected mission.ini section number
+0044ab90	Mission_ReadIni	mission_ini	high	Opens ..\gtadata\mission.ini, finds [N], reads name, cmp file, style number and section text (max 0x37001), loads map + style
+0044acc0	Mission_FreeIni	mission_ini	high	Frees mission text buffer
+0044ace0	Ini_PeekToken	mission_ini	med	Skips spaces/{comments}; reports whether next char starts a value
+0044ad50	Ini_ReadInt	mission_ini	high	Reads signed decimal int, skipping whitespace and {..} comments
+0044ade0	Ini_ReadWord	mission_ini	high	Reads whitespace-delimited word into buffer
+0044ae50	Ini_ReadIntChecked	mission_ini	high	Reads int on same line, fatal error if not a number
+0044aed0	Ini_ReadCoords	mission_ini	high	Parses '(x,y,z)'
+0044b130	Ini_ReadOptDigit	mission_ini	high	Returns digit before '(' or -1 if none (object persistence flag)
+0044b160	Movie_PlayIntro	movie	high	Plays ..\gtadata\movie.smk via SMACKW32 ordinals onto the DirectDraw surface until key
+0044b310	Map_TestBlockAttr	map_query	high	Queries cached block info at x,y,z: railway, traffic-light kinds, road/pavement type, direction bits, slope
+0044b4a0	Area_LocalizeNames	area	high	Replaces nav-zone names with FXT text '%03darea%03d' (city, sample)
+0044b510	Area_LoadDirPrefixes	area	high	Loads FXT direction prefixes s,n,e,w,c,se,ne,sw,nw (22 bytes each at 0x6b3eb8)
+0044b590	Area_SetNavData	area	high	Sets nav-zone table pointer and count (size/35)
+0044b5c0	Area_GetName	area	high	Builds 'direction + area name' string for block x,y; returns zone*256+dir or -1
+0044b6d0	Area_SubDirection	area	high	3x3 sub-zone direction index of a point inside a zone
+0044b7b0	Area_GetSample	area	high	Returns zone sample (voice) and direction for block x,y
+0044b8a0	Net_SetRole	net	med	Sets network role (0 host, 1 client) 0x6b4064
+0044b8b0	Net_InitPlayers	net	med	Sets local player index 0x74f83c and player count from network layer
+0044b900	Net_unk_0044b900	net	low	If network game: calls 0x412a00
+0044b910	Net_unk_0044b910	net	low	If network game: calls 0x412980
+0044b920	Net_unk_0044b920	net	low	If network game: calls 0x412960
+0044b930	Net_SyncFrameInputs	net	high	Lock-step exchange of per-frame input words between players (seq byte, checksum, resend, 12s timeout, connlost)
+0044bd30	Net_ResetSync	net	med	Clears pending future-frame input slots
+0044bd70	Net_StartHandshake	net	high	Network game start: host/client exchange names, colours, mission number; 8s timeout
+0044c1b0	Net_BuildChatPrefix	net	med	Builds chat prefix 'name:' or '-> name' for message target
+0044c2d0	Obj_Get	obj	high	Returns object struct (0x6b40d0 + id*0x88)
+0044c2f0	Obj_IsOnScreen	obj	high	True if object inside any player's view rectangle
+0044c3a0	Obj_UpdateSprite	obj	high	Sets object sprite frame from its state (+0xc) and object_info spr_num
+0044c5f0	Obj_SetState	obj	high	Sets object state and refreshes sprite
+0044c620	Obj_InitFromMap	obj	high	Creates all CMP object_pos entries: objects, or parked cars when remap>=0x80; clears rest of pool
+0044c870	Obj_CreateStatic	obj	high	Initialises a map object at fixed slot (position, lists by status)
+0044cab0	Obj_ListRotate	obj	low	Swaps first two entries of attached-object list 0x6b40c4
+0044cad0	Obj_CreateAttached	obj	high	Creates object attached to car/ped/obj with local offset, links into attached list
+0044cef0	Obj_Create	obj	high	Creates free object of type at x,y,z (validates map cell, limits, lists)
+0044d360	Obj_DeleteByOwner	obj	med	Deletes all objects whose owner id (+0x14) matches
+0044d3d0	Obj_CreateAnimated	obj	med	Creates animated object with random start state and owner
+0044d5d0	Obj_Kick	obj	high	Gives object speed/heading from an impact (start moving/tumbling)
+0044d790	Obj_UpdateAll	obj	high	Per-frame object update: moving/thrown objects physics, animated objects, attached objects
+0044ea30	Obj_UnlinkAnimated	obj	med	Removes object from animated list 0x728430, detaches from owner
+0044eb30	Obj_RemoveMoving	obj	med	Unlinks object from moving list 0x6b40bc then deletes
+0044eb90	Obj_Delete	obj	high	Frees object slot, unregisters from grid and lists
+0044ecc0	Obj_OnCarWrecked	obj	med	Explosion at car and switches car-attached objects to wreck types 0x26/0x27
+0044ed30	Obj_SetFlagE2	obj	low	Sets object +0x12 = 1
+0044ed50	Obj_DeleteWrapper	obj	med	Thunk to Obj_Delete
+0044ed60	Obj_LoadInfos	obj	high	Indexes style object_info records (20+2*num_into bytes) into table 0x5c2c78, converts sizes to 16.16, rebases sprite numbers
+0044ee20	Obj_SetMapObjects	obj	high	Sets CMP object_pos array pointer and count (size/14)
+0044ee50	Ped_TestCollision	ped	low	Collision-box query at ped position, true if something hit
+0044eea0	Ped_MakePolice	ped	med	PED_POLICE: clears remap, graphic type 1 (cop)
+0044eed0	Ped_SetWeapon	ped	med	Sets ped weapon 1..4 (+0x60), fatal otherwise
+0044ef10	Ped_GetGroupLeaderPos	ped	low	Returns position of active group leader (Elvis-style follower group)
+0044ef60	Ped_SetMoveSpeed	ped	low	Sets byte +8 to 6 (fast) or 4 (normal)
+0044ef80	Ped_SetFlag4A	ped	low	Sets byte +0x4a flag
+0044efa0	Ped_WalkToCarSideA	ped	med	Sets walk target to car-relative offset (car +0x24/+0x26), one side
+0044f040	Ped_WalkToCarSideB	ped	med	Same as above, mirrored side
+0044f0e0	Ped_SetControlType	ped	low	Sets ped +0x10 (player/control type)
+0044f100	Ped_UpdateSprite	ped	high	Chooses ped sprite frame from anim state, weapon and graphic type (base 0x774ef8, 0xbd frames per graphic)
+0044f210	Ped_GetCopLook	ped	med	Returns graphic 1 and cop remap (0x4b2144)
+0044f230	Ped_Reset	ped	high	Clears ped slot fields to defaults
+0044f370	Ped_InitAll	ped	high	Initialises 620 ped slots (driver slots 200..600 bound to cars) and random remaps
+0044f500	Ped_Get	ped	high	Returns ped struct (0x7284e0 + id*0x100)
+0044f510	Ped_EjectDriver	ped	high	Takes car's driver out: places ped at car position, exit anim
+0044f680	Ped_SpawnInSlot	ped	med	Spawns ped in given slot at position with anim/state
+0044f7a0	Ped_CreateCarDriver	ped	high	Creates driver ped (id car+200) inside car
+0044f8d0	Ped_LeaveGroup	ped	med	Removes ped from follower group (0x728498, stride 0x1c), disbands if leader
+0044fa70	Ped_Animate	ped	high	Advances ped animation state machine (+0x18) and side effects (footsteps, deaths, objects)
+00452f30	Ped_PanicNear	ped	high	Makes peds near a point flee/react (gunshot/explosion), screams
+00453210	Ped_StartFiring	ped	med	Sets firing flag (+0x46) for ped or car driver
+00453260	Ped_StopFiring	ped	med	Clears firing flag
+00453280	Ped_ClearTargetsInBlock	ped	med	Clears walk targets of peds 0..199 pointing into given block
+004532d0	Ped_SetWeaponRaw	ped	med	Sets ped +0x60 weapon
+004532f0	Ped_FireWeapon	ped	high	Fires current weapon (pistol/MG/flame/rocket projectiles + sounds), consumes player ammo
+00453480	Ped_IsOnScreen	ped	high	Ped inside any player's view rectangle
+00453540	Ped_IsVisibleRecent	ped	high	On screen or seen within last 30 frames
+00453630	Pos_IsNearScreen	ped	med	Point within view rect + 0x140 margin of any player
+004536d0	Ped_IsNearScreen	ped	med	Ped within view rect + 0x140 margin
+004537b0	Ped_SpawnAmbient	ped	high	Spawns random pedestrian just off-screen on pavement (and occasional follower group)
+00453e90	Ped_Create	ped	high	Allocates free ped (0..199) at position with anim, optional follower of group
+00454090	Ped_CreateInSlot	ped	med	Re-creates ped in a specific slot at position
+00454180	Ped_CreateSpecial	ped	med	Allocates ped in slots 600..619 (cop look), attached/escort fields
+004542e0	Ped_CreateWithAnim	ped	med	Allocates ped with given anim, state 0x16
+00454430	Ped_CreateAnim41	ped	low	Ped_CreateWithAnim with anim 0x41
+00454460	Ped_PlaceAndSend	ped	med	Teleports ped and sends it to a destination (mode 0x39)
+004544e0	Map_GetGroundZ	ped	high	Ground height under x,y starting at z using block type/slope (cell map 0x55fab0)
+00454c60	Map_SlopeDelta	ped	high	Height change across a slope type between two points
+00454dd0	Ped_SitInCar	ped	high	Ped takes driver seat of car (old driver kicked out), anim set
+00455040	Ped_SteerToTarget	ped	high	Turns ped towards target with obstacle probing
+00455c50	Ped_CanSidestep	ped	med	Probes side direction for free space
+00455dc0	Ped_IsDirClear	ped	high	Short-range walkability test in a direction (buildings/air/objects/cars)
+00455fc0	Ped_IsDirClearFar	ped	high	Long-range walkability test in a direction
+004561c0	Ped_TurnAtObstacle	ped	med	Snaps to axis and picks left/right turn when blocked
+00456640	Ped_CheckAhead	ped	low	Checks for obstacle/building 0x30..0x60 ahead
+00456770	Ped_AttackTarget	ped	high	Aims/approaches target ped or car per objective, fires
+00456ec0	Ped_ChooseTurn	ped	low	Chooses turn direction from heading and relative position
+00456fb0	Ped_ComputeStep	ped	high	Computes next ped position from objective/state (walk, run, follow, enter car...)
+00458ca0	Ped_AvoidPed	ped	med	Collision response vs another ped
+00459070	Ped_CanMoveForward	ped	med	Small forward probe for walls/objects
+00459130	Ped_AvoidObject	ped	med	Collision response vs object
+00459430	Map_FindWalkableZ	ped	med	Finds walkable z level at x,y near given z
+004595b0	Ped_SlopeAdjust	ped	low	Per-slope-type adjustment (switch on slope id 0..0x2c)
+00459770	Ped_CheckWallHit	ped	med	Tests probe corners against buildings/air, bounces ped
+00459860	Ped_AvoidCar	ped	med	Collision response vs car (walk around)
+00459b60	Ped_StepToPavement	ped	med	Moves ped onto adjacent pavement cell
+00459d10	Ped_StepOutOfBuilding	ped	med	Moves ped out of building cell
+00459ec0	Ped_WalkTowardPavement	ped	low	Walks in direction until pavement cell found
+0045a090	Ped_CheckCrossing	ped	med	Road-crossing check using block traffic-light attribute
+0045a3b0	Ped_Process	ped	high	Per-ped movement/collision step (calls steering, step, ground z, collisions)
+0045cbb0	Ped_UpdateRiding	ped	med	Ped attached to car/object/ped: follows parent position
+0045cd50	Ped_UpdateAll	ped	high	Per-frame update of all 620 peds incl. player input (+0x1c), deaths, spawning
+0045d3c0	Ped_UpdateAllThunk	ped	med	Thunk to Ped_UpdateAll
+0045d3d0	Ped_PlayerExitCar	ped	high	Player leaves controlled car (speed limit, door side, ped placement)
+0045ddc0	Ped_FinishEnterCar	ped	high	Completes entering car: ped becomes driver, car takes control
+0045def0	Ped_TryEnterCar	ped	high	Player enter key on foot: searches nearby cars, walks to door
+0045ed10	Ped_DriverLeaveCar	ped	high	Driver exits car (side chosen by walls), anims, frees car
+0045f4a0	Ped_SendToCarDoor1	ped	med	Walk target to car door 1 (car info +0xae/+0xb0)
+0045f5e0	Ped_EnterExitKey	ped	high	Enter/exit key handler: on foot -> try enter, in car -> exit
+0045f650	Ped_EnterExitKeyAlt	ped	med	Variant: on foot -> try enter, else exit at park point
+0045f670	Ped_SetTurnInput	ped	med	Applies player turn input (clamped +-0x30) to ped
+0045f780	Ped_SetDestination	ped	high	Sets ped target x,y,angle and mode
+0045f810	Ped_SetDestObjective36	ped	low	Sets target and objective 0x36
+0045f850	Ped_SendToCarDoor2	ped	med	Walk target to car door 2 (car info +0xb6/+0xb8)
+0045f980	Ped_RespawnBesideCar	ped	low	Recreates inactive player ped beside its car after delay
+0045fa50	Ped_SetPlayerControlled	ped	high	Marks ped as player-controlled (+0x1c=1)
+0045fa70	Ped_ClearPlayerControlled	ped	high	Clears player control, objective wander
+0045faa0	Ped_Remove	ped	high	Deactivates ped and unregisters sprite
+0045fb00	Ped_GetPosRect	ped	med	Returns static pos record (x,y,z,8x8,speed,angle) for camera/targets
+0045fb60	Ref_GetKind1PosRect	ped	low	Same record for reference kind 1 (via 0x46a9f0 table 7)
+0045fbe0	Ped_unk_0045fbe0	ped	low	Returns 0x74f0f8
+0045fbf0	Ped_SetHealth	ped	high	Sets ped health byte (+0x49)
+0045fc10	Ped_SetAppearance	ped	med	Sets graphic type and remap (table 0x4b20b0)
+0045fc60	Ped_ExitCarAtParkPoint	ped	med	Player leaves car and is placed at mission park exit position
+0045ffb0	Map_FindPavementAlongRoad	ped	med	From a road cell follows direction bits to find free pavement
+004601a0	Player_RespawnAtStation	ped	high	Respawns player at nearest police station (0) or hospital (1) from CMP location data
+00460500	Player_RespawnMulti	ped	med	Network respawn at a free location-data point
+00460770	Ped_IsState9	ped	low	Ped state (+0x70) == 9
+00460790	Ped_IsState10	ped	low	Ped state (+0x70) == 10
+004607b0	Phys_AddForceAtPoint	carphys	high	Rigid body: accumulate force and torque at body/world point
+00460880	Phys_Integrate	carphys	high	Rigid body: integrate velocity/angle, recompute centre, clear accumulators
+00460950	Phys_PointVelocity	carphys	med	Velocity of a body point (x87 cos/sin)
+00460a20	CarPhys_Begin	carphys	med	Switches car to float physics: load params, angle, set flag +0x144
+00460ab0	CarPhys_End	carphys	med	Clears float-physics flag +0x144
+00460ad0	CarPhys_LoadParams	carphys	high	Loads mass/inertia/grip from car info into body, zeroes velocities
+00460b90	CarPhys_Reset	carphys	med	Reloads params and angle from integer car state
+00460be0	CarPhys_Step	carphys	high	Per-frame car dynamics: front/rear tyre forces, steering, handbrake, integrate
+004613c0	Phys_BounceXY	carphys	med	Reflects and damps both velocity components
+00461450	Phys_BounceX	carphys	med	Reflects and damps X velocity
+004614a0	Phys_BounceY	carphys	med	Reflects and damps Y velocity
+004614f0	Phys_SyncFromCentre	carphys	med	Recomputes body reference point from centre and angle
+00461570	CarPhys_SetImpact	carphys	med	Stores collision impulse on other car (+0x230..+0x240)
+004615e0	CarPhys_BeginSpin	carphys	low	Begin physics with random spin direction
+004616b0	Player_GetColourName	player	med	FXT name of local player colour (yellow, green, ...)
+00461710	Player_GetColourIndex	player	med	Table 0x4b21dc lookup
+00461720	Player_GetRemap	player	med	Player remap from colour byte (+0x1b4) table 0x4b21e0
+00461740	Player_SetViewed	player	med	Sets viewed player 0x74f844
+00461750	Player_GetViewed	player	med	Returns viewed player
+00461760	Player_IsViewedLocal	player	med	Viewed player == local player
+00461780	Player_IsLocal	player	high	Index == local player 0x74f83c
+004617a0	Player_ClearWantedPoints	player	med	Wanted points := 0 for player owning ped
+004617e0	Player_AddWantedPoints	player	high	Adds wanted points (cap 2000) for player owning ped
+00461840	Player_GetWantedPoints	player	med	Wanted points of player owning ped
+00461890	Player_ClearWantedLevel	player	med	Wanted level := 0
+004618d0	Player_AnyWanted	player	med	True if any player wanted level > 2
+00461910	Player_SetWantedLevel	player	med	Sets wanted level of player owning ped
+00461960	Player_GetWantedLevelByPed	player	med	Wanted level (default 5)
+004619b0	Player_GetWantedLevel	player	med	Wanted level by player index
+004619d0	Player_GetWantedPointsIdx	player	med	Wanted points by player index
+004619f0	Player_NextWeapon	player	high	Cycles to next weapon with ammo
+00461a50	Player_PrevWeapon	player	high	Cycles to previous weapon with ammo
+00461ac0	Player_GetWeapon	player	high	Current weapon index
+00461ae0	Player_GetAmmo	player	high	Ammo for weapon slot
+00461b00	Player_SelectWeapon	player	med	Selects weapon slot
+00461b50	Player_AddAmmo	player	high	Adds ammo (cap 99), auto-selects
+00461bd0	Player_StartFrenzyWeapon	player	med	Kill-frenzy: unlimited weapon (ammo 100) with timer, saves previous
+00461c50	Player_GetFrenzyTimer	player	med	Frenzy timer +0x1ac
+00461c70	Player_EndFrenzyWeapon	player	med	Restores weapon saved before frenzy
+00461d10	Player_HasFrenzyWeapon	player	med	True if any weapon has ammo 100
+00461d40	Player_UseAmmo	player	high	Consumes one shot (MG/flame use 5-shot sub-counter)
+00461df0	Player_SetPedField198	player	low	Sets +0x198 for player owning ped
+00461e40	Player_GetPedField198	player	low	Gets +0x198 for player owning ped
+00461e90	Player_SetPed	player	high	Sets player's ped id (+2)
+00461ec0	Player_GetPed	player	high	Player's ped id
+00461ee0	Player_GetScoreStrings	player	med	Pointers to score digit strings and multiplier string
+00461f20	Player_AddScore	player	high	Adds points*multiplier (cap 999999999), optional floating score
+00461f90	Player_SubScore	player	med	Subtracts score (floor 0)
+00461fc0	Player_GetFlagFA	player	low	Byte +0xfa
+00461fe0	Player_SetFlagFA	player	low	Sets byte +0xfa
+00462000	Player_AwardBonus	player	high	Scores an event kind with chain multiplier (kills, wrecks, bonuses)
+004628f0	Player_GetTotalKills	player	med	Total counter [kind] (+0x110)
+00462910	Player_GetKills	player	med	Current counter [kind] (+0xfc)
+00462930	Player_ResetKills	player	med	Clears 5 current counters
+00462960	Player_IncKills	player	med	Increments current and total counter [kind]
+004629b0	Player_SetField1A4	player	low	Sets +0x1a4
+004629d0	Player_AnyField1A4Is	player	low	Any player with +0x1a4 == value
+00462a10	Player_IsCarPlayerDriven	player	med	Car id belongs to a player's ped (ped-200)
+00462a60	Player_IsCarViewTarget	player	med	Car is some player's view target
+00462ab0	Player_UpdateScoreDigits	player	med	Formats score and rolls displayed digits
+00462b70	Player_GetScore	player	high	Score (+0xf4)
+00462b90	Player_SetNameColour	player	med	Copies name, sets colour byte
+00462bd0	Player_GetName	player	high	Player name string (+0xe4)
+00462bf0	Player_GetColour	player	med	Colour byte (+0x1b4)
+00462c10	Player_GetViewedName	player	med	Name of viewed player
+00462c30	Player_GetViewRect	player	high	Player view rectangle (xmin,xmax,ymin,ymax) at +4
+00462c50	Player_SetControlled	player	high	Sets controlled object ref (kind,id) +0xbc/+0xc0
+00462c80	Player_SetViewTarget	player	high	Sets camera target ref (kind,id) +0xd0/+0xd4
+00462cb0	Player_SetViewFixed	player	med	Camera target kind 3 at fixed x,y,z
+00462d00	Player_SetViewFixed4	player	med	Camera target kind 4 at fixed x,y,z
+00462d50	Player_GetViewTargetPos	player	high	Position record of camera target per kind
+00462e10	Player_GetViewFocusPos	player	med	Camera target pos, falling back to controlled for fixed kinds
+00462ef0	Player_GetControlledPos	player	high	Position record of controlled object (car/ped/...)
+00462f80	Player_GetViewKind	player	med	Camera target kind
+00462fa0	Player_GetViewId	player	med	Camera target id
+00462fc0	Player_GetControlledKind	player	high	Controlled kind (0 car, 2 ped, ...)
+00462fe0	Player_GetControlledId	player	high	Controlled id
+00463000	Player_ControlViewTarget	player	med	Controlled := camera target (unless fixed)
+00463040	Player_ResetView	player	high	Camera target := controlled object
+00463070	Player_AddMultiplier	player	high	Adds to score multiplier
+00463090	Player_GetMultiplier	player	high	Score multiplier
+004630b0	Player_AddLife	player	high	Lives +1 (cap 99)
+004630e0	Player_GetLives	player	high	Lives
+00463100	Player_Wasted	player	high	Player died: restore temp weapons, drop armour/speed-up, clear weapon, show WASTED (fxt 4004) for view player, dec lives; returns true if a life remains
+00463280	Player_ClearInitFlag	player	med	Clears players-initialised flag 0x74f848
+00463290	Player_InitAll	player	high	Resets all 4 player records (weapons, armour, score strings, multiplier, lives 4/infinite, cheats 999999999 score/99 ammo), copies state->camera state; sets 0x74f848
+00463680	Player_GetArmour	player	high	Returns armour hits (+0x1a8)
+004636a0	Player_DecArmour	player	high	Decrements armour hits, clamped at 0
+004636d0	Player_SetArmour	player	high	Sets armour hits
+004636f0	Player_GetSpeedUpTimer	player	med	Returns speed-up power-up timer (+0x1aa)
+00463710	Player_SetSpeedUpTimer	player	med	Sets speed-up power-up timer
+00463730	Player_SetTimer1ae	player	low	Sets short at +0x1ae (-1 = off, counts down per frame)
+00463750	Player_GetTimer1ae	player	low	Gets short at +0x1ae
+00463770	Player_SetTimer1b0	player	low	Sets short at +0x1b0 (counts down per frame)
+00463790	Player_GetTimer1b0	player	low	Gets short at +0x1b0
+004637b0	Player_RemovePowerUps	player	high	Clears armour and speed-up on player and their ped, resets +0x1ae timer
+00463830	Player_SetFlag001	player	low	Sets byte +0x01 of player record
+00463850	Player_GetFlag001	player	low	Gets byte +0x01 of player record
+00463870	Player_SetLocalFlag1b2	player	low	Sets byte +0x1b2 of the local player (0x74f844)
+00463890	Player_GetLocalFlag1b2	player	low	Gets byte +0x1b2 of the local player
+004638b0	Player_GetViewFlag1b2	player	low	Gets byte +0x1b2 of the view player (0x74f83c)
+004638d0	Player_SetLocalFlag1b3	player	low	Sets byte +0x1b3 of the local player
+004638f0	Player_GetLocalFlag1b3	player	low	Gets byte +0x1b3 of the local player
+00463910	Player_GetViewFlag1b3	player	low	Gets byte +0x1b3 of the view player
+00463930	Player_SetLocalVal184	player	low	Sets int +0x184 of the local player
+00463950	Player_GetLocalVal184	player	low	Gets int +0x184 of the local player
+00463970	Player_GetViewVal184	player	low	Gets int +0x184 of the view player
+00463990	Player_SetFootAux198	player	low	On foot only: sets short +0x198 to +4/0/-4 from a -1/0/1 argument, then updates the ped (0x45f670)
+00463a10	Player_EnterCar	player	med	Player whose ped is param leaves foot state and becomes state 0 (in car param_2); camera follows car
+00463b00	Player_RetargetCamera	player	med	Replaces camera target (kind,id) with new pair for every player tracking it
+00463b70	Player_TrainCrashKick	player	low	For players riding train N clears their ped flag +0x49; returns whether any matched
+00463be0	Player_ExitTrain	player	med	Calls 0x45f650 on player state, camera kind 3 -> 4, clears fire/jump bytes
+00463c40	Player_ExitCar	player	med	Player leaves car param_2 and is on foot as ped param_1 (state 2); camera follows ped
+00463d50	Player_BoardTrain	player	med	Sets player (by ped) state 1 = on train, id = train index from ped+0x8c
+00463dd0	Player_SetOnFoot	player	med	Sets player (by ped) state 2 on foot with that ped id
+00463e50	Player_OnLeaveVehicle	player	low	Ped hook 0x45fa70 then for state 0 calls car helper 0x408300; asserts valid state
+00463ec0	Player_ApplyInput	player	high	Decodes a packed per-frame control word into the local player's control bytes (steer, accel, fire, enter/exit car or train, weapon next/prev, handbrake)
+004642b0	Player_ToggleVehicle	player	med	Enter/exit action: calls 0x45f5e0 and resyncs camera target with state
+004643a0	Input_GetHighBits	player	low	Returns control word >>23 if bit 6 set, else 0
+004643b0	Player_GetScore_004643b0	player	high	Returns score int +0xf4
+004643d0	Player_ClearKillFlag	player	med	Clears byte +0x1a0 (frag processed) for player owning ped
+00464420	Player_GetFrags	player	med	Returns multiplayer frag count +0x19c
+00464440	Player_FindByPed	player	high	Returns player index whose ped id matches, else -1
+00464480	Player_GetMode188	player	low	Gets byte +0x188 (0..2)
+004644a0	Player_SetMode188	player	low	Sets byte +0x188, asserts 0..2
+004644e0	Player_GetViewport	player	high	Returns pointer to player viewport block (+0x18)
+00464500	Player_SetViewport	player	high	Sets viewport width/height, half sizes, 16.16 copies and non-4:3 flag
+00464580	Player_GetCamera	player	high	Returns pointer to player camera block (+0x48)
+004645a0	Player_GetBlockAC	player	low	Returns pointer to player sub-block at +0xac
+004645c0	Player_GetAccelByPed	player	med	Control byte +0x191 (accelerate/brake axis) for player owning ped
+00464610	Player_GetAxis2ByPed	player	low	Control byte +0x192 for player owning ped
+00464660	Player_GetFireByPed	player	med	Control byte +0x193 (fire) for player owning ped
+004646b0	Player_GetSteerByPed	player	med	Control byte +0x194 (steering -8..8) for player owning ped
+00464700	Player_GetMoveFlagByPed	player	low	Control byte +0x195 for player owning ped
+00464750	Player_GetJumpByPed	player	low	Control byte +0x196 (handbrake/special) for player owning ped
+004647a0	Player_SetTimer18c	player	low	Sets int +0x18c countdown (dec per frame)
+004647c0	Player_SetFlag189	player	low	Sets byte +0x189
+004647e0	Player_HasTempWeapon	player	med	True if +0x1ae timer active or any weapon slot holds the temporary marker 100
+00464820	Player_Busted	player	high	Marks player busted (+0x00 = 1), plays voice 12, shows BUSTED (fxt 4003), sets respawn delay
+00464880	Player_UpdateAll	player	high	Per-frame player tick: busted handling/respawn, camera-box checks, timers, power-up expiry, car alarm timer, multiplayer frags
+00464ba0	Player_ClearWeapons	player	med	Clears ammo slots and current weapon, updates ped
+00464be0	Player_HalveMultiplier	player	high	Halves score multiplier (min 1) on bust
+00464c10	Player_UpdateCarAlarmTimer	player	low	In-car: counts +0x1b8 down while car flag +0x11a == 1, stops alarm/siren (0x40ac30) on timeout
+00464c90	Player_UpdateFrags	player	high	Multiplayer: credits frags to killer, checks frag target, prints You Fragged / Fragged by
+00464e20	Police_FlushObjectDeleteQueue	police	med	Deletes queued objects (0x504f68 list) that are off-screen; compacts the list
+00464ec0	Police_ShowCriminalRecord	police	high	Builds Criminal Record text from crime counters (crimeRTA..crimeBAN) and shows it; clears counters
+004650e0	Cop_ResetToPatrol	police	med	Stops siren, sends cop car back to patrol route or releases it; returns cop ped
+004651c0	Cop_CheckPedState	police	low	Checks cop's foot ped state vs target; may drop cop from pursuit; returns 0 if dismissed
+00465300	Police_SpawnPatrolCars	police	med	Spawns initial police cars at start nodes of CMP routes (slots 50+), up to 100
+004654c0	Police_SpawnCarAtTarget	police	low	Police_SpawnCar at block packed in 0x74f850
+004654f0	Police_SpawnCar	police	high	Creates police car+driver at block (x,y,z), heading from road direction bits, binds to controller
+00465760	Pursuit_RemoveCop	police	high	Removes a controller from its pursuit group cop list, compacts, clears lead
+00465870	Cop_Dismiss	police	low	Removes car's controller from pursuit, frees it and sends its ped off
+004658f0	Roadblock_RemoveCar	police	med	Removes car from its roadblock list; frees roadblock when empty
+00465a40	Cop_Release	police	high	Releases a police controller: queues object, leaves pursuit/roadblock, frees ped/car, frees path owner
+00465b20	Police_FindNearestCar	police	med	Nearest patrolling police car (states 1/4/6) to a world point, Manhattan in blocks
+00465bc0	Pursuit_FindFarthestCop	police	med	Cop in pursuit group farthest from the target
+00465cf0	Pursuit_FindNearestCop	police	med	Cop in pursuit group nearest to the target
+00465e30	Cop_HasClearLine	police	med	Steps toward target up to n blocks and fails on building (type 5) blocks
+00465f90	Pursuit_UpdateLead	police	low	Elects lead cop of group when close enough with clear line
+00466070	Cop_PathToRouteStart	police	med	Starts path search from cop car block to its route node
+00466180	Cop_PathToTarget	police	med	Starts path search from cop car to packed target block 0x74f850
+00466230	Roadblock_TryPlaceAhead	police	med	At wanted>=3, scans ahead of target car for road and activates a nearby roadblock set
+00466450	Roadblock_Spawn	police	med	Spawns roadblock cars across the road with cop peds and barrier objects
+00466a50	Pursuit_RecallCops	police	low	All cops of a group get back into their cars
+00466bb0	Cop_RecallOne	police	low	One cop gets back into its car
+00466c70	Police_FindNearestTarget	police	med	Nearest active wanted target (of 4) to a cop car
+00466d90	Cop_JoinNearestPursuit	police	med	Adds cop to nearest pursuit group if within range
+00466e80	Cop_SetSpeedByWanted	police	med	Sets cop car top speed +0x28 by wanted level (0x19/0x1e/0x23/0x26)
+00466f10	Cop_Update	police	high	Police controller state machine: patrol, route, chase, exit car on foot, roadblock, arrest (busts player)
+0046a0a0	PowerUp_InitAll	powerup	high	Clears 256-entry power-up table 0x74f858
+0046a0d0	PowerUp_Add	powerup	high	Allocates a power-up slot and spawns its object (0x54/0x5f)
+0046a190	PowerUp_Reveal	powerup	med	Crate at (x,y) is broken open: spawns the visible power-up object by type
+0046a4a0	PowerUp_RemoveAt	powerup	med	Removes power-up at (x,y)
+0046a530	PowerUp_ExistsAt	powerup	med	True if live power-up at (x,y)
+0046a560	PowerUp_Collect	powerup	high	Player picks up power-up at (x,y): weapons/ammo, speed, bribe, armour, multiplier, jail-free, life, help sign
+0046a9a0	Train_InitAll	train	high	Builds curve tables once, creates trains from the map train list
+0046a9d0	Train_UpdateAll	train	high	Per-frame train update if trains exist; returns 0x14/0x15
+0046a9f0	Train_Command	train	high	Player/train interface: board, leave, door left/right, query speed, etc.
+0046ab00	Train_FindDoorNear	train	med	Tests whether a point is near a carriage door; returns {angle, speed/10}
+0046ae40	Train_CheckPlatformSides	train	med	Marks which carriage sides face pavement (type 3) blocks
+0046b090	Train_GetDoorOffsets	train	med	Door exit offsets for a carriage if alive
+0046b200	Train_GetCarriage	train	med	Pointer to carriage centre data (train,carriage)
+0046b240	Train_CreateFromMap	train	high	Creates trains from list 0x77d368 (dir, x, y, z, station)
+0046b510	Train_CreateCarriage	train	med	Places a carriage's two bogies and centre, registers in object grid, adds door objects
+0046bc30	Train_BuildCurveTables	train	med	Fills curve offset tables 0x4b22e8.. with __ftol trig and mirrored copies
+0046bd60	Train_Update	train	high	Train state machine: station stops, doors, acceleration, bogie track following, collisions
+0046c460	Train_BogieStep	train	med	Advances bogie block coordinate by its track piece direction
+0046c5d0	Train_BogieNextPiece	train	med	Chooses next track piece from neighbouring rail blocks (0x44b310 kind 1)
+0046cdb0	Train_BogieComputePos	train	med	Computes bogie world position/angle from block, sub-position and curve table
+0046d050	Train_CarriageUpdateCentre	train	med	Carriage centre/angle from its two bogies
+0046d210	Train_BogieCheckJunction	train	low	Handles rail switch blocks (kind 7)
+0046d320	Train_BogieCollide	train	med	Collision of bogie with objects; damage, slowdown, crash
+0046d4f0	Train_CheckCarriageHits	train	med	Collides carriages of different trains; crashes both
+0046d650	Train_Crash	train	high	Wrecks a carriage (state 0xd), removes doors, kicks riders, explosion; propagates to all carriages
+0046d7a0	Train_BogieSlope	train	med	Sets bogie height from slope type of current block
+0046da30	Train_CheckStation	train	med	Detects arrival at a station block (0x480c20/0x480c90)
+0046dae0	Train_DoorLeft	train	low	Player-side door command (cmd 3)
+0046db60	Train_DoorRight	train	low	Player-side door command (cmd 4)
+0046dbe0	Train_ToggleBoarded	train	med	Player boards/leaves: flips +3 and sets max speed
+0046dca0	Train_IsBoarded	train	med	True if player is riding train
+0046dcc0	Train_UpdateDoorSprites	train	low	Sets door object frames from door animation counter
+0046dd70	Train_SpawnExitPed	train	low	Leaving player/ped placed beside the train door
+0046df90	Train_Reverse	train	low	Reverses travel direction and swaps curve angle constants
+0046e1e0	Train_FindPlatformDoors	train	low	At station: flags carriage sides adjoining platform blocks (kind 9)
+0046e300	Train_UnloadPassengers	train	low	Spawns passengers stepping off at station (random)
+0046e450	Train_LoadPassengers	train	low	Peds on the platform board the train
+0046e640	Train_ClearDoorAreas	train	low	Clears ped occupancy at door positions (0x453280)
+0046e6c0	Train_GetBoardInfo	train	low	Fills global {x,y,z,angle,speed} for the boarded carriage
+0046e7a0	Train_Get	train	high	Pointer to train record (stride 0x5c8)
+0046e7c0	Train_GetCount	train	high	Number of trains
+0046e7d0	Train_AnyWrecked	train	med	True if any train/carriage is wrecked (state 0xd)
+0046e820	Config_ReadRegistry	config	high	Reads HKLM DMA Design\Grand Theft Auto Language and Controls\Control 0..9 DWORDs
+0046e960	Config_MapControlKeys	config	med	Converts registry key codes to internal key ids and stores in caller's key table
+0046e9c0	Config_GetLanguageChar	config	high	Returns language digit '0'+Language as 1-char string
+0046e9e0	Path_Reset	path	med	Frees pathfinder (owner -1) and clears search state
+0046ea10	Path_ExtractRoute	path	high	Backtracks found node chain into path slot (85 xyz nodes, zero-terminated)
+0046ec30	Path_InsertNode	path	med	Adds node to pool and inserts into cost-sorted open list if not visited
+0046ee20	Path_IsUpRamp	path	med	Checks slope type matches direction (0x10/0x18/0x20/0x28)
+0046ee70	Path_IsDownRamp	path	med	Opposite ramp check
+0046eec0	Path_TryStraightLine	path	med	Straight-line shortcut to goal along road/pavement on same level
+0046f0a0	Path_ExpandNode	path	med	Expands a node in all valid directions (with optional rdiag debug dump)
+00470dc0	Path_SearchStep	path	high	Runs best-first search iterations (budget per frame), returns 0 fail/1 found/2 overflow/3 continue
+004710d0	Path_ExpandDir	path	med	Expands one direction (1/2/4/8) for road-following modes
+004716f0	Path_Find	path	high	Starts/continues a path search for a controller (src xyz, dst xyz, mode, ctrl); serialized via owner 0x4b3094
+00471940	Map_GetBlockInfo_thunk	path	low	Calls 0x438900 (block info) and discards
+00471970	Route_LoadCmp	path	high	Parses CMP route section: 0xFE/0xFF routes into path slots 50+, other ids into roadblock vertex sets
+00471b90	Route_GetCounts	path	med	Returns counts of 0xFE and 0xFF routes and end pointer
+00471bc0	Snd_FreeBuffer	snd	high	Frees locked 1MB+ sample buffer
+00471be0	Snd_StartupGame	snd	high	AIL startup, waveOut open (fallback to emulated), allocates all sample handles
+00471e80	Snd_ShutdownSamples	snd	med	Releases handles and shuts down AIL (SAMPMAN)
+00471f10	Snd_StartupFrontend	snd	med	Like Snd_StartupGame for the frontend set
+00472110	Snd_Shutdown	snd	high	Waits 1s, releases handles, closes waveOut, AIL_shutdown
+00472180	Snd_ProbeDevice	snd	med	Opens/close waveOut to test digital audio; returns ok
+00472260	Snd_CloseDevice	snd	med	waveOut close + AIL shutdown
+00472280	Snd_SetMasterVolume	snd	med	Sets digital master volume / sfx volume
+004722f0	Snd_GetSampleRate	snd	high	Sample rate of LEVEL bank entry n
+00472300	Snd_LoadLevelBank	snd	high	Loads AUDIO\LEVEL%03d.RAW (<=1MB) and .SDT (131 entries)
+00472470	Snd_OpenVocalBank	snd	high	Opens AUDIO\VOCALCOM.RAW (kept open) and reads .SDT (71 entries)
+004725a0	Snd_CloseVocalBank	snd	med	Closes VOCALCOM.RAW
+004725c0	Snd_CalcRateA	snd	low	(|x|+60)*100 pitch helper
+004725e0	Snd_CalcEngineRate	snd	low	Engine pitch from speed (22050 base)
+00472620	Snd_GearRate	snd	low	Rate table lookup by gear/speed (0x4b30dc)
+00472670	Snd_CalcRateB	snd	low	Piecewise pitch helper
+004726d0	Snd_CalcRateC	snd	low	(|x|+2)*2000 pitch helper
+004726f0	Snd_CalcVolume	snd	low	Volume helper (40 when <=0)
+00472730	Snd_CalcDelta	snd	low	Difference divided by 3000
+00472770	Snd_DistToVolume	snd	med	Distance (16.16) to volume 0..127
+00472790	Snd_DistToPan	snd	med	Offset to pan
+004727a0	Snd_LoopSetRate	snd	med	Loop channel n playback rate
+004727c0	Snd_LoopSetPan	snd	med	Loop channel n pan
+004727e0	Snd_LoopSetVolume	snd	med	Loop channel n volume
+00472800	Snd_LoopSetSample	snd	med	Loop channel n plays bank sample, infinite loop
+00472850	Snd_LoopStart	snd	med	Start loop channel n
+00472870	Snd_LoopStop	snd	med	Stop loop channel n
+00472890	Snd_ShotSetPan	snd	med	One-shot channel n pan
+004728b0	Snd_ShotSetVolume	snd	med	One-shot channel n volume
+004728d0	Snd_ShotSetSample	snd	med	One-shot channel n sample with random pitch jitter
+00472980	Snd_ShotIsPlaying	snd	med	One-shot channel n busy
+004729a0	Snd_ShotStart	snd	med	Start one-shot channel n at sfx volume
+004729d0	Snd_ShotStop	snd	med	Stop one-shot channel n
+004729f0	Snd_StopAllLoops	snd	med	Ends all 10 loop channels
+00472a10	Snd_StopAllShots	snd	med	Ends all 3 one-shot channels
+00472a30	Snd_Play3D_00472a30	snd	high	Plays bank sample at world (x,y) relative to view player: pan/volume by distance
+00472b90	Snd_PlayMenuSample	snd	med	Frontend sample at 6000 Hz
+00472c00	Snd_VoiceSetPan	snd	med	Voice channel pan
+00472c20	Snd_VoiceSetVolume	snd	med	Voice channel volume
+00472c40	Snd_VoiceIsPlaying	snd	med	Voice channel busy
+00472c60	Snd_PlayVoice_00472c60	snd	high	Reads VOCALCOM sample n from file into buffer and plays it
+00472d90	Snd_PlayMenuSampleLow	snd	med	Frontend sample at 5000 Hz
+00472e00	Snd_PlaySfx	snd	high	Round-robin one-shot (4+4 channels), random pitch/pan
+00472fe0	Snd_AnySfxPlaying	snd	med	True if any round-robin channel busy
+00473050	Snd_MenuIsPlaying	snd	med	Frontend channel busy
+00473070	Snd_MenuStop	snd	med	Stop frontend channel
+00473080	Snd_VoiceStop	snd	med	Stop voice channel
+00473090	Snd_PlayTalk_00473090	snd	low	Plays sample on talk channel 0x7709b0
+00473120	Snd_PlayMumble	snd	med	Gibberish speech for text messages; length from string length
+00473200	Snd_MuteAll	snd	med	Sets all channel volumes to 0 (pause)
+00473260	Snd_RestoreVolumes	snd	med	Restores saved channel volumes
+004732f0	Snd_MusicPlay	snd	high	Opens and starts AUDIO\%d.WAV stream
+004733a0	Snd_MusicService	snd	high	AIL_service_stream
+004733c0	Snd_MusicClose	snd	high	AIL_close_stream
+004733e0	Snd_MusicGetPos	snd	med	Stream position (scaled) or -1/-2
+00473430	Snd_SetMusicVolume_00473430	snd	med	Sets music volume byte 0x4b3110
+00473440	Dummy_InitGroups	dummy	med	Clears 8 dummy-car convoy groups (0x771080)
+00473460	Dummy_StartDrive	dummy	med	Mission DUMMY car gets AI controller (kind 9) and drives to block (x,y,z); new group
+00473570	Dummy_AddFollower	dummy	med	Adds a car to follow a leader dummy car's group
+00473660	Dummy_Update	dummy	med	Dummy controller state machine: path request, drive, arrive, attack player
+00473b90	Ped_IsOnAnyScreen	mission	med	Ped position inside any player's camera box (and map bounds)
+00473c50	Car_IsOnAnyScreen	mission	med	Car position inside any player's camera box
+00473cd0	Mission_MapDoorType	mission	low	Identity map 1..4 else 0
+00473d10	Mission_ClampCoord	mission	low	Clamps coordinate to 0..0x3fc00000
+00473d30	Mission_SetPlayerSlot	mission	low	Sets per-player int 0x7713b0[n]
+00473d50	Mission_ClearPlayerSlot	mission	low	Sets 0x7713b0[n] = -1
+00473d70	Mission_GetPlayerSlot	mission	low	Gets 0x7713b0[n]
+00473d80	Mission_HasPlayerSlot	mission	low	True if 0x7713b0[n] >= 0
+00473da0	Mission_ResetPlayerSlots	mission	low	Clears 0x7713b0[4]
+00473dc0	Mission_ResetSoundSources	mission	low	Clears 5 sound-source used flags
+00473dd0	Mission_AddSoundSource	mission	med	Allocates one of 5 positional sound sources (0x404cb0)
+00473e30	Mission_RemoveSoundSource	mission	med	Frees a positional sound source
+00473e50	Mission_RemoveAllSoundSources	mission	med	Frees all 5 sound sources
+00473e70	Mission_ResetTimedBombs	mission	low	Clears 4 delayed-explosion slots 0x7715d8
+00473ea0	Mission_AddTimedBomb	mission	low	Arms delayed explosion on car/ped after n frames
+00473ef0	Mission_UpdateTimedBombs	mission	low	Counts down and fires explosions (0x4136c0)
+00473fb0	Mission_ResetProgress	mission	low	Clears player progress/ranking state
+00474020	Mission_SetTargetOrder	mission	low	Sets ranking value for trigger n
+00474040	Mission_AllPlayersBelow	mission	low	True if no player's progress rank exceeds n
+00474080	Mission_IsFlagSet	mission	low	0x7713d8[n] == 1
+004740a0	Door_IsFaceSlotUsed	mission	low	0x773c38[n]
+004740c0	Mission_GetByte7711b0	mission	low	0x7711b0[n]
+004740e0	Trigger_Get	mission	med	Pointer to trigger record (stride 0x20)
+004740f0	Door_Create	mission	high	Creates mission DOOR at block with orientation 0-3, sets door faces and animation
+004744a0	Trigger_Create	mission	high	Creates mission trigger (block xyz, type, params)
+00474580	Trigger_SetFlag1c	mission	low	Sets trigger byte +0x1c
+004745a0	Trigger_DisableAllTemp	mission	med	All non-permanent triggers -> state 4
+004745c0	Door_ResetAllTemp	mission	med	All non-permanent doors -> closed/locked
+004745f0	Door_Open	mission	high	Starts door opening animation
+00474670	Door_Close	mission	high	Starts door closing animation
+004746d0	Door_SetOpenAny	mission	low	Door opens for anything (mode set, locked flag)
+00474710	Door_SetOpenByCar	mission	low	Door opens for car/model condition (mode 2)
+00474770	Door_SetOpenMode5	mission	low	Door open condition mode 5
+004747b0	Door_SetOpenMode3	mission	low	Door open condition mode 3
+00474800	Door_Lock	mission	med	Locks door (if not animating)
+00474840	Door_Unlock	mission	med	Unlocks door (if not animating)
+00474880	Door_OnClosed	mission	med	Door anim callback: closed, plays sound 0x26
+004748c0	Door_OnOpened	mission	med	Door anim callback: opened, plays sound 0x26
+00474900	Door_PlayerInFront	mission	med	True if any player is within 3 blocks in front of door
+004749c0	Mission_ScoreTargetReached	mission	med	True if any player's score >= target score
+00474a20	Mission_GetPlayerVal	mission	low	Value 0x7710d0 for player in list 0x7713d4
+00474a50	Mission_SortPlayerRanks	mission	med	Multiplayer ranking sort by progress then distance to next target
+00474bd0	Mission_GetPlayerRank	mission	med	Rank of player
+00474c10	CarTrig_ResetAll	mission	low	Clears 25 car-trigger bindings
+00474c30	CarTrig_Add	mission	low	Binds trigger to car id
+00474c60	CarTrig_CheckEnter	mission	low	Player entering bound car arms trigger
+00474d10	Trigger_Disarm	mission	med	Trigger state 1 (used after firing)
+00474d30	Trigger_SetState3	mission	low	Trigger state 3
+00474d70	Trigger_Kill	mission	med	Trigger state 4 (off)
+00474db0	Trigger_SetParam14	mission	low	Sets trigger int +0xc
+00474dd0	Trigger_SetParam08	mission	low	Sets trigger int +0x8
+00474df0	Crane_CheckSpace	mission	med	Checks crane drop area free of other cars
+00475010	Crane_RequestCar	mission	med	Crane accepts car if free/not full/undamaged; 0 ok
+00475090	Crane_Update	mission	high	Crane state machine: grab, lift, move, drop, stack up to 6 cars; crane_screwed message
+00475620	Crane_Create	mission	high	Creates CRANE object at (x,y,z) with direction
+004756a0	Crane_Get	mission	med	Pointer to crane record (stride 0x3c)
+004756c0	Crane_IsCarHeld	mission	med	True if car belongs to any crane
+00475700	thunk_MisObj_Create425520	mission	low	Jump thunk to 0x425520 (mission object, 4 orientations, several sprites)
+00475710	thunk_MisObj_Create4258d0	mission	low	Jump thunk to 0x4258d0
+00475720	thunk_MisObj_Create425780	mission	low	Jump thunk to 0x425780
+00475730	Car_SnapHeading_00475730	miscar	low	Snaps car target heading to nearest axis
+00475800	MisCar_SetHeld	miscar	med	car+0x248 = 1 (held by script/crane)
+00475820	MisCar_ClearHeld	miscar	med	car+0x248 = 0
+00475840	MisCar_Create	miscar	high	Creates mission car at block (x,y,z) with model; asserts
+004758c0	MisCar_CreateAt	miscar	med	Creates mission car at world x,y and block z
+00475930	MisCar_CreateType1	miscar	med	Creates mission vehicle via 0x4078d0 at block
+004759b0	MisCar_CreateDriver	miscar	med	Creates driver ped (car+200) at position
+00475a20	MisCar_CreatePlayerPed	miscar	med	Creates player ped near car, binds to player n with colour 8..11
+00475b00	MisPed_SetRemap	miscar	low	Calls 0x45fc10(ped,0,x)
+00475b20	MisCar_MakeKiller	miscar	low	Car's driver ped set to aggressive mode
+00475bd0	MisCar_SetFlag128_99	miscar	low	car+0x128 = 99
+00475bf0	MisCar_SetFlag128_1	miscar	low	car+0x128 = 1
+00475c10	MisCar_Park	miscar	low	Car control state 0, +0x128=1, +0x88=1
+00475c40	MisCar_PutPlayerIn	miscar	med	Puts player n in car as driver
+00475dd0	MisCar_GivePlayer	miscar	low	Car driver = player n's ped
+00475e20	Car_IsAtBlock	miscar	med	Car position in block (x,y,z)
+00475e60	Ped_IsNearBlock	miscar	med	Ped within r blocks of (x,y) on level z
+00475ed0	Car_IsWrecked	miscar	high	Damage > 99
+00475ef0	Car_GetDamage	miscar	high	Damage short +0xfc
+00475f10	MisCar_SpawnBatch	miscar	low	Spawns n cars and links driver peds
+00475f60	Police_InitForMission	miscar	med	If police enabled: spawn patrol cars, reset targets and pursuits
+00475fd0	Car_GetDriver	miscar	high	Driver ped id car+2
+00475ff0	Car_GetDriverInfo	miscar	low	Driver lookup via 0x45ed10 or 0xff
+00476020	Car_HasLiveDriver	miscar	low	Ped in car and alive
+00476080	Car_MoveAxis	miscar	med	Moves car on one axis by step; true when target reached (crane)
+004761c0	Car_MoveTowards	miscar	med	Moves car toward (x,y,z) by step; true when reached (crane)
+00476340	Ped_CheckInCar	miscar	low	Ped/car relation test (0 in car, 1 none, 2 dead/out)
+004763d0	thunk_Car_SpawnParked	miscar	med	Jump thunk to 0x4076f0: spawns parked car at block
+004763e0	Car_unk_004318e0_wrap	miscar	low	Wrapper calling 0x4318e0
+00476400	Car_GetModelValue	miscar	low	Model info field *1000
+00476440	MisCar_Destroy	miscar	low	Damage = 100 (wreck)
+00476470	MisCar_SetDriveMode1	miscar	low	car+0x116=1, +0xce=-5, speed 0x19
+004764a0	MisCar_SetFlag9c	miscar	low	car+0x9c=n, timer 0x7d, damage reset
+004764d0	MisCar_SetDriveMode2	miscar	low	car+0x116=2, +0xce=-5, speed 0x19
+00476500	Car_GetCardinalDir	miscar	med	Heading -> direction bits 1/2/4/8
+00476550	Car_ClearField0EC	mission	low	Clears car+0xEC (short) for a car id; called by mission interpreter 0x4471a0
+00476570	Car_PlaceInGrid	mission	low	Moves a car to block offset (idx%3, idx/3*stride) from its current block centre, recomputes bbox ends and re-registers in spatial grid
+004766a0	Mission_CheckPlayerCarOk	mission	low	For a player: true unless player's car is wrecked (damage>99) or player in model car 0x2F; used by 0x446fe0
+00476720	Car_RemoveIfOffscreen	mission	med	Deletes a parked/dummy car (car+0x139==1, no driver) unless it is inside some player's view rect; frees driver ped
+00476880	Car_RemoveIfOffscreenEx	mission	med	Like Car_RemoveIfOffscreen but also releases linked item (+0x134 via 0x43d250) and skips cars with +0x244==1
+004769e0	Car_IsEmergencyModel	mission	high	True for car models 4 (Squad Car),5 (Ambulance),0x0F,0x10,0x20,0x2A (Fire Truck)
+00476a10	Car_RemoveAtBlock	mission	med	Spatial query cars at block (x,y); removes those not visible (optionally only those exactly on block); returns all-removed flag
+00476af0	Car_RemoveInSquare	mission	med	Calls Car_RemoveAtBlock over a (2r+1)^2 block square around x,y; used when spawning/clearing areas
+00476b90	Car_RemoveOffscreenAtBlock	mission	med	Removes ordinary (non-emergency, undriven) cars at block (x,y,z) not visible to any player
+00476cd0	Car_ClearForCar	mission	med	Removes ordinary cars overlapping a given car and the blocks in front/behind along a direction (0/0x100/0x200/0x300)
+00476f40	Ped_RemoveDummiesAtBlock	mission	med	Removes peds of AI type 0x19 standing exactly on block (x,y,z)
+00476fe0	Obj_RemoveAtBlock	mission	med	Removes map objects whose position lies on block (x,y,z) (spatial query type 3)
+00477070	World_AnyThingAt	mission	low	Returns 1 if spatial query 0x435040(x,y,-1) finds anything
+004770a0	Mission_ClearBlock	mission	med	Clears block (x,y,z): objects, dummy peds, then cars (Car_ClearForCar); used by many mission commands
+00477160	Mission_ClearRow	mission	med	Clears objects/dummy peds at a block, then removes offscreen cars along n+1 blocks stepping (dx,dy)*64
+00477260	Mission_ExplodePed	mission	med	EXPL_PED-like: explosion at ped position, or if ped in car sets car damage 100 (model car -> also zero +0x1C)
+004772c0	Ped_IsDead	mission	med	True if ped health byte (+0x49) is 0
+004772e0	Ped_TakeKiller	mission	low	If ped dead returns and clears killer id (+0x5A, -2 = none)
+00477320	Ped_KillIfPossible	mission	low	Removes ped (0x45faa0 + 0x41a250) unless state 0xC/0x17 or in a car that cannot be left; state 3 -> 2
+004773a0	Car_RemoveIfUnused	mission	low	Removes car if it has no occupant (+8>=0, +0xFE<1, +0x244!=1)
+004773f0	Mission_PedCreate_0	mission	med	PED_ON variant 0: create ped (Ped_Create 0x453e90 remap 0x88) state 3, behaviour 8, health 100
+00477460	Mission_PedCreate_1	mission	med	PED_ON variant: ped state 3, objective 0x18, target param
+004774e0	Mission_PedCreate_8	mission	med	PED_ON variant: ped state 4, objective 0x1C, target param
+00477560	Mission_PedCreate_4	mission	med	PED_ON variant: civilian-type ped (type 1), state 3, +6=1
+004775d0	Mission_PedCreate_6	mission	med	PED_ON variant: state 2 objective 0x24 behaviour 5
+00477630	Mission_PedCreate_5	mission	med	PED_ON variant: state 4 behaviour 2 with target
+004776b0	Mission_PedCreate_7	mission	med	PED_ON variant: state 1 behaviour 5 with target
+00477730	Mission_PedCreate_9	mission	med	PED_ON variant: state 3 objective 0x22
+00477790	Mission_PedCreate_10	mission	med	PED_ON variant: state 2 objective 0x23, health 100, +6=3
+00477800	Mission_PedCreate_11	mission	med	PED_ON variant: state 4 objective 0x31 with target
+00477880	Mission_PedCreate_12	mission	med	PED_ON variant: state 3 objective 0x30 with target
+00477900	Mission_PedCreate_Typed	mission	med	PED_ON variant with explicit AI code 0x15-0x1A/0x29-0x2E mapped to objective/state
+00477ad0	Mission_PedCreate_13	mission	med	PED_ON variant: state 4 objective 0x39 behaviour 2
+00477b50	Mission_PedCreate_Guard	mission	low	Ped create: state 3 objective 0x38 no target
+00477bd0	Mission_PedSetObj_Attack	mission	med	Changes a live ped's AI: state 4 behaviour 2 target; detaches from car if driving (behaviour 0x11)
+00477c80	Mission_PedSetObj_Follow	mission	med	Changes ped AI: state 1 behaviour 5 target
+00477d20	Mission_PedSendTo	mission	med	PED_SENDTO-like: clears motion, calls 0x45f4a0(ped,dest)
+00477dc0	Mission_PedSetObj_Wander	mission	low	Changes ped AI: state 3 behaviour 8 objective 0x19
+00477e80	Mission_PedSetObj_Wander2	mission	low	As above with behaviour 2, +6=1
+00477f40	Mission_PedSetObj_24	mission	low	Changes ped AI: state 2 objective 0x24 behaviour 5
+00478000	Mission_PedSetObj_18	mission	low	Changes ped AI: state 3 objective 0x18 target
+004780c0	Mission_PedSetObj_1C	mission	low	Changes ped AI: state 4 objective 0x1C target
+00478180	Mission_PedSetObj_23	mission	low	Changes ped AI: state 2 objective 0x23
+00478230	Mission_PedSetObj_31	mission	low	Changes ped AI: state 4 objective 0x31 target
+004782f0	Mission_PedSetObj_30	mission	low	Unconditional: state 3 objective 0x30 target
+00478380	Mission_PedSetObj_Typed	mission	med	CHANGE_PED_TYPE-like: AI code 0x15-0x1A/0x29-0x2E -> objective/state, target
+00478570	Mission_PedSetObj_39	mission	low	Changes ped AI: state 4 objective 0x39 behaviour 2
+00478630	Ped_IsNearPoint16	mission	med	True if ped (+0x92,+0x96 integer pos) within 16 units of (x,y)
+00478690	Ped_IsNearPoint	mission	med	True if ped within r units (default 16) of (x,y)
+00478700	Ped_IsInBlockRect	mission	med	True if ped (or its car if inside) is within +-r blocks of block (x,y)
+00478790	Mission_ObjCreate	mission	low	Thin wrapper around Obj_Create 0x44cef0
+004787d0	Obj_RemoveIfActive	mission	low	Removes object if its state (+0xC) is nonzero
+00478800	Mission_SetVar505efa	mission	low	Stores a short into DAT_00505efa (set by 0x445800 mission init)
+00478810	Mission_SetVar5031cc	mission	low	Stores an int into DAT_005031cc
+00478820	Obj_CreateAtPed	mission	med	Creates object at ped position one block up (z-0x400000)
+00478860	Obj_ThrowToCar	mission	low	Launches object towards a car (atan2 heading, Obj_Launch 0x44d5d0 type 0xE)
+004788c0	Obj_ThrowToPoint	mission	low	Launches object towards a point (THROW_TO_POINT)
+00478900	Mission_ObjSetState	mission	low	Wrapper around Obj_SetState 0x44c5f0
+00478920	Mission_BriefTimed1	mission	low	Brief kind 1 (subtitle+speech) with frames->seconds rounding; text id must be >=1000
+00478990	Mission_BriefTimed0	mission	low	Brief kind 0 (pager) with time rounding
+00478a00	Mission_BriefCountdown	mission	low	Brief kind 2 (pager with countdown)
+00478a40	Mission_Brief3	mission	low	Brief kind 3 (subtitle style 2)
+00478a80	Mission_Brief4	mission	low	Brief kind 4 (subtitle style 1)
+00478ac0	Mission_Brief5	mission	low	Brief kind 5 (subtitle style 5)
+00478b00	Mission_ShowBombTimer	mission	med	Pager countdown "bomb_set" (Detonation in...) with frames/25 seconds
+00478b30	Obj_ToggleState23	mission	low	Toggles object state between 2 and 3 (door/barrier open-close)
+00478b70	Obj_StepAxis	mission	low	Moves object along axis 0/1/2 by step; returns 1 when target coordinate reached (crane/lift)
+00478c20	Wanted_ClearForPed	mission	low	Clears wanted state/pursuit for ped (0x461890, 0x4617a0, 0x414190)
+00478c60	Mission_Call438020	mission	low	Wrapper calling 0x438020
+00478c80	Map_SetBlock_thunk	map	high	Thunk to 0x437b50 Map_SetBlock(x,y,z,packed block info): copy-on-write column/block edit + block type cache update
+00478c90	Mission_AlarmSoundAdd	mission	low	Assigns object to one of 4 positional sound slots (DAT_00773c24), evicting farthest/offscreen
+00478d80	Mission_AlarmSoundRemove	mission	low	Stops positional sound slot used by object
+00478dc0	Mission_AlarmSoundStopAll	mission	low	Stops all 4 sound slots and resets their objects' state to 1
+00478e10	Mission_AlarmSoundReset	mission	low	Marks the 4 sound slots free
+00478e30	CarList_Add	mission	low	Appends entry (a, model, remap, target count) to 10-entry table at 0x771110 (stride 16)
+00478e80	CarList_Get	mission	low	Returns &table[i] at 0x771110
+00478e90	Mission_SetSlot773168	mission	low	Sets 0x773168[i*15] if empty (stride 0x3C table)
+00478ec0	CarList_Matches	mission	low	Checks car model (+0x22) and remap (+0x260) against list entry (-1 = any)
+00478f10	CarList_CountSameModel	mission	low	Counts cars in a 6-slot id array (param+0x20) with same model as given car
+00478f60	CarList_IsComplete	mission	low	True if entry count>0 and count==target
+00478f90	Mission_ResetLists_thunk	mission	low	Thunk to 0x431500 (fills 0x513270/0x513248 with -1)
+00478fa0	Player_FindTrainSlot	mission	low	If player state is 1 (on train?), finds index in list 0x46e7a0 whose +6 matches player's ped; else 0xFF
+00479000	Mission_Call46d650	mission	low	Calls 0x46d650(x,2) then (x,1)
+00479020	Score_PedKilled	trigger	med	On ped death: chooses score event by victim type/cause (cop, in-car, gang...) and calls Score_Award 0x462000
+00479610	Player_ChooseRespawnPoint	trigger	med	Picks a respawn point (3-byte entries at DAT_0050589c+0x12, count DAT_0050caa4) far (>20 blocks) from all players
+00479930	Player_Respawn	trigger	med	Respawns player ped: reset pos (0x4601a0 / 0x460500 in net), clear wanted, state 2, health 100
+004799d0	Player_SetStatByCity	trigger	low	Sets a player counter to a city/param dependent constant (0x98,0x66,0xCA,0xB1,0x1F6,0x179,0x160,0xFC)
+00479ab0	Mission_InitCityTables	trigger	med	Level init: per-city enable tables 0x7711b0/0x773c38/0x7713d8, resets triggers, doors, car list, sound slots
+00479e00	Mission_UpdateTriggers	trigger	high	Per-frame: updates doors, triggers, 0x475090 objects, 0x4315b0, 0x473ef0; net race end check
+00479f00	Door_Update	trigger	high	Per door: opens when a player is within range and the condition holds (in any car, emergency car, specific car id+remap, car model, bomb-fitted car); closes when player leaves
+0047a3a0	Trigger_Update	trigger	high	Big per-trigger state machine (respray, bomb shop, car bomb, race checkpoints, door triggers, locate...) for each player
+0047ba30	Garage_ResprayCost	trigger	high	Respray cost = ((W + value*1000*damage/100)*(100+mult))/100, W = wanted? 1000*2^(n-1); 500 if both zero
+0047baf0	Trigger_Reset	trigger	med	Sets trigger[i].state = 0
+0047bb10	Sprite_WorldToScreen	sprite	high	Perspective project (x,y,z) to screen using camera 0x5c0c04/08/0c, scale 0x5c1c10, centre 0x5bfbe4/e8
+0047bbc0	Sprite_DrawScreen	sprite	high	Draws sprite-info entry unrotated at screen x,y (selects palette, Blit_Tile)
+0047bc00	Sprite_Draw	sprite	high	Rotates sprite quad by angle, projects corners, culls to screen, rasterises (0x49787c/0x4979c9)
+0047c020	DrawList_Clear_thunk	drawlist	high	Thunk to DrawList_Clear 0x480ef0
+0047c030	Sprite_DrawLevel	sprite	high	Walks the depth tree of z-level n calling the sprite draw callback (0x47c050 -> Sprite_DrawCached)
+0047c130	Sprite_DrawCached	sprite	high	Like Sprite_Draw but caches rotated corners in sprite+0x28..0x44 when angle/frame unchanged
+0047c940	Sprite_Queue	sprite	high	Inserts sprite into depth tree of its z level (z>>22), keyed by z
+0047c960	Sprite_SetFrame	sprite	high	Sets sprite number (+0x16) and info ptr (+0x48), prepares graphic (0x414380)
+0047c990	Sprite_GetInfo	sprite	high	Returns sprite-info pointer for sprite number
+0047c9a0	Sprite_SaveFrame	sprite	low	Copies +0x16 to +0x54 and calls 0x414390
+0047c9c0	Sprite_SetRemap	sprite	med	Sets remap byte (+0x10)
+0047c9d0	Sprite_SetPalette	sprite	med	Sets palette override (+0x12)
+0047c9e0	Sprite_SetFlag14	sprite	low	Sets +0x14 = 1 (alternate rasteriser when option 0x5031e4 on)
+0047c9f0	Sprite_Init	sprite	high	Initialises a 0x5C-byte sprite object (x,y,z,angle,frame)
+0047ca50	Sprite_LoadInfo	sprite	high	Reads sprite info/graphics/numbers from G24, builds index table 0x773e38 (max 0x424), relocates pointers, inits depth trees
+0047cb70	Vec3_Copy	sprite	med	Copies three ints
+0047cb90	Gfx_CopyRect256	sprite	med	Copies h rows of w bytes between 256-stride buffers
+0047cbd0	Sprite_SetGroupBases	sprite	high	Converts 21 sprite_numbers counts into cumulative base indices (arrow, digits, boat, ... ferry)
+0047cd00	DrawList_ResetStack	sprite	med	Resets tree-walk stack pointer 0x774f18
+0047cd10	Style_ConvertPalettes	style	high	Re-reads CLUT if needed and repacks every BGRA entry to the display pixel format (shift/mask globals)
+0047cec0	Style_GetNumber	style	high	Returns loaded style number (= city 1..3), used as city id everywhere
+0047ced0	Style_ResetRequest	style	med	Clears requested style and priority
+0047cee0	Style_Request	style	med	Requests style n if priority >= current request priority
+0047cf10	Style_Load	style	high	Loads STYLE%03d.G24: header (v336), tiles, anims, CLUT, palette index, object/car info, sprites; sets up tile tables
+0047d390	Style_LoadRequested	style	high	Style_Load(requested), fatal if none
+0047d3c0	Style_Free	style	high	Frees the four style allocations
+0047d440	Style_SetTileFrame	style	med	Sets side/lid tile remap entry (anim frame) and updates renderer tables 0x4378a0/0x4379c0
+0047d510	Style_AllocLid	style	low	Returns next free lid tile index (max 256)
+0047d540	Style_AllocSide	style	low	Returns next free side tile index (max 256)
+0047d570	Style_InitAnims	style	high	Parses G24 anim section (count, {block, which, speed, n, frames[n]}) into table 0x5f2750
+0047d610	Style_UpdateAnims	style	high	Per-frame tile animation stepping
+0047d680	Text_SetLanguage	text	high	Selects FXT file name by language 0..4 or 99 (special); sets wide-char flag for Japanese
+0047d7f0	Text_InitLanguage	text	high	Reads language digit from config and selects FXT file
+0047d970	Text_Free	text	high	Frees loaded FXT
+0047d9a0	Text_Get	text	high	Loads and decrypts FXT on first use, returns text for [key]
+0047da90	Text_IsForeign	text	med	True if language not English/special
+0047dab0	Text_MapChar	text	med	Maps lower-case/accented code to font glyph code (upper-case + table at 0x4b3280)
+0047dbd0	Text_HasWideChars	text	med	True if UTF-8 string contains a code >= 0x100
+0047dc00	Timer_Start	timer	high	Registers 70 Hz Miles AIL timer incrementing tick counter 0x775580
+0047dc80	Timer_WaitTicks	timer	high	Busy-waits until tick counter >= n then resets it
+0047dcb0	Timer_Stop	timer	high	Stops and releases AIL timer
+0047dcf0	Lights_Init	lights	high	Scans 256x256x6 map for traffic-light junction blocks, builds junctions, then Rail_Init
+0047df00	Lights_Query	lights	high	Query light at (x,y): 0x32 mode, 0x33 orient, 0x34 colour state, 0x35 kind, 0x3A error, 0x3B group clear, 0x3C/0x3D rail tests
+0047e2a0	Lights_Command	lights	high	Command on junction at (x,y): set mode/force/add mode (0x32,0x36,0x38,0x39)
+0047e420	Lights_Update	lights	high	Per-frame: every 8 frames advances global phases and each light's phase/sprite
+0047e600	Rail_GetInfo	rail	med	Returns &0x77d368 (rail summary block)
+0047e610	Rail_ToggleCrossing	rail	med	Toggles level-crossing lights at (x,y) between phase 0 and 3
+0047e6c0	Lights_AddJunction	lights	high	Registers new junction from seed cell, flood fills, classifies, creates sprites
+0047e7c0	Lights_FloodJunction	lights	high	Recursive 4-way flood over junction-flag blocks, measuring arms
+0047ebd0	Lights_ClassifyJunction	lights	high	Matches arm pattern against 11 templates (0x4b3520, stride 21) and assigns light orientations
+0047f120	Lights_FindRailCrossing	lights	med	Records railway cells (flag 8) inside junction bounds as crossings
+0047f240	Lights_TraceArm	lights	high	Walks along junction cells in a direction recording stop-line cells; returns arm length
+0047f560	Lights_CreateSprites	lights	high	Creates pole and light sprite objects for each light of the new junction
+0047fa90	Rail_Init	rail	high	Scans map for railway blocks and traces each untouched track
+0047fbe0	Rail_TraceTrack	rail	high	Follows a railway in 12 directions, recording crossings, switches and stations
+004806a0	Lights_SetGroupForced	lights	med	Forces all lights of a junction group to mode 3 with given phase
+004807e0	Lights_AddGroupMode	lights	med	Adds to mode of all lights in group (clamped to 3)
+00480970	Lights_SetGroupMode	lights	med	Sets mode of all lights in group
+00480ad0	Lights_SetMode	lights	med	Sets mode of one light (0 auto, 3 forced)
+00480bc0	Rail_FindStation	rail	low	Looks up station by (x,y) (result unused)
+00480c20	Rail_FindSwitch	rail	med	Returns switch index at (x,y) or 0xFF
+00480c90	Rail_IsSwitchSet	rail	med	True if switch state is 1
+00480cc0	Rail_ToggleSwitch	rail	med	Toggles switch state
+00480d10	Rail_GetStationFlag	rail	med	Returns station[i] flag byte
+00480d40	Rail_ToggleStation	rail	med	Toggles station[i] flag
+00480d90	Rail_NextStation	rail	med	Returns next/first station index on same track
+00480e10	Lights_UpdateSprite	lights	high	Sets light sprite frame from phase table (red/amber/green/flash)
+00480ed0	DrawList_Init	drawlist	high	Resets node pool and root count
+00480ef0	DrawList_Clear	drawlist	high	Empties all trees (keeps roots, key 0x7fffffff)
+00480f30	DrawList_NewRoot	drawlist	high	Allocates a tree root
+00480f60	DrawList_Insert	drawlist	high	BST insert of item keyed by z (max 300 nodes, 16 bytes each)
+00480fd0	DrawList_Walk	drawlist	high	Iterative in-order traversal calling callback(item)
+00481030	HUD_LoadFonts	hud	high	Loads BIG/SUB/STREET/PAGER/EXPSCOR/SCORE/MISSMUL%d.FON for res 1/2, inits HUD sprites
+00481320	HUD_ShowBigMessage	hud	high	Centred big text (e.g. MISSION COMPLETE!), split at spaces into up to 3 lines, plays jingle
+004814f0	HUD_ShowBigMessageLo	hud	med	HUD_ShowBigMessage priority 0
+00481500	HUD_ShowBigMessageHi	hud	med	HUD_ShowBigMessage priority 1
+00481510	HUD_PauseOn	hud	med	Enables pause overlay and its 40-frame stat rotation
+00481530	HUD_PauseOff	hud	med	Disables pause overlay
+00481540	HUD_AddScorePopup	hud	med	Adds rising score number at world position (32 slots of 0x24 bytes)
+00481620	HUD_DrawScorePopups	hud	med	Projects and draws score popups, growing then expiring
+004817e0	HUD_InitArrows	hud	med	Initialises arrow sprites for local and other players
+00481900	HUD_ArrowToCar	hud	med	Points arrow at car id (target type 0)
+00481930	HUD_ArrowToObj	hud	med	Points arrow at object (type 3)
+00481960	HUD_ArrowToPos	hud	med	Points arrow at coordinates (type 1)
+004819b0	HUD_RedArrowToPos	hud	med	Second (red) arrow at coordinates
+00481a00	HUD_ArrowOff	hud	med	Hides arrow
+00481a20	HUD_RedArrowOff	hud	med	Hides red arrow
+00481a40	HUD_ShowZoneText	hud	high	Shows area/street/car-name text with per-type timeout (6 slots of 0x88 bytes)
+00481c50	HUD_ClearZoneText	hud	med	Removes zone-text slots of a type
+00481cb0	HUD_ShowCarName	hud	high	Shows FXT "car%d" name of a car's model (type 200)
+00481d40	HUD_ShowSubtitle	hud	high	Bottom subtitle/brief box with icon by kind 0..5, word-wrapped
+00482070	HUD_RestoreSubtitle	hud	low	Re-shows saved subtitle
+00482090	HUD_GetSubtitleBuf	hud	low	Returns subtitle buffer 0x784868
+004820a0	HUD_SkipSubtitle	hud	low	Ends current subtitle (timer=1)
+00482140	HUD_SetPagerSpeed	hud	med	Pager scroll speed setting 0..3
+004821c0	HUD_Brief	hud	high	Shows FXT text number via pager/subtitle/countdown by kind for player
+00482290	HUD_RefreshZone	hud	low	Forces area name re-evaluation
+004822a0	HUD_ToggleQuitPrompt	hud	med	Shows/hides quit1..3 prompt
+00482330	HUD_ToggleVideoMenu	hud	med	Opens/closes in-game video mode list
+00482440	HUD_IsPagerBusy	hud	med	Returns pager-active flag
+00482450	Pager_Reset	hud	med	Clears pager slots
+004824a0	Pager_AddMessage	hud	high	Queues text into pager (16 slots of 0x4E0 bytes), appends to current if same
+00482710	Pager_RemoveCountdown	hud	med	Removes countdown pager slot by id
+004827c0	Pager_AddCountdown	hud	high	Pager message with live countdown digits
+004828a0	HUD_ChatBegin	hud	med	Starts multiplayer message typing line
+00482b10	HUD_ChatKey	hud	med	Edits chat line (Enter=send, Backspace)
+00482c80	HUD_WantsKey	hud	med	True if HUD consumes key (chat, menu, quit)
+00482d00	HUD_HandleKey	hud	high	Routes key to chat/video-menu/quit prompt
+00482fb0	Pager_Resume	hud	low	Re-activates last pager slot
+00483000	HUD_ToggleDebug	hud	med	Toggles debug position readout
+00483010	HUD_Init	hud	high	Resets all HUD state per level and fetches FXT strings
+004832c0	HUD_FreeFonts	hud	high	Frees HUD fonts
+00483390	HUD_Draw	hud	high	Per-frame HUD render (zones, arrows, wanted, pager, score, messages)
+004837a0	HUD_DrawCenteredLine	hud	med	Draws centred text at row
+00483890	HUD_DrawBigMessage	hud	med	Draws 1-3 line big message
+00483df0	HUD_DrawText	hud	high	Draws text at byte offset in surface
+00483e90	HUD_DrawPauseInfo	hud	med	Draws Paused + rotating target score / missions / secrets
+00484190	HUD_DrawWeaponInfo	hud	med	Draws weapon icon+ammo and item icons/counters
+00484750	HUD_DrawScore	hud	high	Draws rolling score digits, multiplier and lives
+00484de0	HUD_DrawZoneTexts	hud	med	Draws zone/street/car-name texts
+004854a0	HUD_DrawTextClipped	hud	med	Draws text with horizontal scroll/clip (pager)
+00485680	HUD_DrawWanted	hud	high	Draws flashing cop-head wanted icons
+004857a0	HUD_DrawSubtitle	hud	med	Draws subtitle box and icon
+00485910	HUD_DrawTextMultiline	hud	med	Text with newlines
+00485a20	HUD_DrawVideoMenu	hud	med	Draws video mode list
+00485c30	HUD_DrawPager	hud	high	Draws pager frame and scrolling text
+00485d70	HUD_Update	hud	high	Per-frame HUD logic: area name lookup at camera, timers, arrows, wanted
+00486180	HUD_GetTargetPos	hud	med	Resolves arrow target (car/coords/object/player) to position
+00486220	HUD_UpdateArrow	hud	med	Positions/rotates arrow sprite toward target relative to player
+00486430	Pager_Update	hud	high	Scrolls pager, ticks countdowns
+00486640	HUD_TickBigMessage	hud	low	Expires big message timer
+00486670	Text_Utf8Next	hud	high	Decodes next UTF-8 code (1-3 bytes) and advances
+004866c0	Text_Utf8Peek	hud	high	Decodes UTF-8 code without advancing
+00486700	Text_Utf8Skip	hud	high	Skips one UTF-8 code
+00486730	Text_Utf8Back	hud	med	Steps back one UTF-8 code
+00486760	Text_ToUtf8Mapped	hud	med	Copies string mapping each code through Text_MapChar, re-encoding as UTF-8
+00486830	HUD_SetViewSize	hud	med	Stores view width/height/pitch (0x785170..)
+00486880	Net_EnumProviders	net	high	DirectPlayEnumerate into provider list
+004869a0	Net_GetProviderCount	net	high	Returns provider count
+004869b0	Net_GetProviderName	net	high	Returns provider name n
+004869d0	Net_CreateProvider	net	high	DirectPlayCreate for provider n and QueryInterface IDirectPlay2
+00486b60	Net_EnumSessions	net	high	IDirectPlay2::EnumSessions into list
+00486cc0	Net_HostSession_00486cc0	net	high	IDirectPlay2::Open(DPOPEN_CREATE) with session name
+00486e10	Net_GetSessionCount	net	high	Returns session count
+00486e20	Net_GetSessionName	net	high	Returns session name n
+00486e40	Net_JoinSession	net	high	IDirectPlay2::Open(join) session n
+00486f70	Net_CloseSession	net	med	DestroyPlayer + Close
+00487000	Net_EnumPlayers	net	high	EnumPlayers into 4 slots (id, active), sorted by id
+004870e0	Net_GetPlayerCount_004870e0	net	high	Returns player count
+004870f0	Net_CreatePlayer	net	high	IDirectPlay2::CreatePlayer with name
+00487240	Net_Init	net	high	Clears DirectPlay globals
+00487270	Net_Shutdown	net	high	DestroyPlayer, Close, Release interfaces
+00487330	Net_SendTo	net	high	IDirectPlay2::Send to player slot
+004873a0	Net_Broadcast	net	high	Sends to all other active slots
+00487440	Net_Receive	net	high	IDirectPlay2::Receive into 0x7851c8
+00487520	Net_Close	net	high	Close and release
+004875e0	Net_FirstSlot	net	high	First active player slot or -1
+00487600	Net_FirstRemoteSlot	net	high	First active slot that is not local
+00487630	Net_NextSlot	net	high	Next active slot
+00487650	Net_NextRemoteSlot	net	high	Next active non-local slot
+00487680	Net_SlotFrom	net	med	First active slot >= n
+004876a0	Net_RemoteCount	net	med	Player count - 1
+004876b0	Net_LocalSlot	net	high	Slot of local player
+004876e0	Net_RemoveSlot	net	med	Clears slot and decrements count
+00487700	Net_Handshake	net	high	Repeats "Is your seatbelt fastened?" until all peers answered (60 s timeout)
+00487880	Net_SendGo	net	high	Broadcasts "Let's go!"
+00487930	Net_CheckGo	net	high	True if received "Let's go!"
+004879a0	Net_GetError	net	med	Returns last error flag
+004879b0	Proj_Reset	proj	high	Clears active projectile list
+004879c0	Proj_Remove	proj	high	Deactivates projectile object and removes from list
+00487a70	Proj_UpdateAll	proj	high	Moves bullets/rockets/flames, collisions with peds/cars/objects, damage, explosions
+00488c70	Proj_Detonate	proj	high	End of life: rocket explodes (0x425170), bullet spawns spark obj 0xD + sound
+00488db0	Proj_UpdateShadowZ	proj	med	Computes projectile shadow/floor z from block-type cache
+00488e20	Weapon_FireBullet	proj	high	Ped fires bullet (obj 0x4A) with reload 10/15
+00488fb0	Weapon_FireBulletFlag	proj	med	Weapon_FireBullet then ped+100=1
+00488fd0	Weapon_FireFlame	proj	high	Ped flamethrower (obj 0x4B), reload 1
+00489150	Weapon_FireRocket	proj	high	Ped rocket launcher (obj 0x1F), reload 20
+00489300	Car_FireRocket	proj	high	Vehicle (tank turret) fires rocket
+00489470	Blit_SetVgaSource	blit	low	DOS leftover: sets source pointer for VGA copy
+0048947d	Blit_CopyToVga	blit	low	DOS leftover: copies dwords to 0xA0000
+004894a1	Blit_Tile32	blit	high	Blits 256-stride 8-bit image to 32 bpp surface via CLUT, colour 0 transparent
+00489516	Blit_Tile16	blit	high	Same for 16 bpp
+0048958a	Blit_ApplyDelta	blit	high	Applies sprite delta stream {u16 skip,u8 n,n bytes}
+004895bb	Blit_Sprite32	blit	high	Transparent CLUT blit to 32 bpp at pointer
+00489610	Blit_SpriteClip32	blit	high	Same with left/right clip
+00489683	Blit_Sprite16	blit	high	16 bpp variant
+004896d8	Blit_SpriteClip16	blit	high	16 bpp clipped
+0048974b	Blit_Tile	blit	high	Dispatch by bytes-per-pixel
+00489789	Blit_SpriteClip	blit	high	Dispatch by bpp
+004897d3	Blit_Sprite	blit	high	Dispatch by bpp (used for font glyphs)
+00489814	Blit_Copy8_640	blit	med	Transparent 8-bit copy to 640-wide buffer (front end)
+00489851	Blit_Copy8Clip_640	blit	med	Clipped variant
+004898ac	Blit_Copy8to16_640	blit	med	8-bit -> 16 bpp via palette 0x51156c, 640 stride
+00489904	Blit_Copy8to16Clip_640	blit	med	Clipped variant
+0048997c	Math_AtanSearch	math	high	Binary search in 256-entry tangent table
+004899ee	Math_Atan2	math	high	Angle 0..1023 of (dy,dx) (0 = +y, 0x100 = +x)
+00489abe	Math_Rand	math	high	Lagged additive RNG, 15-bit
+00489af6	Math_RandSeed	math	high	Resets RNG state from constant
+00489b19	Map_SlopeZ	math	med	Ground z inside block from slope type and fractional x,y
+00489c7c	Coll_RectsOverlap	math	med	Rotated-rectangle overlap test using corner angles
+00489dc0	Event_Get	event	high	Pumps Win32 messages, pops first queued event matching mask
+00489ec0	Event_Pump	event	high	PeekMessage loop translating keys/mouse into 36-byte events
+0048a200	Event_Push	event	high	Appends event to queue (max 100)
+0048a280	Event_Flush	event	high	Drains events matching mask
+0048a2b0	Event_Init_0048a2b0	event	med	Resets queue and stores window param
+0048a2c0	Event_Reset	event	high	Initialises event free list and key-repeat table
+0048a310	Obj_GetField1B8	unk	low	Returns *(param+0x1B8); first function of the next module
+0048a320	MGL_maxPage	mgl_core	high	Return dc->maxPage (+0x1c4): number of hardware pages minus one
+0048a330	MGL_getActivePage	mgl_core	high	Active (drawing) page of a fullscreen DC (devinfo+0x1c); 0 for other DC types
+0048a350	MGL_getVisualPage	mgl_core	high	Visible page of a fullscreen DC (devinfo+0x20)
+0048a370	MGL_setActivePage	mgl_core	high	Select drawing page via driver vector devinfo+0x30; refresh cached surface ptr if DC is current
+0048a3c0	MGL_setVisualPage	mgl_core	high	Flip to page (devinfo+0x34) with waitVRT; hides/redraws software mouse cursor around the flip
+0048a410	MGL_restoreAttributes	mgl_core	high	Copy 0x1a0-byte attribute block into the current-DC cache and re-apply color/backcolor/viewport/clip
+0048a4a0	MGL_defaultAttributes	mgl_core	high	Reset DC attributes (white/black colors, full viewport+clip, write mode replace, etc.)
+0048a5d0	MGL_getPixelFormat	mgl_core	high	Copy the DC's 48-byte pixel_format_t (+0x1fc) to caller
+0048a5f0	MGL_bitBltCoord	mgl_core	high	Clip and dispatch a 1:1 blit between two DCs (src->dst) to driver bitBlt vectors (+0x41c/+0x420)
+0048a870	MGL_stretchBltCoord	mgl_core	high	Clip and dispatch a scaled blit; special-cases 1x2 (+0x430) and 2x2 (+0x434) pixel doubling, generic (+0x438)
+0048ac60	MGL_realColor	mgl_core	high	Map a palette index to a device color (identity for <=8bpp, else via DC color table +0x22c)
+0048ac90	MGL_setPalette	mgl_core	high	Store palette entries into DC palette; in direct-color modes pack RGB into the color table
+0048ad30	MGL_getPaletteSize	mgl_core	high	Number of palette entries (maxColor+1, capped at 256)
+0048ad50	MGL_getDefaultPalette	mgl_core	high	Fetch driver default palette (vector +0x390) into caller buffer
+0048ad90	MGL_realizePalette	mgl_core	high	Program hardware palette (vector +0x394) for paletted DCs
+0048add0	MGL_setDefaultPalette	mgl_core	med	Load driver default palette into DC (getDefaultPalette + setPalette)
+0048ae10	MGL_result	mgl_core	high	Return and clear last MGL error code (0x7873bc)
+0048ae20	MGL_errorMsg	mgl_core	high	Error code (0..-31) to message string table at 0x4b4d10
+0048ae40	MGL_makeCurrentDC	mgl_core	high	Make DC current: write back cached copy (0x787980, 0x764 bytes) and load new one
+0048aec0	MGL_updateCurrentDC	mgl_core	med	Re-copy DC into the current-DC cache if it is current
+0048aee0	MGL_registerDriver	mgl_core	high	Register a linked-in device driver ("MegaGraph Driver" header check, version 2) in driver table 0x4b4ac0
+0048afe0	MGL_detectGraph	mgl_core	high	Ask each registered driver to detect; build available mode list 0x4b48c8 and mode->driver table 0x7878c0
+0048b0c0	MGL_initDC	mgl_core	med	Internal: init DC via driver init entry (+0x85), set bounds, allocate color table, default palette+attributes
+0048b1e0	MGL_createScrollingDC	mgl_core	high	Create fullscreen display DC (virtualX, virtualY, numBuffers); init mouse cursor; disable AutoRun
+0048b3c0	MGL_createDisplayDC	mgl_core	high	Wrapper: createScrollingDC(-1,-1,numBuffers)
+0048b3e0	MGL_destroyDisplayDC	mgl_core	high	Internal: destroy a fullscreen display DC and its list entry
+0048b4d0	MGL_createCustomDC	mgl_core	high	Create memory DC (w,h,bpp,pf,bytesPerLine,surface) using packed-pixel driver for the bpp
+0048b680	MGL_createMemoryDC	mgl_core	high	Wrapper: createCustomDC(w,h,bpp,pf,0,0)
+0048b6b0	MGL_destroyMemoryDC	mgl_core	high	Internal: destroy a memory DC
+0048b740	MGL_availableModes	mgl_core	high	Return 0xff-terminated byte list of detected mode numbers
+0048b750	MGL_availablePages	mgl_core	high	Number of pages for a mode (from 0x7878c1[mode*2]), -1 if invalid
+0048b770	MGL_modeResolution	mgl_core	high	Hard-coded table of 87 modes -> (xres, yres, bits)
+0048c010	MGL_surfaceAccessType	mgl_core	med	DC surface access flags (+0x248 & 3: linear/banked/none)
+0048c100	MGL_setViewport	mgl_core	high	Set viewport in the current DC (offset by DC bounds); resets CP and clip to viewport
+0048c1a0	MGL_sizex	mgl_core	high	DC width-1 from bounds rect (+0x238/+0x240)
+0048c1c0	MGL_sizey	mgl_core	high	DC height-1 from bounds rect (+0x23c/+0x244)
+0048c1e0	MGL_clearDevice	mgl_core	high	Fill whole device with background color (temporarily replace mode, solid pen)
+0048c250	MGL_setClipRect	mgl_core	high	Set clip rect in current DC (clamped to viewport) and notify driver
+0048c2d0	MGL_disableAutoPlay	mgl_win32	high	Registry HKCU Explorer NoDriveTypeAutoRun
+0048c360	MGL_restoreAutoPlay	mgl_win32	high	Registry NoDriveTypeAutoRun &= ~0x20
+0048c3f0	MGL_handleSurfaceLost	mgl_win32	med	On DDERR_SURFACELOST: suspend app (callback 1), restore system palette, then wait+restore fullscreen
+0048c480	MGL_waitRestoreFullscreen	mgl_win32	med	Pump messages until our window is active, Restore() DD surfaces, re-realize palette/pages, callback 2
+0048c5e0	MGL_pumpMessages	mgl_win32	high	PeekMessage/Translate/Dispatch loop
+0048c640	MGL_suspendApp	mgl_win32	med	App deactivated: callback, hide cursor, restore system palette/autorun, block until reactivated
+0048c980	MGL_subclassWindow	mgl_win32	high	Hook window proc (GWL_WNDPROC -> 0x48c8d0), saving previous
+0048c9b0	MGL_unsubclassWindow	mgl_win32	high	Restore saved window proc
+0048c9d0	MGL_makeFullscreenWindow	mgl_win32	high	Turn user window into topmost WS_POPUP of given size; save placement/styles; set wndproc 0x48c6e0
+0048ca40	MGL_restoreUserWindow	mgl_win32	high	Undo makeFullscreenWindow (styles, placement, wndproc)
+0048cab0	MS_setCursorPosScaled	mgl_mouse	med	Scale mouse coords between mode and desktop resolution, move cursor + SetCursorPos
+0048d0a0	MGL_getProcAddressChecked	mgl_win32	high	GetProcAddress, fatal error "GetProcAddress(%s) failed" if missing
+0048d0f0	MGL_detectWinVersion	mgl_win32	high	Set flags: NT (0x4b4fac), Win95 (0x4b4fa8), Win32s (0x4b4fa4)
+0048d290	MGL_initDirectDraw	mgl_ddraw	high	Load ddraw.dll from system dir, resolve DirectDrawCreate(Clipper), register "MGLDirectDrawWindow", create DD, GetCaps, EnumDisplayModes
+0048d410	MGL_loadSystemDLL	mgl_win32	high	LoadLibrary a DLL only if it exists in the Windows system directory
+0048d4b0	MGL_addTrailingSlash	mgl_win32	high	Append '\\' to a path if missing
+0048d570	MGL_restoreDisplayMode	mgl_ddraw	high	Leave fullscreen: unhook wndproc, SetCooperativeLevel normal, RestoreDisplayMode, destroy/restore window, show cursor
+0048d680	MGL_fatalError	mgl_core	high	MGL_exit, MessageBox "MGL Fatal Error!", exit(1)
+0048d6b0	MGL_destroyDC	mgl_core	high	Destroy any DC (dispatch by type +0x380: 0 display, 3 windowed, 4 memory)
+0048d720	MGL_destroyWindowedDC	mgl_core	high	Internal: destroy a windowed DC
+0048d7b0	MGL_createDIBSurface	mgl_win32	high	Create memory-DC surface: CreateDIBSection, or WinGCreateBitmap, or plain malloc; zero it
+0048d9b0	MGL_initWin32	mgl_win32	high	One-time init: core init, choose CreateDIBSection vs WinG by Windows version, reset system palette
+0048da60	MGL_loadWinG	mgl_win32	high	LoadLibrary wing32.dll and resolve WinGCreateDC/CreateBitmap/SetDIBColorTable/BitBlt/StretchBlt
+0048db20	MGL_loadDIBSection	mgl_win32	high	Resolve CreateDIBSection/SetDIBColorTable from gdi32
+0048db90	MGL_resetSystemPalette	mgl_win32	high	Realize an all-black PC_NOCOLLAPSE palette to flush the system palette
+0048dc30	MGL_initCore	mgl_core	high	Reset state, install malloc/free hooks, allocate scratch buffer, store MGL path at 0x7877a0
+0048dcc0	MGL_changeDisplayMode	mgl_core	high	Switch to mode (0x56 = windowed: restore desktop); destroys existing display DCs
+0048dd40	MGL_init	mgl_core	high	MGL_init(&driver,&mode,mglpath): win32 init, detectGraph, changeDisplayMode
+0048ddc0	MGL_exit	mgl_core	high	Destroy all DCs, leave fullscreen, restore palette, free scratch, Release DirectDraw
+0048dee0	MGL_setSuspendAppCallback	mgl_core	high	Set alt-tab suspend callback (0x787390)
+0048def0	MGL_setAppInstance	mgl_win32	high	Store HINSTANCE (0x4b4fc0)
+0048df00	MGL_setWinEventHandler	mgl_win32	med	Store user window-message hook (0x4b4fc4); GTA passes 0x415950
+0048e1b0	PACKED32_createSurface	mgl_packed32	med	Build 32bpp BITMAPINFO (BI_BITFIELDS from pixel format) and create DIB surface
+0048e500	PACKED32_stretchBlt1x2	mgl_packed32	med	Vertical pixel doubling blit (each source row copied to two dest rows), falls back to translating version
+0048eca0	PACKED16_createSurface	mgl_packed16	med	Build 15/16bpp BITMAPINFO (565 masks) and create DIB surface
+0048eec0	PACKED16_drawCursor	mgl_packed16	med	Draw AND/XOR mono mouse cursor by two putMonoImage passes (mode 0 then XOR)
+0048f9d0	PACKED8_drawCursor	mgl_packed8	med	8bpp variant of drawCursor
+00490920	MGL_nop	mgl_core	high	Empty stub used as default driver vector
+00490930	MS_initDC	mgl_mouse	high	Bind software mouse cursor to display DC; allocate per-page save-under buffers (33x33)
+00490a40	MS_drawCursor	mgl_mouse	high	Draw cursor via driver vector +0x418 (4 bytes x 32 rows AND/XOR masks)
+00490a80	MS_moveCursor	mgl_mouse	high	Mouse-move handler: restore under, save under, redraw at new hotspot-adjusted position
+00490b70	MS_saveUnder	mgl_mouse	high	Save screen rect under cursor (vector +0x428)
+00490c10	MS_restoreUnder	mgl_mouse	high	Restore saved rect (vector +0x42c)
+00490c30	MS_preFlip	mgl_mouse	med	Before page flip: draw cursor onto page about to become visible
+00490ca0	MS_postFlip	mgl_mouse	med	After flip: remove cursor from the page now hidden
+00490d90	MS_obscureSave	mgl_mouse	med	Hide cursor and remember visibility counter (used on suspend)
+00490db0	MS_obscureRestore	mgl_mouse	med	Restore remembered visibility and show
+00490dc0	MS_show	mgl_mouse	high	Increment visibility; draw when it reaches 0 (or Win32 ShowCursor)
+00490eb0	MS_hide	mgl_mouse	high	Decrement visibility; remove cursor at -1 (or Win32 ShowCursor(0))
+00490f30	MS_moveTo	mgl_mouse	high	Warp mouse to (x,y)
+00490f80	MS_setCursor	mgl_mouse	high	Install cursor shape (0x108 bytes copied to 0x4b6b00)
+00490fd0	MS_setCursorColor	mgl_mouse	high	Set cursor color (0x786210)
+00491004	MGL_FixMul	mgl_util	high	16.16 fixed multiply with rounding
+00491019	MGL_FixDiv	mgl_util	high	16.16 fixed divide (64-bit)
+00491060	MGL_FixCrossGE	mgl_util	med	Return c*b >= a*d using 64-bit products
+00491084	MGL_packColorFast	mgl_util	high	Pack r,g,b into a pixel using pixel_format masks/positions/adjusts
+004910d0	MGL_initMallocHooks	mgl_util	high	Set allocator hooks to CRT malloc/free
+004910f0	MGL_memset	mgl_util	high	memset wrapper
+00491110	MGL_malloc	mgl_util	high	Allocate via hook (0x787160)
+00491130	MGL_calloc	mgl_util	high	Allocate n*size and zero
+00491160	MGL_free	mgl_util	high	Free via hook (0x787164)
+00491180	MGL_initDriverVectors	mgl_core	high	Fill DC rendering vectors with MGL_nop
+004912d0	MGL_initVectorTriple	mgl_core	high	Fill a 3-entry vector group with MGL_nop
+00491730	LST_newNode	mgl_util	high	Allocate zeroed list node (4-byte link header before data)
+00491760	LST_freeNode	mgl_util	high	Free list node
+00491780	LST_create	mgl_util	high	Create empty singly linked list with head/z sentinels
+004917c0	LST_destroy	mgl_util	high	Free all nodes with callback, then the list
+00491800	LST_addAfter	mgl_util	high	Insert node after given node; count++
+00491820	LST_removeNext	mgl_util	high	Unlink node following given one; count--
+00491840	LST_first	mgl_util	high	First node or NULL
+00491860	LST_findPrev	mgl_util	high	Find node preceding a given node
+004918a0	MS_getDefaultCursor	mgl_mouse	high	Return built-in arrow cursor (0x4b6c20)
+00491a20	DDRAW_decodePixelFormat	mgl_ddraw	high	DDPIXELFORMAT -> (bits, pixel-format index: 555/565/RGB/BGR/ARGB...)
+00491bf0	DDRAW_lockSurfaces	mgl_ddraw	high	Lock primary and each back buffer once to record surface pointers/pitch
+00491d70	DDRAW_fatalError	mgl_ddraw	high	Release surfaces/palette, restore coop level, destroy window, MessageBox "DirectDraw Fatal Error!"
+00491dfe	DDRAW_initFullscreen	mgl_ddraw	med	(mid-function entry) create window, SetCooperativeLevel, SetDisplayMode, primary+flip chain, palette
+00492280	DDRAW_errorString	mgl_ddraw	high	HRESULT -> "DDERR_*" name
+00492b00	DDRAW_setActivePage	mgl_ddraw	high	Lock/unlock target page surface to get pointer; retry on SURFACELOST
+00492c10	DDRAW_setVisualPage	mgl_ddraw	high	Flip() to page; re-map flip-chain surfaces; retry on SURFACELOST
+00492ec0	DDRAW_lockActive	mgl_ddraw	high	Lock active surface (retry on SURFACELOST)
+00492f10	DDRAW_unlockActive	mgl_ddraw	high	Unlock active surface
+00493100	WINDC_initDriver	mgl_windc	high	Init windowed DC on an HWND: GetDC, client size, bpp/pixel format, install GDI vectors
+0049310b	WINDC_initDriver_alt	mgl_windc	low	Mis-split duplicate entry inside WINDC_initDriver (+0xb)
+00493390	WINDC_getPixelFormat	mgl_windc	high	Determine bpp and pixel format of a GDI DC (GetDIBits bitfields probe)
+004935a0	WINDC_getDefaultPalette	mgl_windc	high	Fill palette with the 20 Windows static colors
+00493a90	WINDC_stretchBlt	mgl_windc	high	StretchBlt via GDI (CreateDIBSection path) or WinGStretchBlt
+00493b98	PACKED32_rowOffset	mgl_packed32	high	asm helper: y * dc->bytesPerLine
+00493bae	PACKED32_rowOffsetCur	mgl_packed32	high	asm helper: y * current bytesPerLine (0x787b48)
+00493bc4	PACKED32_getPixel	mgl_packed32	high	Read 32-bit pixel
+00493beb	PACKED32_putPixel	mgl_packed32	high	Write pixel with write mode (replace/AND/OR/XOR)
+00493c39	PACKED32_getScanline	mgl_packed32	med	Copy a scanline span with raster op (surface->buffer)
+00493ca1	PACKED32_putScanline	mgl_packed32	med	Copy a scanline span with raster op (buffer->surface)
+00493cbd	PACKED32_line	mgl_packed32	high	Fixed-point line draw (vertical special case, x/y-major jump)
+00493ef5	PACKED32_scanLine	mgl_packed32	high	Horizontal span fill with write mode and 8x8 mono/color pattern
+00494058	PACKED32_fillRect	mgl_packed32	high	Solid rectangle fill (fast path) or per-scanline
+004940cf	PACKED32_putMonoImage	mgl_packed32	high	Expand 1bpp bitmap (font glyphs) with clipping and write mode
+0049434d	PACKED32_bitBlt	mgl_packed32	high	Same-format rectangle copy
+004943c2	PACKED32_getImage	mgl_packed32	high	Save rect into buffer with (width,height,ptr) header
+0049441e	PACKED32_putImage	mgl_packed32	high	Restore rect saved by getImage
+0049445d	PACKED32_stretchBlt2x2	mgl_packed32	high	2x2 pixel doubling blit from 32bpp or 24bpp source
+004946f7	PACKED32_stretchRun32	mgl_packed32	med	Stretch helper: replicate 32-bit pixels by run-length table
+0049472c	PACKED32_stretchRun24a	mgl_packed32	med	Stretch helper: 24->32 bpp (mask) by run table
+00494765	PACKED32_stretchRun24b	mgl_packed32	med	Stretch helper: 24->32 bpp byte-swapped by run table
+004947a3	PACKED32_stretchRun24c	mgl_packed32	med	Stretch helper: 24->32 bpp shifted by run table
+004947db	PACKED32_stretchRun24d	mgl_packed32	med	Stretch helper: 24->32 bpp swapped+shifted by run table
+004948b0	PACKED_bitBltTranslate	mgl_packed32	med	Format-converting blit via driver translate-scanline vector (+0x3cc)
+00494954	MGL_memset8	mgl_util	high	Aligned byte memset
+0049498e	MGL_memset16	mgl_util	high	16-bit word fill
+004949c4	MGL_memset32	mgl_util	high	32-bit dword fill
+004949dc	MGL_memcpy	mgl_util	high	memcpy (dwords then bytes)
+00494a00	MGL_memcpyAlignSrc	mgl_util	high	memcpy aligning source first
+00494a30	MGL_memcpyAlignDst	mgl_util	high	memcpy aligning destination first
+00494a60	PACKED_stretchBlt1x2Translate	mgl_packed32	med	Format-converting vertical doubling via translate-scanline vector
+00494b40	PACKED_stretchBlt2x2Translate	mgl_packed32	med	Format-converting 2x2 doubling via vector +0x3d0
+00494d54	PACKED16_rowOffset	mgl_packed16	high	asm helper: y * dc->bytesPerLine
+00494d69	PACKED16_rowOffsetCur	mgl_packed16	high	asm helper: y * current bytesPerLine
+00494d7e	PACKED16_getPixel	mgl_packed16	high	Read 16-bit pixel
+00494daa	PACKED16_putPixel	mgl_packed16	high	Write pixel with write mode
+00494dfc	PACKED16_getScanline	mgl_packed16	med	Scanline span copy with raster op (surface->buffer)
+00494e89	PACKED16_putScanline	mgl_packed16	med	Scanline span copy with raster op (buffer->surface)
+00494edc	PACKED16_line	mgl_packed16	high	Line draw
+00495122	PACKED16_scanLine	mgl_packed16	high	Horizontal span fill with pattern
+0049529f	PACKED16_fillRect	mgl_packed16	high	Rectangle fill
+00495333	PACKED16_putMonoImage	mgl_packed16	high	Expand 1bpp bitmap
+004955c9	PACKED16_bitBlt	mgl_packed16	high	Same-format rectangle copy
+0049569d	PACKED16_getImage	mgl_packed16	high	Save rect to buffer
+00495700	PACKED16_putImage	mgl_packed16	high	Restore rect
+0049573f	PACKED16_stretchBlt2x2	mgl_packed16	high	2x2 pixel doubling (16bpp, or 8bpp source through palette)
+004959af	PACKED16_stretchRun16	mgl_packed16	med	Stretch helper: replicate 16-bit pixels by run table
+004959e5	PACKED16_stretchRun24to565	mgl_packed16	med	Stretch helper: 24bpp -> 565
+00495a3d	PACKED16_stretchRun24to555	mgl_packed16	med	Stretch helper: 24bpp -> 555
+00495a98	PACKED8_rowOffset	mgl_packed8	high	asm helper: y * dc->bytesPerLine
+00495aab	PACKED8_rowOffsetCur	mgl_packed8	high	asm helper: y * current bytesPerLine
+00495abe	PACKED8_getPixel	mgl_packed8	high	Read 8-bit pixel
+00495ae2	PACKED8_putPixel	mgl_packed8	high	Write pixel with write mode
+00495b2b	PACKED8_getScanline	mgl_packed8	med	Scanline span copy with raster op (surface->buffer)
+00495bae	PACKED8_putScanline	mgl_packed8	med	Scanline span copy with raster op (buffer->surface)
+00495c05	PACKED8_line	mgl_packed8	high	Line draw
+00495e38	PACKED8_scanLineSolid	mgl_packed8	med	Horizontal span, replace mode
+00495e94	PACKED8_scanLineOp	mgl_packed8	med	Horizontal span with write mode
+00495eec	PACKED8_fillRect	mgl_packed8	high	Rectangle fill
+00495f52	PACKED8_putMonoImage	mgl_packed8	high	Expand 1bpp bitmap
+004961c0	PACKED8_bitBlt	mgl_packed8	high	Same-format rectangle copy
+00496292	PACKED8_getImage	mgl_packed8	high	Save rect to buffer
+004962f3	PACKED8_putImage	mgl_packed8	high	Restore rect
+00496332	PACKED8_stretchBlt2x2	mgl_packed8	high	2x2 pixel doubling (8bpp)
+0049644b	PACKED8_stretchRun8	mgl_packed8	med	Stretch helper: replicate bytes by run table
+00496480	MGL_fillRectByScanlines	mgl_core	med	Generic fillRect: beginDirect, scanLine per row, endDirect
+004964c0	glWindowPos2iMESA	mgl_mesa	high	Exported Mesa glWindowPos ext (calls glWindowPos4f ptr 0x78708c); unused by game
+004964f0	glWindowPos2sMESA	mgl_mesa	high	Mesa export, unused
+00496530	glWindowPos2fMESA	mgl_mesa	high	Mesa export, unused
+00496550	glWindowPos2dMESA	mgl_mesa	high	Mesa export, unused
+00496580	glWindowPos2ivMESA	mgl_mesa	high	Mesa export, unused
+004965b0	glWindowPos2svMESA	mgl_mesa	high	Mesa export, unused
+004965f0	glWindowPos2fvMESA	mgl_mesa	high	Mesa export, unused
+00496610	glWindowPos2dvMESA	mgl_mesa	high	Mesa export, unused
+00496640	glWindowPos3iMESA	mgl_mesa	high	Mesa export, unused
+00496680	glWindowPos3sMESA	mgl_mesa	high	Mesa export, unused
+004966e0	glWindowPos3fMESA	mgl_mesa	high	Mesa export, unused
+00496700	glWindowPos3dMESA	mgl_mesa	high	Mesa export, unused
+00496730	glWindowPos3ivMESA	mgl_mesa	high	Mesa export, unused
+00496770	glWindowPos3svMESA	mgl_mesa	high	Mesa export, unused
+004967d0	glWindowPos3fvMESA	mgl_mesa	high	Mesa export, unused
+004967f0	glWindowPos3dvMESA	mgl_mesa	high	Mesa export, unused
+00496820	glWindowPos4iMESA	mgl_mesa	high	Mesa export, unused
+00496860	glWindowPos4sMESA	mgl_mesa	high	Mesa export, unused
+004968d0	glWindowPos4dMESA	mgl_mesa	high	Mesa export, unused
+00496910	glWindowPos4ivMESA	mgl_mesa	high	Mesa export, unused
+00496950	glWindowPos4svMESA	mgl_mesa	high	Mesa export, unused
+004969c0	glWindowPos4fvMESA	mgl_mesa	high	Mesa export, unused
+004969e0	glWindowPos4dvMESA	mgl_mesa	high	Mesa export, unused
+00496a18	DDRAW_lockedCall6	mgl_ddraw	med	Lock surface, call saved packed-driver vector (0x787448, 6 args), unlock
+00496a42	DDRAW_lockedCall11a	mgl_ddraw	med	Locked wrapper for vector 0x787454 (11 args, blit-like)
+00496a7b	DDRAW_lockedCall6b	mgl_ddraw	med	Locked wrapper for vector 0x78745c (6 args)
+00496aa5	DDRAW_lockedCall2	mgl_ddraw	med	Locked wrapper for vector 0x787460 (2 args)
+00496ac3	DDRAW_lockedCall10a	mgl_ddraw	med	Locked wrapper for vector 0x787464 (10 args)
+00496af9	DDRAW_lockedCall10b	mgl_ddraw	med	Locked wrapper for vector 0x787468 (10 args)
+00496b2f	DDRAW_lockedCall12	mgl_ddraw	med	Locked wrapper for vector 0x78746c (12 args)
+00496b70	MGL_scanLinePatternSlow	mgl_core	med	Generic pattern span via per-pixel putPixel (pattern modes 0..3)
+00496ce4	DirectPlayEnumerateA	dplay_imp	high	DPLAYX ordinal 2 import thunk; called by net code 0x486880 with callback 0x486910
+00496cea	DirectPlayCreate	dplay_imp	high	DPLAYX ordinal 1 import thunk; called by 0x4869d0 (guid,&dp,NULL)
+00496cf0	Poly_Draw	Poly	high	Rasterize current polygon (0x78e8c0): find start edges, bbox-vs-clip test, dispatch to span filler by flags/bpp
+00497035	Poly_DrawFaceHoriz	Poly	high	Draw a 64x64 tile on a trapezoid with horizontal top/bottom edges (block lids/side walls); flip+rotation from face word
+00497332	Poly_DrawFaceVert	Poly	high	Same for trapezoid with vertical left/right edges; rotates tile by 90 deg
+00497710	Poly_DrawQuad	Poly	high	General textured tri/quad (4 x, 4 y, 4 u, 4 v; u3<0 = triangle) for slopes/diagonals
+0049787c	Poly_DrawSprite	Poly	high	Rotated sprite quad (4 screen corners), texels from sprite page, opaque path (flags 2)
+004979c9	Poly_DrawSpriteBlend	Poly	high	Rotated sprite quad, blended path (flags 0x42)
+00497b16	Poly_BuildBlendTable	Poly	high	table[a][b] = (int)(a*alpha + b*(1-alpha)) 256x256 (called with 0.5)
+00497bab	Poly_SetClip	Poly	high	Set polygon clip rect (x0,y0,x1,y1) as shorts (0x4b8850..) and ints (0x78e548..)
+00497bfa	Poly_SetScreenRows	Poly	high	Build scanline pointer table 0x503228[y] = base + y*pitch
+00497c3b	Poly_Init	Poly	high	Init renderer: texture base, 1/x table (0x3f0000/i, 4096), rotated-tile LRU cache (n slots at cacheBase)
+00497dfc	Poly_SelectTile	Poly	high	Resolve tile index -> texture ptr/u/v; for 90/270 rotation fetch/transpose into LRU tile cache
+0049806a	Poly_DrawRect	Poly	high	Axis-aligned scaled textured rect (x0,x1,y0,y1,uMax,vMax,tex) -> 16/32bpp filler
+00498133	Poly_SetNumberFont	Poly	low	Set digit-strip texture/size for floating numbers (dead code)
+00498189	Poly_AddFloatingNumber	Poly	low	Queue a "%d" number popup at (x,y) in 32-slot table 0x78e560 (dead code)
+004982b4	Poly_DrawFloatingNumbers	Poly	low	Draw queued numbers as digit rects, zoom after 40 frames, expire at 140 (dead code)
+00498540	Poly_StepLeftEdge	Poly	high	Advance edge A (0x78e8d4, walks backwards; the span's right end) to its next vertex: x = x<<16+0x7fff, new x/u/v steps; u/v keep accumulating.
+004986a9	Poly_StepRightEdge	Poly	high	Advance edge B (0x78e8e2, walks forwards; the span's left end): x = x<<16, new steps.
+00498800	Poly_SetupEdges	Poly	high	Init both edges and span state from polygon flags (shade/uv sets)
+004994b9	Poly_SpanTex16	Poly	high	Textured spans, 16bpp, CLUT lookup, texel 0 transparent
+004996c4	Poly_SpanTex32	Poly	high	Textured spans, 32bpp, CLUT lookup, texel 0 transparent
+004998ce	Poly_SpanBlend15	Poly	high	Textured spans blended 50% with screen via blend table, 555
+00499b39	Poly_SpanBlend16	Poly	high	Blended textured spans, 565
+00499da4	Poly_SpanBlend32	Poly	high	Blended textured spans, 32bpp
+00499fd2	Poly_FindExtents	Poly	high	Find vertex indices of min/max y and x of current polygon
+0049a2e8	Poly_RectFill16	Poly	high	Scaled textured rect filler 16bpp
+0049a539	Poly_RectFill32	Poly	high	Scaled textured rect filler 32bpp
+0049a78c	Poly_FaceHoriz32	Poly	high	Trapezoid tile mapper (row spans) 32bpp; 1/x table stepping; bit 0x80 = skip texel 0
+0049abdc	Poly_FaceVert32	Poly	high	Trapezoid tile mapper (column spans) 32bpp
+0049b044	Poly_RotateTile90	Poly	high	Rotate a 64x64 tile 90 deg (dst[x][63-y]=src[y][x], 256-byte stride) into a cache slot
+0049b2ad	Prof_GetAverage	Poly	low	64-bit accumulator / count for slot (unreferenced profiling)
+0049b2d6	Prof_Reset	Poly	low	Clear profiling slot (unreferenced)
+0049b328	Poly_FaceHoriz16	Poly	high	Trapezoid tile mapper (row spans) 16bpp
+0049b778	Poly_FaceVert16	Poly	high	Trapezoid tile mapper (column spans) 16bpp
+0049bbdf	ios_ctor	crt_iostream	high	ios::ios() (state badbit, precision 6, fill ' ')
+0049bc11	ios_deletingDtor	crt_iostream	high	ios scalar deleting destructor
+0049bc2d	ios_dtor	crt_iostream	high	ios::~ios (delete owned streambuf)
+0049bc56	ios_init	crt_iostream	high	ios::init(streambuf*)
+0049bc85	strstreambuf_ctor	crt_iostream	high	strstreambuf::strstreambuf() dynamic
+0049bcab	strstreambuf_deletingDtor	crt_iostream	high	strstreambuf scalar deleting destructor
+0049bcc7	strstreambuf_ctorBuf	crt_iostream	high	strstreambuf::strstreambuf(char*,int,char*)
+0049bd66	strstreambuf_dtor	crt_iostream	high	strstreambuf::~strstreambuf
+0049bdb8	strstreambuf_str	crt_iostream	high	strstreambuf::str() (freeze, return base)
+0049bdc0	strstreambuf_doallocate	crt_iostream	high	Grow dynamic buffer
+0049bed9	strstreambuf_overflow	crt_iostream	high	strstreambuf::overflow
+0049bf50	strstreambuf_underflow	crt_iostream	high	strstreambuf::underflow
+0049bf90	strstreambuf_seekoff	crt_iostream	high	strstreambuf::seekoff
+0049c05e	strstream_ctor	crt_iostream	high	strstream::strstream()
+0049c11f	strstream_ctorBuf	crt_iostream	high	strstream::strstream(char*,int,int mode); GTA uses it to format mode names
+0049c1e2	strstream_vbaseDtor	crt_iostream	high	strstream virtual-base destructor
+0049c1f5	ostream_putChar	crt_iostream	high	ostream::operator<<(char)
+0049c271	streambuf_sputc	crt_iostream	high	streambuf::sputc
+0049c293	ostream_putInt	crt_iostream	high	ostream::operator<<(int) honoring hex/oct/showpos flags
+0049c33d	ostream_opfx	crt_iostream	high	ostream::opfx
+0049c366	ostream_osfx	crt_iostream	high	ostream::osfx (unitbuf/stdio flush)
+0049c3e6	ostream_putStr	crt_iostream	high	ostream::operator<<(const char*)
+0049c40f	ostream_flush	crt_iostream	high	ostream::flush
+0049c462	ostream_ctor	crt_iostream	high	ostream::ostream(streambuf*)
+0049c4c7	ostream_dtor	crt_iostream	high	ostream::~ostream
+0049c4d6	ostream_writepad	crt_iostream	high	ostream::writepad(prefix,str) with width/fill/adjust
+0049c642	streambuf_ctor	crt_iostream	high	streambuf::streambuf()
+0049c66f	streambuf_deletingDtor	crt_iostream	high	streambuf scalar deleting destructor
+0049c68b	streambuf_dtor	crt_iostream	high	streambuf::~streambuf
+0049c6e3	streambuf_xsputn	crt_iostream	high	streambuf::xsputn
+0049c739	streambuf_xsgetn	crt_iostream	high	streambuf::xsgetn
+0049c7d0	streambuf_sync	crt_iostream	high	streambuf::sync
+0049c7e7	streambuf_doallocate	crt_iostream	high	streambuf::doallocate (512 bytes)
+0049c814	streambuf_setb	crt_iostream	high	streambuf::setb
+0049c85c	streambuf_pbackfail	crt_iostream	med	streambuf::pbackfail
+0049c8b8	streambuf_sputbackc	crt_iostream	med	streambuf::sputbackc
+0049c908	istream_ctor	crt_iostream	high	istream::istream(streambuf*) (skipws)
+0049c97e	istream_dtor	crt_iostream	high	istream::~istream
+0049c98d	ostream_seekp	crt_iostream	high	ostream::seekp(off,dir)
+0049c9ec	iostream_ctor	crt_iostream	high	iostream::iostream(streambuf*)
+0049ca61	iostream_dtor	crt_iostream	high	iostream::~iostream
+0049caae	_fpmath	crt	high	CRT FP init: cfltcvt init, P5 FDIV check, default precision
+0049cac6	_cfltcvt_init	crt	high	Install float conversion function pointers
