@@ -1,7 +1,7 @@
 /* MISSION.INI: the section reader (Mission_ReadIni 0x44ab90 and its tokeniser 0x44ace0-0x44b130) and
    the section loader (Mission_Load 0x445800): the header line, the object lines (script objects and
    the entities they create) and the command lines (the command table and labels the interpreter
-   runs). Grammar: docs/game-core.md. The interpreter (Mission_Update 0x446fe0) is not ported yet. */
+   runs). Grammar: docs/game-core.md; the runtime (mission_run.h): docs/missions.md. */
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
@@ -67,7 +67,7 @@ typedef struct {
     int32_t counter_target, secret_target, mission_total, target_score;   /* 0x6765ec, 0x67638c, 0x6b3b78, 0x6b3b84 */
     int16_t bombshop_cost;      /* 0x5fdff8 (5000 unless BOMBSHOP_COST) */
     int16_t player_ped[4];      /* 0x656180 */
-    int player_cursor;          /* 0x6b3b70 next player a PLAYER line binds */
+    int16_t cur;                /* 0x6b3b70 the process Mission_Update runs (Mission_Load: the next player a PLAYER line binds) */
     /* per-process state (index = process; players own the first ones) */
     int16_t pc[MISSION_PROCESSES];              /* 0x676620 */
     int16_t wait[MISSION_PROCESSES];            /* 0x676280 */
@@ -77,7 +77,18 @@ typedef struct {
     int16_t owner[MISSION_PROCESSES];           /* 0x676348 */
     int32_t kind[MISSION_PROCESSES];            /* 0x676200 */
     int32_t trigger[MISSION_PROCESSES];         /* 0x6762c8 */
-    int32_t proc6560f8[MISSION_PROCESSES];      /* 0x6560f8 */
+    int32_t last_pc[MISSION_PROCESSES];         /* 0x6560f8 the pc a debug build traced (Mission_Update keeps it) */
+    int16_t result[MISSION_PROCESSES];          /* 0x6b3b30 the result code a process ended with (1 success, 2 failed, 3 dead...) */
+    /* the interpreter's view of the running process (Mission_StepProcess) */
+    int cur_pc;                 /* 0x655e58 the command index (the handlers write the next one here) */
+    int16_t cur_wait;           /* 0x655e54 copy of wait[cur] */
+    int cur_player;             /* 0x676608 the owning player (owner chain of cur) */
+    int cur_ped;                /* 0x5f30e0 player_ped[cur] */
+    int32_t cur_size;           /* 0x67660c the size Mission_GetObjectPos returns with scratch_x/y/z */
+    int16_t respawn[4];         /* 0x5fdffc per player: wasted / respawn countdown (-1 off) */
+    uint8_t phone_flag[4];      /* 0x6b3b74 per player (MPHONES answered); 0x6b3b42 + code in Mission_OnBriefDone */
+    int32_t brief_flag;         /* 0x6765e8 cleared by Mission_OnBriefDone, 1 after codes 9 / 10 */
+    int16_t ended;              /* 0x6b3b7e the end of the level is scheduled */
     int32_t cleanup_cars[MISSION_CLEANUP];      /* 0x6b3b90 */
     int ncleanup_cars;                          /* 0x6b3b88 */
     int32_t cleanup_peds[MISSION_CLEANUP];      /* 0x676390 */
@@ -87,8 +98,10 @@ typedef struct {
     int32_t kf_list[MISSION_KF_MAX];            /* 0x5fe010 objects written with persistence digit 2 */
     int nkf;                                    /* 0x676604 (not reset by Mission_Load) */
     /* other state Mission_Load resets (meaning unknown) */
-    int32_t u5fdfe8, u5fdfec, u5fdff0, u5fdff4, u5fdffc, u5fe000, u6762c0, u67661c, u6b3b74;
-    int16_t u6b3b7e;
+    int32_t park_car[4];        /* 0x5fdfe8 per player: the car PARK is taking in (-1 none) */
+    int32_t park_exit_x, park_exit_y;   /* 0x6765f4, 0x6765f8 where PARK lets the driver out (Mission_GetParkExitPos) */
+    int16_t park_exit_angle;    /* 0x6b3b7c */
+    int32_t u6762c0, u67661c;
     int32_t scratch_x, scratch_y, scratch_z;    /* 0x676610.. the coordinates of the line */
     int32_t scratch_p1, scratch_p2;             /* 0x5fe004, 0x6765f0 */
     int32_t scratch_a, scratch_b;               /* 0x693b20, 0x693b24 */

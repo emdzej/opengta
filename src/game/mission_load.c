@@ -1,15 +1,18 @@
 /* Mission_Load 0x445800 and the creators it calls for the object lines (Mission_Spawn* 0x43d2c0-
-   0x43e1b0, the MisCar_* helpers 0x475840-0x475fd0, Mission_ObjCreate 0x478790). Entity creators of
-   modules not ported yet are stubs (stubs.h). */
+   0x43e1b0). The MisCar_* helpers, Mission_ClearBlock and Mission_ObjCreate they use are in
+   mission_obj.c; entity creators of modules not ported yet are stubs (stubs.h). */
 #include "car.h"
 #include "coll.h"
 #include "game.h"
 #include "gmath.h"
+#include "dummy.h"
 #include "mission.h"
+#include "mission_obj.h"
 #include "obj.h"
 #include "ped.h"
 #include "player.h"
 #include "stubs.h"
+#include "trigger.h"
 #include <string.h>
 
 /* object types (0x4b0d98) */
@@ -59,149 +62,7 @@ static void cleanup_car(MissionObject *o, const Car *c)
     if (!o->persistent && M->ncleanup_cars < MISSION_CLEANUP) M->cleanup_cars[M->ncleanup_cars++] = c->id;
 }
 
-/* ---- the MisCar helpers (0x475840-0x475fd0) ---- */
-
-/* MisCar_Create 0x475840: a car on the ground of block (x, y, z) (its centre, z - 2 pixels); no free
-   slot is fatal (-0x4e). */
-static int mis_car_create(int x, int y, int z, int model, int angle, int remap)
-{
-    int c = car_spawn_ex_on_ground(x * 0x400000 + 0x200000, y * 0x400000 + 0x200000, z * 0x400000 - 0x20000,
-                                   (int16_t)model, 0, angle, remap);
-    if (c == -1) game_fatal(-0x4e, 0x53, (int16_t)model);
-    car_get(c)->unk139 = 0;
-    return c;
-}
-
-/* MisCar_CreateType1 0x475930: the same through Car_SpawnEx with a driver (flag 1), z not snapped. */
-static int mis_car_create_type1(int x, int y, int z, int model, int angle, int remap)
-{
-    int c = car_spawn_ex(x * 0x400000 + 0x200000, y * 0x400000 + 0x200000, z * 0x400000 - 0x20000,
-                         (int16_t)model, 1, angle, remap);
-    if (c == -1) game_fatal(-0x4e, 0x53, (int16_t)model);
-    car_get(c)->unk139 = 0;
-    return c;
-}
-
-/* MisCar_CreatePlayerPed 0x475a20: player n's ped in the driver slot of `car` (car + 200), standing
-   on block (x, y, z), bound to the player, with the player's colour; control type 8 + n. */
-static int mis_car_create_player_ped(int n, int x, int y, int z, int car, int angle, int remap)
-{
-    int ped = car + PED_DRIVER_FIRST;
-    ped_spawn_in_slot(x * 0x400000 + 0x200000, y * 0x400000 + 0x200000, z * 0x400000 - 0x10000, 0, angle, 1,
-                      ped, car);
-    ped_set_player_controlled((int16_t)ped);
-    player_set_controlled(n, PLAYER_ON_FOOT, (int16_t)ped);
-    player_set_ped(n, ped);
-    ped_set_appearance(ped, 0, remap);
-    Ped *p = ped_get(ped);
-    p->objective = 0x25;
-    if (n >= 0 && n <= 3) p->control = (int16_t)(8 + n);
-    return ped & 0xffff;
-}
-
-/* MisCar_PutPlayerIn 0x475c40: player n drives `car`: the car turns player-controlled (control 1),
-   its driver slot ped is the player's, placed at the driver's door (door_dx, door_dy + 6 rotated by
-   the car's heading), in the grid if the car is a convertible. */
-static void mis_car_put_player_in(int car, int n)
-{
-    Car *c = handle_car(car);
-    c->control = 1;
-    c->unk88 = 1;
-    c->owner_status = 1;
-    c->driver = (int16_t)(c->id + PED_DRIVER_FIRST);
-    ped_set_player_controlled(c->driver);
-    player_set_controlled(n, PLAYER_ON_FOOT, c->driver);
-    player_set_ped(n, c->driver);
-    Ped *p = ped_get(c->driver);
-    if (n >= 0 && n <= 3) p->control = (int16_t)(8 + n);
-    int a = c->spr.angle & 0x3ff, b = (c->spr.angle + 0x100) & 0x3ff;
-    p->spr.y = math_cos(a) * c->door_dx + math_cos(b) * (c->door_dy + 6) + c->spr.y;
-    p->u56 = 0;
-    p->spr.x = math_sin(a) * c->door_dx + math_sin(b) * (c->door_dy + 6) + c->spr.x;
-    p->u54 = 6;
-    if (car_info_is_convertible(car)) {
-        p->attach_kind = 1;
-        p->attach_id = (int16_t)car;
-        p->anim = 0x80;
-        coll_insert(COLL_PED, p->id, p, p->spr.unk20, p->spr.x, p->spr.y);
-    }
-    player_enter_car(p->id, p->car);
-    if (!c->physics) carphys_begin(c->id);
-}
-
-/* MisCar_MakeKiller 0x475b20: the car's driver slot ped sits in it (state 7), the car turns a traffic
-   dummy (control 0); bikes and convertibles get a visible driver (Ped_CreateCarDriver). */
-static void mis_car_make_killer(int car)
-{
-    if (car < 0 || car >= CAR_MAX) return;   /* (MisCar_Create stops on -1 before this) */
-    Car *c = car_get(car);
-    Ped *p = ped_get((int16_t)(c->id + PED_DRIVER_FIRST));
-    c->control = 0;   /* Car_SetDummyControl 0x408300 */
-    c->owner_status = 1;
-    c->driver = (int16_t)(c->id + PED_DRIVER_FIRST);
-    c->unk88 = 1;
-    p->health = 100;
-    p->graphic = 0;
-    p->control = 0;
-    p->weapon = 0;
-    p->objective = 0x19;
-    p->state = 7;
-    p->u78 = 8;
-    p->u7c = 2;
-    c->unkec = 1;
-    if (c->vtype != 3 && !car_info_is_convertible(car)) return;
-    c->status = 0;
-    ped_create_car_driver(c);
-}
-
-/* MisCar_CreateDriver 0x4759b0: the car's driver slot ped at pixel (x, y, z), sent to the car's door. */
-static int mis_car_create_driver(int x, int y, int z, int car)
-{
-    Car *c = handle_car(car);
-    int id = (int16_t)(c->id + PED_DRIVER_FIRST);
-    if (id < 0 || id >= PED_MAX) return id;   /* (a failed car: the original writes outside the table) */
-    Ped *p = ped_get(id);
-    p->graphic = 0;
-    ped_spawn_in_slot(x << 16, y << 16, z << 16, 0, 0, 1, id, c->id);
-    ped_send_to_car_door1(p, car);
-    p->u8b = 1;
-    p->graphic = 0;
-    return id;
-}
-
-/* MisCar_SpawnBatch 0x475f10: n traffic cars (Traffic_PrimeCarPool), each bound to its driver slot. */
-static void mis_car_spawn_batch(int n)
-{
-    int first = g_cars_count;
-    traffic_prime_car_pool(n);
-    int end = (int16_t)g_cars_count + (int16_t)first;   /* the original adds the old count to the new one */
-    for (int i = (int16_t)first; i < end && i < CAR_MAX; i++) {
-        car_get(i)->driver = (int16_t)(i + PED_DRIVER_FIRST);
-        ped_get(i + PED_DRIVER_FIRST)->car = (int16_t)i;
-    }
-}
-
-/* Mission_ClearBlock 0x4770a0: deletes the objects in the block of the pixel position (x, y, z),
-   then the dummy peds and the cars there. Mission_Load passes block coordinates for most types, so
-   for those it clears near the map's corner (pixel (x, y), block 0 or 1): nothing at level start. */
-static int mission_clear_block(int x, int y, int z, int a, int b, int c)
-{
-    for (CollHit *h = coll_query_block(x << 16, y << 16, z * 0x10000 - 1, COLL_OBJECT, a); h; h = h->next) {
-        const Obj *o = h->owner;
-        if (o->spr.x >> 22 == x >> 6 && ((int16_t)((uint32_t)o->spr.y >> 16) & ~0x3f) == (y & ~0x3f) &&
-            ((int16_t)((uint32_t)o->spr.z >> 16) & ~0x3f) == (z & ~0x3f))
-            obj_delete(o->id);
-    }
-    coll_unlock();
-    ped_remove_dummies_at_block(x, y, z, a);
-    return car_clear_for_car(x, y, z, a, b, c);
-}
-
-/* Mission_ObjCreate 0x478790: Obj_Create at pixel coordinates (z - 1 in 16.16). */
-static int mission_obj_create(int x, int y, int z, int type, int angle)
-{
-    return obj_create(x << 16, y << 16, (z << 16) - 1, (int16_t)type, angle);
-}
+/* The MisCar helpers, Mission_ClearBlock and Mission_ObjCreate are in mission_obj.c. */
 
 /* ---- Mission_Spawn* 0x43d2c0-0x43e1b0 (one per object type that needs more than a call) ---- */
 
@@ -364,7 +225,7 @@ static void spawn_moving_trig(int slot, int line)
     } else {
         Car *c = handle_car((int16_t)ref->handle);
         o->handle = trigger_create(M->scratch_x, M->scratch_y, M->scratch_z, 0xb, c->id, M->scratch_p2, M->scratch_a, o->persistent);
-        if (M->scratch_p2 == 0) car_trig_add();
+        if (M->scratch_p2 == 0) car_trig_add(o->handle, c->id);   /* a radius of 0: fires when a player gets in */
     }
 }
 
@@ -433,8 +294,9 @@ static void spawn_parked_pixels(int slot, int line)
 static void reset_tables(void)
 {
     Mission *m = M;
-    for (int i = 0; i < MISSION_PROCESSES; i++) m->proc6560f8[i] = -1, m->kind[i] = 0;
-    m->u5fdfe8 = -1, m->u5fdffc = 0, m->u5fdfec = -1, m->u5fe000 = 0, m->u5fdff0 = -1, m->u5fdff4 = -1;
+    for (int i = 0; i < MISSION_PROCESSES; i++) m->last_pc[i] = -1, m->kind[i] = 0;
+    for (int i = 0; i < 4; i++) m->park_car[i] = -1;   /* 0x5fdfe8.. */
+    memset(m->respawn, 0, sizeof m->respawn);   /* two dwords: 0x5fdffc, 0x5fe000 */
     memset(m->labels, 0xff, sizeof m->labels);
     memset(m->line_obj, 0xff, sizeof m->line_obj);
     m->u67661c = 0;
@@ -442,7 +304,7 @@ static void reset_tables(void)
     m->counter_obj = m->secret_counter_obj = -1;
     m->secret_target = m->counter_target = m->mission_total = -1;
     m->ncleanup_objs = m->ncleanup_peds = m->ncleanup_cars = 0;
-    m->u6b3b74 = 0;
+    memset(m->phone_flag, 0, sizeof m->phone_flag);
     for (int i = 0; i < MISSION_OBJECTS; i++) {   /* type, handle, param, x, y, z; the flag stays */
         MissionObject *o = &m->objects[i];
         o->x = o->y = o->z = -1;
@@ -497,26 +359,26 @@ static void load_object(int slot, int line)
         if (!persist && m->ncleanup_objs < MISSION_CLEANUP) m->cleanup_objs[m->ncleanup_objs++] = h;
         break;
     case T_PLAYER:   /* binds the next player; p1 is the line of the car whose driver slot it takes */
-        if (m->player_cursor != -1) {
+        if (m->cur != -1) {
             m->scratch_a = mission_clear_block(x, y, z, -1, -1, -1) & 0xff;
             Car *c = handle_car((int16_t)line_object(p1)->handle);
-            int n = m->player_cursor;
+            int n = m->cur;
             h = (int16_t)mis_car_create_player_ped(n, x, y, z, c->id, p2, player_get_remap(n));
             o->handle = h;
             m->player_ped[n] = (int16_t)h;
-            m->player_cursor = player_next(n);
+            m->cur = player_next(n);
         }
         break;
     case T_DRIVER:   /* the next player drives the car of line p2 */
-        if (m->player_cursor != -1) {
+        if (m->cur != -1) {
             m->scratch_a = mission_clear_block(x, y, z, -1, -1, -1) & 0xff;
             r = line_object(p2);
-            int n = m->player_cursor;
+            int n = m->cur;
             mis_car_put_player_in((int16_t)r->handle, n);
             m->player_ped[n] = handle_car((int16_t)r->handle)->driver;   /* Car_GetDriver 0x475fd0 */
             ped_set_appearance(m->player_ped[n], 0, player_get_remap(n) & 0xff);
             player_set_controlled(n, PLAYER_IN_CAR, r->handle);
-            m->player_cursor = player_next(n);
+            m->cur = player_next(n);
         }
         break;
     case T_PARKED:
@@ -804,7 +666,7 @@ void mission_load(void)
         if (i == 3) mission_set_var505efa(v);
         if (i == 4) g_game.opt.emergency = (int16_t)v;   /* Mission_SetVar5031cc 0x478810 */
     }
-    m->player_cursor = (int16_t)player_first();
+    m->cur = (int16_t)player_first();
     dummy_init_groups();
     m->bombshop_cost = 5000;
     m->u6762c0 = 5;
@@ -824,7 +686,7 @@ void mission_load(void)
         m->active[n] = 1;
         m->owner[n] = -1;
     }
-    m->u6b3b7e = 0;
+    m->ended = 0;
     for (int i = 4; i < MISSION_PROCESSES; i++) m->active[i] = 0;
     if (m->traffic_cars) mis_car_spawn_batch(m->traffic_cars);
     if (m->police_on == 1) police_init_for_mission();
