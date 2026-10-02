@@ -1,16 +1,16 @@
-/* The application state machine. For now one state: a development city viewer that runs the ported
-   in-game frame (Game_Frame 0x430b20 + Game_Render 0x430d40 reduced to the parts ported so far: tile
-   animation, camera, visible rect, Render_DrawCity) around a movable camera target: a ped-like target
-   standing on a block's lid. The real game states (frontend, Game_Run 0x4148a0) replace it as they are
-   ported: viewer_* is self-contained.
+/* The application state machine (one app_frame per gasm frame, no blocking loops):
+   - APP_FRONT: the frontend, one iteration of WinMain's menu loop (front_frame, 0x437230) per frame;
+   - APP_LEVEL: the level, for now the development city viewer (viewer_*: the ported in-game frame,
+     Game_Frame 0x430b20 + Game_Render 0x430d40, minus what isn't ported yet) around a movable camera
+     target. Esc returns to the frontend as an abandoned game. Game_Run 0x4148a0 replaces it.
 
-   Launch params: map=nyc|sanb|miami, x=, y=, z= (the target stands on the lid of block (x, y, z), as
-   MISSION.INI places objects; exe convention, z = 0 is the top layer, street level is usually 4;
-   defaults: NYC mission 1's player start (105,119,4)). The camera follows with the ported
-   Camera_Follow / Camera_Update (it starts zoomed out, as a level does). Arrow keys / d-pad move the target
-   (Shift: faster), Page Up / Page Down (or pad L / R) change z. */
+   Launch params: front=0 (straight into the viewer), map=nyc|sanb|miami, x=, y=, z= (the viewer's target
+   cell, exe convention: z = 0 is the top layer; default NYC mission 1's player start (105,119,4)).
+   Viewer keys: arrows / d-pad move the target (Shift: faster), Page Up / Page Down (pad L / R) change z. */
 #include "app.h"
 #include "exe.h"
+#include "front/front.h"
+#include "text.h"
 #include "game/gmath.h"
 #include "map.h"
 #include "platform.h"
@@ -50,18 +50,14 @@ static void viewer_target(Viewer *v)
     v->player.target = (CameraTarget){ v->x, v->y, v->z, 8, 8, 0, 0 };
 }
 
-static bool viewer_init(Viewer *v)
+static const char *const MAPS[][2] = {
+    { "nyc", "GTADATA/NYC.CMP" }, { "sanb", "GTADATA/SANB.CMP" }, { "miami", "GTADATA/MIAMI.CMP" } };
+
+/* city: 0 Liberty City, 1 San Andreas, 2 Vice City */
+static bool viewer_init(Viewer *v, int city)
 {
-    static const char *const MAPS[][2] = {
-        { "nyc", "GTADATA/NYC.CMP" }, { "sanb", "GTADATA/SANB.CMP" }, { "miami", "GTADATA/MIAMI.CMP" } };
-    char name[16] = "nyc", err[256], msg[320];
-    plat_param("map", name, sizeof name);
-    const char *rel = MAPS[0][1];
-    for (size_t i = 0; i < sizeof MAPS / sizeof *MAPS; i++)
-        if (!strcmp(name, MAPS[i][0])) rel = MAPS[i][1];
-    if (!exe_init(err, sizeof err)) { plat_log(err); return false; }
-    math_init_tables();
-    if (!camera_init_tables()) { plat_log("camera tables: exe data missing"); return false; }
+    char err[256], msg[320];
+    const char *rel = MAPS[city][1];
     if (!(v->map = map_load(rel, err, sizeof err))) { plat_log(err); return false; }
     if (!(v->style = style_load(v->map->style, err, sizeof err))) { plat_log(err); return false; }
     style_convert_palettes(v->style, &PIXFMT_32);
@@ -70,8 +66,8 @@ static bool viewer_init(Viewer *v)
     plat_log(msg);
     poly_set_screen_rows(v->fb, SCREEN_W * 4, SCREEN_H);
     poly_set_clip(0, 0, SCREEN_W - 1, SCREEN_H - 1);
-    v->x = (param_int("x", 105) * 64 + 32) << 16;
-    v->y = (param_int("y", 119) * 64 + 32) << 16;
+    v->x = (param_int("x", city == 0 ? 105 : 128) * 64 + 32) << 16;
+    v->y = (param_int("y", city == 0 ? 119 : 128) * 64 + 32) << 16;
     v->z = param_int("z", 4) * 0x400000 - 0x10000;   /* standing on the lid of block z */
     v->world = (CameraWorld){ .peds = true, .cars = true };
     camera_set_viewport(&v->player, SCREEN_W, SCREEN_H);
@@ -131,28 +127,99 @@ static void viewer_free(Viewer *v)
 {
     map_free(v->map);
     style_free(v->style);
-    exe_free();
+    v->map = NULL;
+    v->style = NULL;
 }
 
 /* ---- app ---- */
 
-bool app_init(void)
+enum { APP_FRONT, APP_LEVEL };
+
+static int state;
+static Front front;
+static Surface front_screen;
+
+static bool start_level(int city)
 {
     if (!(viewer = calloc(1, sizeof *viewer))) { plat_log("out of memory"); return false; }
-    return viewer_init(viewer);
+    if (!viewer_init(viewer, city)) return false;
+    state = APP_LEVEL;
+    return true;
+}
+
+static void end_level(void)
+{
+    viewer_free(viewer);
+    free(viewer);
+    viewer = NULL;
+}
+
+bool app_init(void)
+{
+    char err[256];
+    if (!exe_init(err, sizeof err)) { plat_log(err); return false; }
+    math_init_tables();
+    if (!camera_init_tables()) { plat_log("camera tables: exe data missing"); return false; }
+    char b[16] = "1";
+    if (plat_param("front", b, sizeof b) && !strcmp(b, "0")) {
+        char name[16] = "nyc";
+        plat_param("map", name, sizeof name);
+        int city = 0;
+        for (int i = 0; i < 3; i++)
+            if (!strcmp(name, MAPS[i][0])) city = i;
+        return start_level(city);
+    }
+    text_init_language(TEXT_ENGLISH);
+    front_screen = (Surface){ calloc(SCREEN_W * SCREEN_H, 4), SCREEN_W, SCREEN_H, SCREEN_W };
+    front.net_active = true;   /* Net_IsActive: the network entries show (DirectPlay is stubbed) */
+    if (!front_screen.px || !front_init(&front)) { plat_log(front.error[0] ? front.error : "frontend failed"); return false; }
+    state = APP_FRONT;
+    return true;
+}
+
+static bool front_step_frame(void)
+{
+    uint16_t keys[64];
+    uint8_t held[KEY_COUNT];
+    FrontInput in = { keys, plat_key_presses(keys, 64), plat_keys(held) ? held : NULL };
+    FrontStep r = front_frame(&front, &in, &front_screen);
+    plat_present(front_screen.px, SCREEN_W, SCREEN_H);
+    if (r.code == FRONT_QUIT) return false;
+    if (r.code == FRONT_PLAY) {
+        char m[96];
+        snprintf(m, sizeof m, "OpenGTA: start mission.ini [%d], level %d, player %d", r.section, r.level, r.player);
+        plat_log(m);
+        return start_level(r.level / 2 % 3);   /* two levels per city */
+    }
+    return true;
 }
 
 bool app_frame(void)
 {
+    if (state == APP_FRONT) return front_step_frame();
+    uint16_t keys[16];
+    int n = plat_key_presses(keys, 16);
+    bool esc = false;
+    for (int i = 0; i < n; i++) esc |= keys[i] == 0x01;
+    if (esc && front_screen.px) {
+        /* back to the frontend as an abandoned game (Game_SetExit 0x4309e0 reason 7) */
+        end_level();
+        FrontGameResult res = { .reason = 7, .local = 0, .score = { 0, -1, -1, -1 } };
+        if (!front_game_over(&front, &res)) { plat_log(front.error); return false; }
+        state = APP_FRONT;
+        return true;
+    }
     viewer_frame(viewer);
     return true;
 }
 
 void app_exit(void)
 {
-    if (viewer) viewer_free(viewer);
-    free(viewer);
-    viewer = NULL;
+    if (viewer) end_level();
+    if (front_screen.px) front_shutdown(&front);
+    free(front_screen.px);
+    front_screen.px = NULL;
+    exe_free();
 }
 
 void app_audio(float *out, unsigned frames) { memset(out, 0, frames * 2 * sizeof *out); }
