@@ -1304,7 +1304,7 @@
 0047c9a0	Sprite_SaveFrame	sprite	low	Copies +0x16 to +0x54 and calls 0x414390
 0047c9c0	Sprite_SetRemap	sprite	med	Sets remap byte (+0x10)
 0047c9d0	Sprite_SetPalette	sprite	med	Sets palette override (+0x12)
-0047c9e0	Sprite_SetFlag14	sprite	low	Sets +0x14 = 1 (alternate rasteriser when option 0x5031e4 on)
+0047c9e0	Sprite_SetBlend	sprite	high	Sets +0x14 = 1: drawn with Poly_DrawSpriteBlend when option 0x5031e4 is on
 0047c9f0	Sprite_Init	sprite	high	Initialises a 0x5C-byte sprite object (x,y,z,angle,frame)
 0047ca50	Sprite_LoadInfo	sprite	high	Reads sprite info/graphics/numbers from G24, builds index table 0x773e38 (max 0x424), relocates pointers, inits depth trees
 0047cb70	Vec3_Copy	sprite	med	Copies three ints

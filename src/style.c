@@ -1,5 +1,6 @@
 #include "style.h"
 #include "render/poly.h"
+#include "render/sprite.h"
 #include "vfs.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -259,6 +260,7 @@ Style *style_load(int n, char *err, size_t errcap)
     poly_build_blend_table(s->buf, 0.5f);
     poly_init(s->buf + STYLE_TILE_OFS, s->buf + STYLE_ROT_CACHE_OFS, STYLE_ROT_CACHE >> 12, 0);
     tile_set_skip_side(s, n);
+    if (!sprite_load_info(s)) return fail(s, NULL, err, errcap, rel, "bad sprite info");   /* Sprite_LoadInfo 0x47ca50 */
     return s;
 }
 

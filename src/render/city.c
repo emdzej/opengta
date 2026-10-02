@@ -1,6 +1,7 @@
 /* Render_DrawCity 0x4389f0 and the block drawers it reaches (see city.h, docs/render.md). The vertex
    grid and plane selectors are module statics like the original's globals. */
 #include "city.h"
+#include "sprite.h"
 #include "../exe.h"
 #include "poly.h"
 #include <stddef.h>
@@ -534,7 +535,7 @@ void render_draw_city(const Map *m, const Style *s, const Viewport *vp)
         plane_lower = plane_upper != 0;
         plane_upper = plane_upper == 0;
         project_layer(vp, z, plane_upper);
-        /* if (render_draw_sprites) Sprite_DrawLevel(z);   TODO(0x47c030): sprites */
+        if (render_draw_sprites) sprite_draw_level(z);   /* Sprite_DrawLevel 0x47c030 */
         if (!render_draw_blocks) continue;
         const RenderRect *r = &render_rects[z + 1];
         for (int y = r->y0_rel; y < r->y_mid_rel; y++)

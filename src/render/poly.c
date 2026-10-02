@@ -4,6 +4,7 @@
    integer parts in BL/BH stepped with add/adc from 16-bit fractions, and where the original adds a
    step whose low half carries junk (the integer parts) into a fraction register, the port does too. */
 #include "poly.h"
+#include "poly_internal.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
@@ -13,11 +14,12 @@ unsigned poly_recip_oob;
 
 /* ---- module state ---- */
 static uint8_t *tex_base;                  /* 0x78c110: tile page 0 */
-static const uint8_t *blend;               /* 0x78c108: 64 KB blend table */
+const uint8_t *poly_blend;                 /* 0x78c108: 64 KB blend table */
 static int32_t recip[0x1000];              /* 0x788100: 0x3f0000 / i (63 / i in 16.16), [0] = 0 */
-static uint32_t *rows[2048];               /* 0x503228: scanline pointers */
-static int pitch_px;                       /* 0x503218 / 4 */
-static int clip_x0, clip_x1, clip_y0, clip_y1;   /* 0x78e548, 0x78e54c, 0x78e550, 0x78e554 (shorts at 0x4b8850..) */
+uint32_t *poly_rows[POLY_MAX_ROWS];        /* 0x503228: scanline pointers */
+int poly_nrows;
+int poly_pitch_px;                         /* 0x503218 / 4 */
+int poly_clip_x0, poly_clip_x1, poly_clip_y0, poly_clip_y1;   /* 0x78e548, 0x78e54c, 0x78e550, 0x78e554 (shorts at 0x4b8850..) */
 
 /* rotated-tile LRU cache: 16-byte entries at 0x78c740 {prev, next, page, u, v, tile} */
 typedef struct { int prev, next; uint8_t *page; uint8_t u, v; uint16_t tile; } CacheSlot;
@@ -101,8 +103,9 @@ void poly_set_clip(int x0, int y0, int x1, int y1)
 
 void poly_set_screen_rows(uint32_t *base, int pitch_bytes, int h)
 {
-    if (h > (int)(sizeof rows / sizeof *rows)) h = (int)(sizeof rows / sizeof *rows);
+    if (h > POLY_MAX_ROWS) h = POLY_MAX_ROWS;
     for (int y = 0; y < h; y++) rows[y] = (uint32_t *)((uint8_t *)base + (size_t)y * pitch_bytes);
+    poly_nrows = h;
     pitch_px = pitch_bytes / 4;
 }
 
@@ -604,6 +607,17 @@ static void poly_draw(void)
         if (P.flags == 2) span_tex32();   /* 16 bpp: Poly_SpanTex16 0x4994b9 */
         else span_blend32();              /* 15/16 bpp: Poly_SpanBlend15 0x4998ce / Poly_SpanBlend16 0x499b39 */
     }
+}
+
+void poly_draw_polygon(uint16_t flags, const uint8_t *page, const int16_t x[4], const int16_t y[4], const uint8_t u[4],
+                       const uint8_t v[4])
+{
+    P.flags = flags;
+    P.tex = page;
+    P.n = 4;
+    for (int i = 0; i < 4; i++) P.x[i] = x[i], P.y[i] = y[i], P.u[i] = u[i], P.v[i] = v[i];
+    find_extents();
+    if (P.y[ymax_i] != P.y[ymin_i]) poly_draw();
 }
 
 void poly_draw_quad(uint32_t face, int tile, int x0, int x1, int x2, int x3, int y0, int y1, int y2, int y3,
