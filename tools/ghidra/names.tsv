@@ -1073,25 +1073,25 @@
 00472870	Snd_LoopStop	snd	med	Stop loop channel n
 00472890	Snd_ShotSetPan	snd	med	One-shot channel n pan
 004728b0	Snd_ShotSetVolume	snd	med	One-shot channel n volume
-004728d0	Snd_ShotSetSample	snd	med	One-shot channel n sample with random pitch jitter
+004728d0	Snd_ShotSetSample	snd	high	One-shot channel n sample, loop 1, random pitch jitter (tests the channel < 0x4e, always true: meant the sample)
 00472980	Snd_ShotIsPlaying	snd	med	One-shot channel n busy
-004729a0	Snd_ShotStart	snd	med	Start one-shot channel n at sfx volume
+004729a0	Snd_ShotStart	snd	high	Start one-shot channel n at sfx volume 4b3114 (overrides the distance volume Snd_Play3D set)
 004729d0	Snd_ShotStop	snd	med	Stop one-shot channel n
 004729f0	Snd_StopAllLoops	snd	med	Ends all 10 loop channels
 00472a10	Snd_StopAllShots	snd	med	Ends all 3 one-shot channels
-00472a30	Snd_Play3D_00472a30	snd	high	Plays bank sample at world (x,y) relative to view player: pan/volume by distance
+00472a30	Snd_PlayPositional	snd	high	Bank sample on the "3D" handle at (x,y): volume = half the distance volume (halved again if covered at listener z), pan by dx, random pitch; volume sticks (unlike Snd_Play3D)
 00472b90	Snd_PlayMenuSample	snd	med	Frontend sample at 6000 Hz
 00472c00	Snd_VoiceSetPan	snd	med	Voice channel pan
 00472c20	Snd_VoiceSetVolume	snd	med	Voice channel volume
 00472c40	Snd_VoiceIsPlaying	snd	med	Voice channel busy
-00472c60	Snd_PlayVoice_00472c60	snd	high	Reads VOCALCOM sample n from file into buffer and plays it
+00472c60	Snd_VoicePlay	snd	high	Reads VOCALCOM sample n into buffer+1MB and plays it once at sfx volume 4b3114 (overrides callers volume); random pitch for n >= 0x1e
 00472d90	Snd_PlayMenuSampleLow	snd	med	Frontend sample at 5000 Hz
 00472e00	Snd_PlaySfx	snd	high	Round-robin one-shot (4+4 channels), random pitch/pan
 00472fe0	Snd_AnySfxPlaying	snd	med	True if any round-robin channel busy
 00473050	Snd_MenuIsPlaying	snd	med	Frontend channel busy
 00473070	Snd_MenuStop	snd	med	Stop frontend channel
 00473080	Snd_VoiceStop	snd	med	Stop voice channel
-00473090	Snd_PlayTalk_00473090	snd	low	Plays sample on talk channel 0x7709b0
+00473090	Snd_TalkPlay	snd	high	Plays level sample n on the talk handle 0x7709b0 at its rate, volume sfx*0.55 (radio static, pause sound)
 00473120	Snd_PlayMumble	snd	med	Gibberish speech for text messages; length from string length
 00473200	Snd_MuteAll	snd	med	Sets all channel volumes to 0 (pause)
 00473260	Snd_RestoreVolumes	snd	med	Restores saved channel volumes
@@ -1099,7 +1099,7 @@
 004733a0	Snd_MusicService	snd	high	AIL_service_stream
 004733c0	Snd_MusicClose	snd	high	AIL_close_stream
 004733e0	Snd_MusicGetPos	snd	med	Stream position (scaled) or -1/-2
-00473430	Snd_SetMusicVolume_00473430	snd	med	Sets music volume byte 0x4b3110
+00473430	Snd_SetStreamVolume	snd	high	Sets the low byte of the cutscene-stream volume 0x4b3110 (used by Snd_MusicPlay)
 00473440	Dummy_InitGroups	dummy	med	Clears 8 dummy-car convoy groups (0x771080)
 00473460	Dummy_StartDrive	dummy	med	Mission DUMMY car gets AI controller (kind 9) and drives to block (x,y,z); new group
 00473570	Dummy_AddFollower	dummy	med	Adds a car to follow a leader dummy car's group
@@ -1331,7 +1331,7 @@
 0047dab0	Text_MapChar	text	med	Maps lower-case/accented code to font glyph code (upper-case + table at 0x4b3280)
 0047dbd0	Text_HasWideChars	text	med	True if UTF-8 string contains a code >= 0x100
 0047dc00	Timer_Start	timer	high	Registers 70 Hz Miles AIL timer incrementing tick counter 0x775580
-0047dc80	Timer_WaitTicks	timer	high	Busy-waits until tick counter >= n then resets it
+0047dc80	Timer_WaitTicks	timer	high	Busy-waits until tick counter >= n then resets it; Game_Run waits 3 ticks of 70 Hz per frame = 23.33 fps
 0047dcb0	Timer_Stop	timer	high	Stops and releases AIL timer
 0047dcf0	Lights_Init	lights	high	Scans 256x256x6 map for traffic-light junction blocks, builds junctions, then Rail_Init
 0047df00	Lights_Query	lights	high	Query light at (x,y): 0x32 mode, 0x33 orient, 0x34 colour state, 0x35 kind, 0x3A error, 0x3B group clear, 0x3C/0x3D rail tests
