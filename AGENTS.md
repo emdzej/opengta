@@ -5,7 +5,7 @@ Guidance for coding agents working in this repository. Humans: see [README.md](R
 ## What this is
 
 OpenGTA is a faithful, from-scratch reimplementation of **Grand Theft Auto** (DMA Design, 1997), the
-Windows build (`WINO/Grand Theft Auto.exe`, 774,144 bytes) of Rockstar's 2002 freeware release, in C11.
+Windows build (`WINO/Grand Theft Auto.exe`, 774,144 bytes) of Rockstar's 2002 re-release (`GTAINSTALLER.zip`), in C11.
 It targets [gasm](https://github.com/emdzej/gasm) (`opengta.wasm`: native runners on macOS, Linux and
 Windows, and the browser). A native build exists for tools and headless tests only. Sibling projects with
 the same conventions: `../openrf` (Return Fire), `../openballance` (Ballance).

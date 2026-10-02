@@ -1,7 +1,7 @@
 /* The original game program, read at runtime: tables the game needs (vehicle, ped and weapon tables,
    maths tables, strings) are taken from WINO/Grand Theft Auto.exe of the user's copy rather than copied
    into the source tree. Only the supported build is accepted (774,144 bytes, CRC-32 a5ca070e: the 2002
-   freeware release). */
+   re-release (GTAINSTALLER.zip)). */
 #pragma once
 #include <stdbool.h>
 #include <stddef.h>

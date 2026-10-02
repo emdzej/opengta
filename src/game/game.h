@@ -84,8 +84,8 @@ typedef struct {
     /* fatal errors (Error_Fatal 0x422900) */
     void (*on_fatal)(const char *msg);  /* called before exiting (default: the message to stderr) */
     int fatal_code, fatal_line, fatal_arg;
-    char error_file[64];        /* Error_SetFileName 0x4228c0 */
-    char fatal_msg[160];
+    char error_file[256];       /* Error_SetFileName 0x4228c0 */
+    char fatal_msg[320];         /* "Error code.line (arg) file <error_file>" */
     int screen_w, screen_h;     /* 0x504cc0, 0x504cc4 */
     /* presenting (Gfx_Present 0x414b10) */
     void (*present)(void *ctx);

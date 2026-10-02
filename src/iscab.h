@@ -1,5 +1,5 @@
 /* InstallShield cabinet reader (clean room, from OpenBallance) and the file-layer backend built on it:
-   GTA's installer (the 2002 freeware GTAINSTALLER.zip) ships the game as data1.cab + data2.cab
+   GTA's installer (Rockstar's 2002 GTAINSTALLER.zip) ships the game as data1.cab + data2.cab
    (InstallShield 5 era, header version 0x01000004, the header inside data1.cab, no data1.hdr), and this
    lets the game run straight from the unzipped installer folder. The InstallShield 6 layout
    (Setup/data1.hdr + dataN.cab, as on the Ballance CD) is kept from OpenBallance.

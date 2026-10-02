@@ -19,7 +19,7 @@ typedef struct {
 
 void front_fmt(char *dst, size_t cap, const char *fmt, const char *types, ...)
 {
-    FArg a[8];
+    FArg a[8] = {0};
     int na = 0;
     va_list ap;
     va_start(ap, types);

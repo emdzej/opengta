@@ -13,7 +13,7 @@ and style formats work; the original's renderer and simulation are being reverse
 
 ## Game data
 
-Rockstar released GTA as freeware in 2002 (`GTAINSTALLER.zip`). OpenGTA reads either the installed game
+OpenGTA uses the Windows version of Rockstar's 2002 re-release (`GTAINSTALLER.zip`). It reads either the installed game
 folder (with `GTADATA/` and `WINO/`) or the unzipped installer (`data1.cab`, `data2.cab`, ...): no need to run
 the Windows setup.
 
