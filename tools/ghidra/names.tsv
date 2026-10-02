@@ -1794,3 +1794,4 @@
 0049ca61	iostream_dtor	crt_iostream	high	iostream::~iostream
 0049caae	_fpmath	crt	high	CRT FP init: cfltcvt init, P5 FDIV check, default precision
 0049cac6	_cfltcvt_init	crt	high	Install float conversion function pointers
+0049cb27	Crt_rand	crt	high	MSVC rand: seed 0x4b8e9c = s*0x343fd+0x269ec3, returns (s>>16)&0x7fff; srand never called (seed 1)
