@@ -1,0 +1,54 @@
+name: CI
+
+# Builds the native core and every test program, and the gasm module opengta.wasm, on each push / PR.
+# The tests need the original game data (not redistributable): without it they skip, so CI runs them as a
+# smoke test only. Run them locally with your copy of GTA (OPENGTA_DATA, default ./game).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS=-Werror
+      - name: build (core + tests)
+        run: cmake --build build -j
+      - name: tests (skip without game data)
+        run: for t in build/*_test; do "$t" || exit 1; done
+      - name: check Python tools compile
+        run: python3 -m py_compile tools/*.py
+
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The SDK version lives in tools/fetch-gasm-sdk.sh (GASM_VERSION).
+      - name: fetch wasi-sdk and the gasm C SDK
+        run: tools/fetch-gasm-sdk.sh
+      - name: configure (gasm)
+        run: >-
+          cmake -S . -B build-gasm -DOPENGTA_PLATFORM=gasm -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_TOOLCHAIN_FILE=.deps/gasm-c-sdk/cmake/gasm-toolchain.cmake
+          -DWASI_SDK_PREFIX="$PWD/.deps/wasi-sdk"
+      - name: build opengta.wasm
+        run: |
+          cmake --build build-gasm -j
+          ls -l build-gasm/opengta.wasm
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opengta-wasm
+          path: build-gasm/opengta.wasm
+          retention-days: 14

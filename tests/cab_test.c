@@ -106,8 +106,9 @@ static void walk_ref(const char *dir)
     while (d && (e = readdir(d))) {
         if (e->d_name[0] == '.') continue;
         char rel[1024], full[3072];
-        snprintf(rel, sizeof rel, "%s%s%s", dir, *dir ? "/" : "", e->d_name);
-        snprintf(full, sizeof full, "%s/%s", path, e->d_name);
+        if (snprintf(rel, sizeof rel, "%s%s%s", dir, *dir ? "/" : "", e->d_name) >= (int)sizeof rel ||
+            snprintf(full, sizeof full, "%s/%s", path, e->d_name) >= (int)sizeof full)
+            continue;   /* longer than any path in the game */
         struct stat st;
         if (stat(full, &st) == 0 && S_ISDIR(st.st_mode)) walk_ref(rel);
         else if (!vfs_exists(rel)) printf("FAIL: %s: installed but not in the cabinets\n", rel), failures++;
