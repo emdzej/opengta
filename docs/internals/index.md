@@ -48,7 +48,6 @@ hashes ([Headless runs](/howto/headless)).
 ## Pages
 
 - [Game core](/game-core): level start, frame loop, entity tables, `MISSION.INI`.
-- [Missions](/missions): the `MISSION.INI` script runtime.
 - [Frontend](/frontend): WinMain's menu loop and every screen.
 - [City renderer](/render): camera, block drawing, DMA's rasteriser.
 - [Sprites](/sprites): sprite info, draw trees, deltas, the sprite rasteriser.

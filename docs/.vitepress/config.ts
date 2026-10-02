@@ -147,7 +147,6 @@ export default defineConfig({
           items: [
             { text: "Overview", link: "/internals/" },
             { text: "Game core", link: "/game-core" },
-            { text: "Missions", link: "/missions" },
             { text: "Frontend", link: "/frontend" },
           ],
         },
