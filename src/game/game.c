@@ -14,6 +14,8 @@
 #include "ped.h"
 #include "player.h"
 #include "route.h"
+#include "mission_run.h"
+#include "sndworld.h"
 #include "stubs.h"
 #include "../audio/audio.h"
 #include <stdio.h>
@@ -557,7 +559,10 @@ int game_run_step(void)
     game_frame();
     game_render();
     if (g->opt.sound) {
-        if (Audio_Mode() == 1) Snd_UpdateGame();
+        if (Audio_Mode() == 1) {
+            snd_world_update();
+            Snd_UpdateGame();
+        }
         else if (Audio_Mode() == 2) Snd_UpdateFrontend();
     }
     if (g->opt.timing) {

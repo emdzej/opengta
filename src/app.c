@@ -13,7 +13,9 @@
 #include "app.h"
 #include "audio/audio.h"
 #include "game/game.h"
+#include "game/input.h"
 #include "game/mission.h"
+#include "hud/hud.h"
 #include "exe.h"
 #include "front/front.h"
 #include "text.h"
@@ -222,7 +224,8 @@ static void hk_enter(int sfx, int music)     /* Front_Enter 0x42b690 */
 static void hk_mission(int section) { mission_set_ini_section(section); }
 static void hk_level_options(int pager, int effects, int sequential)
 {
-    (void)pager, (void)effects;   /* HUD_SetPagerSpeed, 0x5031e4: with the HUD port */
+    hud_set_pager_speed(pager);   /* HUD_SetPagerSpeed 0x482140 */
+    (void)effects;                /* 0x5031e4: the effects option */
     if (sequential >= 0) Music_SetSequential(sequential != 0);
 }
 
@@ -286,7 +289,11 @@ static bool front_step_frame(void)
 bool app_frame(void)
 {
     if (state == APP_FRONT) return front_step_frame();
-    if (state == APP_GAME) return game_run_step() == GAME_STEP_DONE ? end_game() : true;
+    if (state == APP_GAME) {
+        uint8_t held[KEY_COUNT];   /* the keyboard state Input_ReadControls 0x432e00 reads */
+        if (plat_keys(held)) input_feed_held(held);
+        return game_run_step() == GAME_STEP_DONE ? end_game() : true;
+    }
     uint16_t keys[16];
     int n = plat_key_presses(keys, 16);
     for (int i = 0; i < n; i++)
