@@ -17,6 +17,9 @@
 #include <string.h>
 #include <wasi/api.h>
 
+/* The window title (gasm 0.6 custom section, also readable by launchers without running the module). */
+GASM_TITLE("Grand Theft Auto");
+
 _Static_assert(PAD_A == GASM_BTN_A && PAD_B == GASM_BTN_B && PAD_X == GASM_BTN_X && PAD_Y == GASM_BTN_Y &&
                PAD_L == GASM_BTN_L && PAD_R == GASM_BTN_R && PAD_SELECT == GASM_BTN_SELECT &&
                PAD_START == GASM_BTN_START && PAD_UP == GASM_BTN_UP && PAD_DOWN == GASM_BTN_DOWN &&

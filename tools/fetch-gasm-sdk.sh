@@ -12,9 +12,10 @@ WASI_SDK_VERSION=${WASI_SDK_VERSION:-34}
 # The one place the gasm version is set (CI, release and Pages builds all call this script; the gasm
 # bundles' runners too, via --version).
 # Keep it in step with @emdzej/gasm-host in docs/package.json (the browser player's runner).
-# 0.5.0 is the minimum: OpenGTA reads the raw keyboard (input_mode, key_state, key_events), as the
-# original reads DirectInput scan codes.
-GASM_VERSION=${GASM_VERSION:-0.5.0}
+# 0.6.0 is the minimum: OpenGTA reads the raw keyboard (input_mode, key_state, key_events) as the
+# original reads scan codes, streams assets with 64-bit offsets (asset_size64, asset_read_at64) and
+# names its window (GASM_TITLE, set_title).
+GASM_VERSION=${GASM_VERSION:-0.6.0}
 if [ "${1:-}" = --version ]; then echo "$GASM_VERSION"; exit 0; fi
 case "$(uname -s)-$(uname -m)" in
   Darwin-arm64)  PLAT=arm64-macos ;;

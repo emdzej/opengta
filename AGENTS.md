@@ -70,15 +70,23 @@ OPENGTA_DATA=installer ./build/cab_test         # the cabinet layer against ./ga
 python3 tools/gtafmt.py map game/GTADATA/NYC.CMP out/nyc.png 4
 ```
 
-gasm module (`tools/fetch-gasm-sdk.sh` puts wasi-sdk and gasm's C SDK in `.deps/`; or use the gasm checkout
-`../gasm/sdk/c/cmake/gasm-toolchain.cmake` with `-DWASI_SDK_PREFIX=../gasm/tools/wasi-sdk`):
+gasm module: gasm **0.6.0** (the pin is `GASM_VERSION` in `tools/fetch-gasm-sdk.sh`; it fetches wasi-sdk and the
+C SDK into `.deps/`, `tools/fetch-gasm-runner.sh macos-universal` the released `gasm-run`):
 
 ```sh
+tools/fetch-gasm-sdk.sh && RUN="$(tools/fetch-gasm-runner.sh macos-universal)/gasm-run"
 cmake -S . -B build-gasm -DOPENGTA_PLATFORM=gasm -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_TOOLCHAIN_FILE=.deps/gasm-c-sdk/cmake/gasm-toolchain.cmake -DWASI_SDK_PREFIX="$PWD/.deps/wasi-sdk"
 cmake --build build-gasm -j
-gasm-run build-gasm/opengta.wasm --asset-dir game --headless 300 --screenshot /tmp/g.png
+# menus, Enter x3 -> mission 1 (front=0 skips the menus)
+$RUN build-gasm/opengta.wasm --asset-dir installer --headless 200 \
+  --input "60:KEY(Enter),100:KEY(Enter),140:KEY(Enter)" --screenshot /tmp/g.png
+node ../gasm/runners/web/headless.mjs build-gasm/opengta.wasm --asset-dir installer --headless 200 \
+  --input "60:KEY(Enter),100:KEY(Enter),140:KEY(Enter)"     # must print the same hash line
 ```
+
+Both runners must print identical `video_fnv32`/`audio_fnv32` lines (determinism), with `--asset-dir game`
+too. A change that alters the hashes must be explained by the change.
 
 Unattended runs: always `--headless` (never open a window, never use macOS `screencapture`).
 
