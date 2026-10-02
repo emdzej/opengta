@@ -15,11 +15,12 @@ executable. **Fidelity is the product.** Reproduce the original's behaviour, inc
 If something looks wrong, check the disassembly; if the original does it, keep it and add a comment. Only
 fix deviations *of the port* from the original.
 
-**State:** early. Done: file layer (directories, the installer's InstallShield cabinets), runtime exe
-tables (`src/exe.c`), every function named in Ghidra (`docs/re/`), map + style loaders, camera, the city
-renderer and DMA's rasteriser (32 bpp path, `docs/render.md`), FXT text, fonts, frontend images,
-PLAYER_A.DAT (`docs/text-fonts.md`). The app is a city viewer (`src/app.c`). Next: sprites, peds, cars, the
-frame loop (`Game_Run`), frontend state machine, mission interpreter, sound.
+**State:** early. Ported: file layer (directories, the installer's InstallShield cabinets), runtime exe
+tables (`src/exe.c`), every function named in Ghidra (`docs/re/`), map + style, camera, city renderer and
+DMA's rasteriser (32 bpp), sprites, text/fonts/frontend images, the frontend state machine, sound (Miles
+mixer port), game core (`Game_Run`, MISSION.INI loading, entity tables, collision grid), peds/player/input,
+cars and their physics, the mission interpreter, the HUD. Next: traffic and AI drivers, police, objects
+(`Obj_UpdateAll`), explosions and fires, trains, power-ups, the intro movie.
 
 ## Hard rules
 

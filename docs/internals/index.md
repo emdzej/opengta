@@ -41,7 +41,8 @@ hashes ([Headless runs](/howto/headless)).
 | `src/render/` | camera, city renderer, DMA's rasteriser (`Poly_*`), sprites and draw lists |
 | `src/text.c`, `src/font.c`, `src/front/`, `src/savedata.c` | FXT text, fonts, frontend pictures and screens, `PLAYER_A.DAT` |
 | `src/audio/` | the sound modules, music and radio, the timer, the Miles mixer |
-| `src/game/` | the game core: `Game_Run`, `MISSION.INI`, entity tables, collision, routes, maths; stubs for what isn't ported |
+| `src/game/` | the game core (`Game_Run`, entity tables, collision, routes, maths), peds, player and input, cars and their physics, the mission interpreter; stubs for what isn't ported |
+| `src/hud/` | the in-game HUD and the pager |
 | `tests/` | headless tests against the real data |
 | `tools/` | `gtafmt.py` (reference decoders), the gasm SDK and runner fetchers, Ghidra scripts and names |
 
@@ -49,6 +50,10 @@ hashes ([Headless runs](/howto/headless)).
 
 - [Game core](/game-core): level start, frame loop, entity tables, `MISSION.INI`.
 - [Frontend](/frontend): WinMain's menu loop and every screen.
+- [HUD](/hud): score, lives, wanted level, weapon, pager, arrows, zone names.
+- [Peds, player, input](/peds): the control word, walking, entering cars, weapons, projectiles.
+- [Cars](/cars): car tables, the rigid-body physics, collision, damage.
+- [Missions](/missions): the `MISSION.INI` interpreter, triggers, doors, cranes.
 - [City renderer](/render): camera, block drawing, DMA's rasteriser.
 - [Sprites](/sprites): sprite info, draw trees, deltas, the sprite rasteriser.
 - [Text, fonts, images](/text-fonts): FXT, FON, the frontend's pictures, `PLAYER_A.DAT`.

@@ -60,9 +60,10 @@ game runtime: the same module natively (`gasm-run`) and in the browser. See
 
 Early. The frontend runs as in the original: the start menu, options, player select and the city and
 mission select, with their sounds and music, and the settings saved like `PLAYER_A.DAT`. Choosing a mission
-starts the level through the ported level start and frame loop: the city is drawn by DMA's rasteriser,
-with the player and parked cars as sprites. Walking, driving, traffic, the missions themselves and the
-HUD are not playable yet. Details in [Status](/guide/status).
+starts the level through the ported level start and frame loop. You can walk, get into a car and drive
+it through the city, with the HUD and the mission script running (its briefs play). Traffic, the police
+and moving objects aren't ported yet, so most missions can't be completed. Details in
+[Status](/guide/status).
 
 ## Screenshots
 

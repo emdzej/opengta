@@ -15,13 +15,17 @@ OpenGTA is **early**. What follows is what runs today; the rest of the original 
 | Frontend | WinMain's menu loop: start menu, options, player select and rename, the city and mission select with its high scores, results, cutscene stills, credits. The network screens show, but networking (DirectPlay) is a stub. [Frontend](/frontend) |
 | Sound | The game's three sound modules over a port of the Miles software mixer it used: sound banks, 3D one-shots, engine loops, voices, the police scanner, music and radio, the 70 Hz timer that paces the game. [Sound and music](/audio) |
 | Game core | The 43 launch switches, the level start (`MISSION.INI` with all its object types), the car, ped, object and player tables, the collision grid, routes, the frame loop `Game_Run` with its timing. [Game core](/game-core) |
+| Player and peds | The keyboard controls and the control word, replays, walking, running, turning, wall collision, getting into and out of cars, ambient pedestrians, weapons and projectiles. [Peds, player, input](/peds) |
+| Cars | Car creation and the per-frame update, the player's driving, the rigid-body physics (the original's floating point, operation by operation), collision with the map, objects and other cars, damage and dents. [Cars](/cars) |
+| Missions | The `MISSION.INI` interpreter with all its commands, phones, triggers, doors, cranes, timed bombs, garages, mission cars and briefs. [Missions](/missions) |
+| HUD | Score, multiplier and lives, the wanted level, weapon and ammo, the pager, subtitles, the arrow, area and car-name signs, the big messages, the pause and quit screens. [HUD](/hud) |
 
 ## Not yet
 
-- Walking and driving: the player and the cars appear at the level start but don't move yet.
-- Traffic, pedestrians' and police AI, weapons, damage.
-- The mission interpreter (the `MISSION.INI` commands run during a level).
-- The HUD: pager, arrow, score, wanted level, the quit prompt.
+- Traffic (cars driving by themselves), the police, emergency services, gangs: nothing chases you yet,
+  and mission cars that should drive stand still.
+- Moving objects, explosions, fires, trains, power-ups: projectiles are fired but objects don't move yet.
+- So missions start and their briefs play, but most can't be completed.
 - The intro movie (`MOVIE.SMK`) and networked games.
 - The 8, 15 and 16 bpp render paths (the port draws the 32 bpp one).
 

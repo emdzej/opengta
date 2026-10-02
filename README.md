@@ -8,8 +8,9 @@ function by function from the Windows version of the game. It runs as `opengta.w
 original code, assets or data: it reads the data files, and the tables of the original game program,
 from your own copy of the game.
 
-**Status: early.** The data layer (including running straight from the installer's cabinets) and the map
-and style formats work; the original's renderer and simulation are being reverse engineered and ported.
+**Status: early.** The frontend, the city renderer, sound, the HUD and the mission script run as ported
+from the original; you can walk, get into a car and drive. Traffic, the police and moving objects are
+next, so most missions can't be completed yet. Details: [opengta.emdzej.pl/guide/status](https://opengta.emdzej.pl/guide/status).
 
 ## Game data
 

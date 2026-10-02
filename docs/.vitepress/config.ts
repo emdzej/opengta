@@ -87,7 +87,7 @@ export default defineConfig({
       {
         text: "Internals",
         link: "/internals/",
-        activeMatch: "/(internals|formats|render|sprites|text-fonts|frontend|audio|game-core|missions)",
+        activeMatch: "/(internals|formats|render|sprites|text-fonts|frontend|audio|game-core|missions|peds|cars|hud)",
       },
       { text: "Reverse engineering", link: "/re/", activeMatch: "/re/" },
       // A static app in docs/public/play/: target _self makes it a full page load, not a VitePress route.
@@ -148,6 +148,15 @@ export default defineConfig({
             { text: "Overview", link: "/internals/" },
             { text: "Game core", link: "/game-core" },
             { text: "Frontend", link: "/frontend" },
+            { text: "HUD", link: "/hud" },
+          ],
+        },
+        {
+          text: "Simulation",
+          items: [
+            { text: "Peds, player, input", link: "/peds" },
+            { text: "Cars", link: "/cars" },
+            { text: "Missions", link: "/missions" },
           ],
         },
         {

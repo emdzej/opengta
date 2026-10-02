@@ -22,12 +22,24 @@ The frontend doesn't read gamepads (the original's menus only take keys).
 
 ## In a level
 
-Walking and driving come with the ped and car ports. The ported key handler (`Game_HandleKey`) already
-takes the original's function keys, though most of what they control isn't ported yet:
+The original reads its ten bindings from the registry, where `GTA Settings.exe` writes them; OpenGTA uses
+that tool's first preset:
+
+| Key | On foot | In a car |
+|---|---|---|
+| <kbd>Up</kbd> / <kbd>Down</kbd> | walk forward / back | accelerate / brake, reverse |
+| <kbd>Left</kbd> / <kbd>Right</kbd> | turn | steer |
+| <kbd>Enter</kbd> | get into the nearest car | get out |
+| <kbd>Space</kbd> | jump | handbrake |
+| <kbd>Ctrl</kbd> | fire | |
+| <kbd>X</kbd> / <kbd>Z</kbd> | next / previous weapon | |
+| <kbd>Tab</kbd> | | horn, special |
+
+The key handler (`Game_HandleKey`) takes the original's function keys:
 
 | Key | Original function |
 |---|---|
-| <kbd>Esc</kbd> | the quit prompt (with the HUD port) |
+| <kbd>Esc</kbd> | the quit prompt |
 | <kbd>F5</kbd> | next radio station |
 | <kbd>F6</kbd> | freeze the game |
 | <kbd>F8</kbd> | frame limiter on / off |
