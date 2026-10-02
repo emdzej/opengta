@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- OpenGTA's own mark: a top-down arrow (the way to the next job) in the menu text's yellow-to-amber
+       gradient, on rusted dark metal. Colours from docs/.vitepress/theme/gta.css. -->
+  <defs>
+    <linearGradient id="t" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffff9b"/>
+      <stop offset="0.35" stop-color="#ffff00"/>
+      <stop offset="0.7" stop-color="#ffcf00"/>
+      <stop offset="1" stop-color="#cf9b00"/>
+    </linearGradient>
+    <radialGradient id="r" cx="0.35" cy="0.8" r="0.9">
+      <stop offset="0" stop-color="#7a3a10"/>
+      <stop offset="0.55" stop-color="#2a1a0c"/>
+      <stop offset="1" stop-color="#120e0a"/>
+    </radialGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="url(#r)" stroke="#f08000" stroke-width="2.5"/>
+  <path d="M32 9 L53 32 H41 V55 H23 V32 H11 Z" fill="#131313" transform="translate(2 2)" opacity="0.7"/>
+  <path d="M32 9 L53 32 H41 V55 H23 V32 H11 Z" fill="url(#t)"/>
+</svg>

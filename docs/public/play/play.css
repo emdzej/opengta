@@ -1,0 +1,124 @@
+/* The site's GTA theme (docs/.vitepress/theme/gta.css), dark variant: the menu font's yellow-to-amber
+   gradient with its hard drop shadow, on the rusted plate of the frontend. */
+:root {
+  color-scheme: dark;
+  --pale: #ffff9b;
+  --yellow: #ffff00;
+  --gold: #ffcf00;
+  --amber: #cf9b00;
+  --shadow: #131313;
+  --orange: #ff6700;
+  --orange-light: #ff9b33;
+  --rust: #f08000;
+  --rust-light: #f0a000;
+  --rust-dark: #7a3a10;
+  --bg: #120e0a;
+  --bg-alt: #0c0907;
+  --bg-soft: #1f1711;
+  --panel: rgba(36, 20, 8, 0.85);
+  --divider: #3a2a1c;
+  --text: #f3ead8;
+  --text-2: #c7b79c;
+  --ok: #b8d86b;
+  --warn: #ff9b33;
+  --bad: #ff6a4a;
+  --menu-text: linear-gradient(180deg, var(--pale) 0%, var(--yellow) 30%, var(--gold) 62%, var(--amber) 100%);
+  --rim: linear-gradient(90deg, var(--rust-dark), var(--rust) 25%, var(--rust-light) 50%, var(--orange) 75%, var(--rust-dark));
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; color: var(--text); font: 15px/1.6 var(--font); }
+html { background: var(--bg); }
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 520px at 15% -10%, rgba(240, 128, 0, 0.22), transparent 60%),
+    radial-gradient(900px 420px at 90% -5%, rgba(255, 207, 0, 0.10), transparent 60%),
+    radial-gradient(900px 600px at 50% 110%, rgba(122, 58, 16, 0.30), transparent 60%),
+    var(--bg);
+}
+a { color: var(--gold); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 3px; }
+code { font-family: var(--mono); font-size: .88em; background: rgba(255, 255, 255, 0.07); padding: .1em .35em; border-radius: 4px; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 1.5rem 0 .5rem; width: fit-content;
+  background: var(--menu-text); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(3px 3px 0 var(--shadow)); }
+h2 { font-size: 1.05rem; margin: 0 0 .6rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
+.small { font-size: .85rem; color: var(--text-2); }
+.ok-text { color: var(--ok); }
+.bad-text { color: var(--bad); }
+
+.bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0 24px; height: 60px; background: rgba(18, 14, 10, 0.92); backdrop-filter: blur(8px); }
+.bar::after { content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; background: var(--rim); opacity: .85; }
+.brand { display: flex; align-items: center; gap: .55rem; color: var(--text); font-weight: 600; font-size: 15px;
+  letter-spacing: .06em; }
+.bar nav { display: flex; gap: 1.2rem; font-size: .9rem; }
+.bar nav a { color: var(--text-2); }
+.bar nav a[aria-current] { color: var(--gold); }
+
+main { max-width: 1100px; margin: 0 auto; padding: 8px 24px 32px; }
+.lead { color: var(--text-2); max-width: 60rem; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin: 1.2rem 0; }
+/* Rusted plates with an orange edge. */
+.card { background: linear-gradient(160deg, rgba(48, 22, 6, 0.85), rgba(20, 14, 10, 0.95));
+  border: 1px solid rgba(240, 128, 0, 0.22); border-left: 3px solid var(--gold); border-radius: 6px; padding: 18px 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 30px rgba(0, 0, 0, 0.25); }
+.card ul { padding-left: 1.2rem; margin: 0; }
+.card li { margin: .35rem 0; }
+.row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin: .8rem 0; }
+
+/* Buttons: the primary one in the menu font's colours with its drop shadow. */
+button { font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; border-radius: 4px; padding: .45rem 1.15rem;
+  border: 1px solid rgba(240, 128, 0, 0.55); background: rgba(48, 26, 10, 0.9); color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08); }
+button:hover { background: rgba(72, 38, 14, 0.95); border-color: var(--rust); }
+button.primary { background: var(--menu-text); border-color: var(--amber); color: var(--shadow); font-weight: 700;
+  box-shadow: 3px 3px 0 var(--shadow); }
+button.primary:hover { filter: brightness(1.08); background: var(--menu-text); }
+button.link { background: none; border: none; box-shadow: none; padding: .45rem .2rem; color: var(--gold); font-weight: 500; }
+button.link:hover { text-decoration: underline; background: none; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, a:focus-visible, canvas:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.checks { list-style: none; padding: 0 !important; margin: .8rem 0 0 !important; }
+.checks li { padding-left: 1.4rem; position: relative; }
+.checks li::before { position: absolute; left: 0; font-weight: 700; }
+.checks li.ok::before { content: "+"; color: var(--ok); }
+.checks li.bad { color: var(--bad); }
+.checks li.bad::before { content: "x"; }
+progress { width: 100%; height: 10px; accent-color: var(--rust); margin-top: .8rem; }
+
+.message { max-width: 60rem; padding: .6rem 1rem; border-radius: 10px; border-left: 4px solid var(--rust); background: var(--panel); }
+.message.warn { border-color: var(--warn); }
+.message.error { border-color: var(--bad); }
+
+/* The game: 4:3 in the window; the game letterboxes itself in fullscreen. */
+#game { margin: 1rem 0; }
+.stage { position: relative; background: #000; border-radius: 4px; overflow: hidden; margin: 0 auto;
+  width: min(100%, calc((100vh - 150px) * 4 / 3)); aspect-ratio: 4 / 3;
+  box-shadow: 0 0 0 2px rgba(240, 128, 0, 0.7), 6px 6px 0 var(--shadow), 0 18px 40px rgba(0, 0, 0, 0.45); }
+.stage canvas { display: block; width: 100%; height: 100%; }
+.stage:fullscreen { width: 100vw; height: 100vh; aspect-ratio: auto; border-radius: 0; box-shadow: none; }
+.stage:-webkit-full-screen { width: 100vw; height: 100vh; aspect-ratio: auto; border-radius: 0; box-shadow: none; }
+.toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: center; margin-top: .8rem; }
+.toolbar button { padding: .35rem .9rem; font-size: .85rem; }
+
+#controls { margin-top: 2rem; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { text-align: left; padding: .45rem .7rem; border-bottom: 1px solid var(--divider); }
+th { color: var(--text-2); font-weight: 600; }
+tbody tr:nth-child(odd) { background: rgba(255, 255, 255, 0.03); }
+
+dialog { background: var(--bg-soft); color: var(--text); border: 1px solid rgba(240, 128, 0, 0.3); border-radius: 6px; max-width: 640px; width: 90vw; }
+dialog::backdrop { background: rgba(0, 0, 0, .6); }
+textarea { width: 100%; font: 13px/1.45 var(--mono); background: var(--bg-alt); color: var(--text); border: 1px solid var(--divider); border-radius: 8px; padding: .6rem; }
+.error { color: var(--bad); white-space: pre-wrap; font-size: .85rem; }
+.foot .powered { margin: 0 0 8px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.foot .powered img { display: block; }
+.foot { max-width: 1100px; margin: 0 auto; padding: 24px; border-top: 1px solid var(--divider); color: var(--text-2); font-size: .8rem; text-align: center; }
+
+[hidden] { display: none !important; }
+@media (max-width: 640px) { .bar nav a:not([aria-current]):not(:last-child) { display: none; } }
+.stage canvas.fit2d { object-fit: contain; image-rendering: auto; }

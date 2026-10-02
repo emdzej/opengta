@@ -30,7 +30,7 @@ frame loop (`Game_Run`), frontend state machine, mission interpreter, sound.
    ped, weapon and object tables, anything that Carnage3D keeps in JSON) are **loaded at runtime** from
    `WINO/Grand Theft Auto.exe` (check size + CRC-32 `a5ca070e`). Small algorithmic constants and
    instruction operands are fine; tables and strings are not.
-3. **Cite the original.** Every ported function names its source: `/* Map_Load 0x422b90 */`. Keep names
+3. **Cite the original.** Every ported function names its source: `/* Map_Load 0x438200 */`. Keep names
    consistent with the Ghidra project (rename there as you learn; `tools/ghidra/names.tsv` is the record).
 4. **Don't paste decompiler output** into source or docs. Write the port and the docs in your own words;
    describe layouts, formulas and addresses.
@@ -99,6 +99,44 @@ Unattended runs: always `--headless` (never open a window, never use macOS `scre
 - Names: `tools/ghidra/names.tsv` (`addr name module confidence description`) is applied to the project
   with `tools/ghidra/apply-names.sh`; regenerate the dump afterwards.
 - The binary is stripped. MSVC runtime from about 0x49cb00. Entry 0x49dc30, WinMain 0x437230.
+
+## Docs site
+
+VitePress in `docs/` (pnpm, `cd docs && pnpm install && pnpm build`), published to https://opengta.emdzej.pl by
+`.github/workflows/pages.yml` (CNAME in `docs/public/CNAME`). Colour theme in `docs/.vitepress/theme/gta.css`,
+sampled from our frontend renders (the menu font's yellow-to-amber gradient and drop shadow, the rust). **No
+emojis.** Say "Rockstar's 2002 re-release (GTAINSTALLER.zip)", never freeware/free; don't host or link copies of the
+game. Don't overstate the state (`docs/guide/status.md`). The "Built for gasm" badge is gasm's official one,
+hotlinked from `https://gasm.emdzej.pl/badge/built-for-gasm-{light,dark,flat}.svg` (rules:
+https://gasm.emdzej.pl/dev/badge; don't recolor, stretch or crop): light/dark by theme on the site, dark on the
+play page, flat in the README. The notes (`docs/*.md`, `docs/re/`) are pages as they are: add new ones to the
+sidebar in `docs/.vitepress/config.ts`. Dead links fail the build. Screenshots come from `tools/screenshots.sh`
+(headless gasm-run renders of our port; never game files, never `screencapture`).
+
+## Browser player
+
+`docs/public/play/` (`/play/`) runs `opengta.wasm` in gasm's Worker mode: the user picks the installed GTA folder
+or the unzipped installer (`showDirectoryPicker`, else `<input webkitdirectory>`); `data.js` checks it
+(`GTADATA/MISSION.INI` + `WINO/Grand Theft Auto.exe` 774,144 bytes, or `data1.cab` + `data2.cab`), keeps what
+the game reads and imports it into OPFS `opengta-data/` with csfs (marker `.opengta-import.json` written last);
+"Play without importing" uses the File/Blob provider. Keys go to the game raw, gamepads as pads; holding Esc
+stops. Frames are scaled with gasm's `GlPresenter` (sharp), else a 2D canvas. Storage namespace `opengta`
+(IndexedDB). Query params: the launch params, `hashframes=N` with optional `input=<--input script>` (virtual
+time, in-memory storage, prints the headless hash line into `globalThis.__opengtaResult`), `autoplay`. **Never put
+game data in `docs/public/`.** `vendor/` is generated from the npm packages pinned in `docs/package.json`
+(`docs/scripts/vendor-web.sh`; keep `@emdzej/gasm-host` equal to `GASM_VERSION`); bump the pins, never edit the
+copies.
+
+```sh
+docs/scripts/copy-wasm.sh && (cd docs && scripts/vendor-web.sh && pnpm build)
+node tools/web-play-test.mjs        # headless Chrome: folder/installer direct, OPFS import, later visit; hashes
+(cd docs/.vitepress/dist && python3 -m http.server 8080)   # then open http://localhost:8080/play/
+```
+
+`web-play-test.mjs` hands `./game` and `./installer` to the page's file input (CDP `DOM.setFileInputFiles`), so it
+exercises the real check/import/play code; every case must print PASS. gasm-run calls `gasm_exit` before printing
+its hash line, and OpenGTA presents a last frame when it exits inside a level, which the Worker can't report: the
+test compares the page with gasm's GasmHost in Node before the exit, and that host plus the exit with gasm-run.
 
 ## Expansions (later)
 

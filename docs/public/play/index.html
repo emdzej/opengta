@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Play | OpenGTA</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Run Grand Theft Auto (1997) in your browser with OpenGTA, using the data from your own copy of the game.">
+<meta name="theme-color" content="#f08000">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="play.css">
+<script type="importmap">
+{ "imports": {
+  "@emdzej/csfs-core": "./vendor/csfs/core/index.js",
+  "@emdzej/csfs-fsa": "./vendor/csfs/fsa/index.js",
+  "@emdzej/csfs-opfs": "./vendor/csfs/opfs/index.js"
+} }
+</script>
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="/"><img src="/favicon.svg" alt="" width="26" height="26"> OpenGTA</a>
+  <nav>
+    <a href="/guide/">Guide</a>
+    <a href="/guide/browser">Playing in the browser</a>
+    <a href="/play/" aria-current="page">Play</a>
+    <a href="https://github.com/emdzej/opengta">GitHub</a>
+  </nav>
+</header>
+
+<main>
+  <section id="setup">
+    <h1>Grand Theft Auto in your browser</h1>
+    <p class="lead">OpenGTA runs here as <code>opengta.wasm</code> on the
+      <a href="https://gasm.emdzej.pl">gasm</a> runtime: the same module as on the desktop, a port of the
+      original game's code, reading the maps, graphics, sounds and music from <strong>your own copy of GTA</strong>.
+      Nothing from the game is on this site, and nothing you pick leaves your computer.</p>
+    <p class="lead small">OpenGTA is early: the menus work and a mission starts, but walking, driving and the
+      missions aren't ported yet. See <a href="/guide/status">Status</a>.</p>
+
+    <div class="cols">
+      <div class="card">
+        <h2>What you need</h2>
+        <ul>
+          <li><strong>Grand Theft Auto</strong> for Windows from Rockstar's 2002 re-release: the folder you
+            installed it to (with <code>GTADATA</code> and <code>WINO</code>), or the unzipped
+            <code>GTAINSTALLER.zip</code> (with <code>data1.cab</code> and <code>data2.cab</code>). See
+            <a href="/guide/game-data">Game data</a>.</li>
+          <li>A browser with WebAssembly and Web Workers: a recent Chrome, Edge, Firefox or Safari. No WebGPU
+            needed.</li>
+          <li>About 330 MB of browser storage to import the data (once; later visits start at once), or
+            none to play without importing.</li>
+          <li>A keyboard.</li>
+        </ul>
+      </div>
+      <div class="card" id="choose">
+        <h2 id="choose-title">Choose your GTA</h2>
+        <div id="imported" hidden>
+          <p><strong>Imported:</strong> <span id="imported-desc"></span></p>
+          <div class="row">
+            <button id="play-opfs" class="primary">Play</button>
+            <button id="remove">Remove imported data</button>
+          </div>
+          <p class="small" id="storage"></p>
+          <p class="small" id="persist-row" hidden>The browser may clear site data when disk space runs low.
+            <button id="persist" class="link">Keep it</button></p>
+          <p class="small">Or choose the game again below to replace it.</p>
+        </div>
+        <div class="row">
+          <button id="pick-folder" class="primary">Choose your GTA folder</button>
+        </div>
+        <p class="small">The installed game (for example <code>C:\Program Files\Rockstar Games\GTA</code>, with
+          <code>GTADATA</code>, <code>WINO</code> and <code>Music</code>), or the folder you unzipped
+          <code>GTAINSTALLER.zip</code> into: the game is read straight from the installer's cabinets, no
+          installation needed.</p>
+        <input id="folder-input" type="file" webkitdirectory multiple hidden>
+
+        <div id="check" hidden>
+          <ul id="check-list" class="checks"></ul>
+          <div class="row" id="check-actions">
+            <button id="import" class="primary">Import and play</button>
+            <button id="play-direct">Play without importing</button>
+          </div>
+          <p class="small">Importing copies the files the game reads into this site's private browser storage
+            (OPFS). Playing without importing reads them from the folder you picked, which you'll need to pick
+            again next time.</p>
+        </div>
+
+        <div id="progress" hidden>
+          <progress id="progress-bar" max="1" value="0"></progress>
+          <p class="small" id="progress-text"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="game" hidden>
+    <div id="stage" class="stage">
+      <canvas id="screen" width="640" height="480" aria-label="Grand Theft Auto" tabindex="0"></canvas>
+    </div>
+    <div class="toolbar">
+      <button id="fullscreen">Fullscreen</button>
+      <button id="sound">Sound: on</button>
+      <button id="stop">Stop</button>
+      <span id="status" class="small"></span>
+    </div>
+  </section>
+
+  <p id="message" class="message" role="status" hidden></p>
+
+  <section id="controls">
+    <h2>Controls</h2>
+    <p>The game reads the keyboard directly, with the original's keys. More in
+      <a href="/guide/controls">Controls</a>.</p>
+    <table>
+      <thead><tr><th>Key</th><th>In the menus</th></tr></thead>
+      <tbody>
+        <tr><td>Up / Down</td><td>Choose an entry, a mission</td></tr>
+        <tr><td>Left / Right</td><td>Change a setting, the player, the city</td></tr>
+        <tr><td>Enter</td><td>Select, start the mission</td></tr>
+        <tr><td>Esc (tap)</td><td>Back; on the start menu: the credits, then quit</td></tr>
+        <tr><td>Del / R</td><td>Player select: rename / reset the player</td></tr>
+        <tr><td>Space</td><td>The level's cutscene, once seen</td></tr>
+      </tbody>
+    </table>
+    <p class="small">Holding Esc for a second stops the game. In fullscreen the browser takes Esc to leave
+      fullscreen. Player names, scores and options are kept in this browser.</p>
+  </section>
+</main>
+
+<footer class="foot"><p class="powered">Powered by <a href="https://gasm.emdzej.pl"><img src="https://gasm.emdzej.pl/badge/built-for-gasm-dark.svg" alt="Built for gasm" width="120" height="44"></a></p>
+  OpenGTA is released under the GPL-3.0. Grand Theft Auto is &copy; 1997 DMA Design / Rockstar Games.
+  OpenGTA contains no original code or assets and is not affiliated with them.</footer>
+
+<script type="module" src="play.js"></script>
+</body>
+</html>

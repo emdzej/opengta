@@ -1,0 +1,36 @@
+# Status
+
+OpenGTA is **early**. What follows is what runs today; the rest of the original is named and documented
+([reverse-engineering notes](/re/)) but not ported yet.
+
+## Ported
+
+| Part | State |
+|---|---|
+| Data layer | The installed folder or the installer's InstallShield 5 cabinets (`data1.cab`, `data2.cab`, read directly, including the file split across the two cabinets); paths as the original opens them (`..\gtadata\...`), case-insensitive. The original executable is read at run time for its tables (size and CRC-32 checked). |
+| Maps and styles | `Map_Load`, `Style_Load`: the CMP city maps and G24 styles, tile animation, palettes. [Data formats](/formats) |
+| City renderer | The camera and DMA's software rasteriser (the 32 bpp path), integer for integer. [City renderer](/render) |
+| Sprites | Sprite info, draw lists, the sprite and rectangle rasterisers, damage deltas. [Sprites](/sprites) |
+| Text and fonts | FXT text, FON fonts, the frontend's pictures, `PLAYER_A.DAT`. [Text, fonts, images](/text-fonts) |
+| Frontend | WinMain's menu loop: start menu, options, player select and rename, the city and mission select with its high scores, results, cutscene stills, credits. The network screens show, but networking (DirectPlay) is a stub. [Frontend](/frontend) |
+| Sound | The game's three sound modules over a port of the Miles software mixer it used: sound banks, 3D one-shots, engine loops, voices, the police scanner, music and radio, the 70 Hz timer that paces the game. [Sound and music](/audio) |
+| Game core | The 43 launch switches, the level start (`MISSION.INI` with all its object types), the car, ped, object and player tables, the collision grid, routes, the frame loop `Game_Run` with its timing. [Game core](/game-core) |
+
+## Not yet
+
+- Walking and driving: the player and the cars appear at the level start but don't move yet.
+- Traffic, pedestrians' and police AI, weapons, damage.
+- The mission interpreter (the `MISSION.INI` commands run during a level).
+- The HUD: pager, arrow, score, wanted level, the quit prompt.
+- The intro movie (`MOVIE.SMK`) and networked games.
+- The 8, 15 and 16 bpp render paths (the port draws the 32 bpp one).
+
+Subsystems that aren't ported are explicit stubs with the original's address (`src/game/stubs.c`), so
+the frame loop already runs in the original's order.
+
+## Versions
+
+- **The game**: the Windows executable of the 2002 re-release (774,144 bytes, CRC-32 `a5ca070e`), and its
+  data. The 1997 DOS version, other Windows builds and the London 1969 and 1961 expansions are not
+  supported; London is planned as variant switches on the same port.
+- **gasm**: 0.6.0 or newer (raw keyboard, 64-bit asset reads, the window title).
