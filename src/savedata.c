@@ -82,6 +82,15 @@ static bool load_file(uint8_t *b, size_t n)
     return n >= SAVE_SIZE;
 }
 
+bool save_reload(void)
+{
+    size_t n = 0;
+    uint8_t *b = plat_load_user_file(USER_FILE, &n);
+    if (!b) b = vfs_read_all(DATA_FILE, &n);
+    if (!b) return false;
+    return load_file(b, n);
+}
+
 bool save_load(bool demo_mode)
 {
     size_t n = 0;

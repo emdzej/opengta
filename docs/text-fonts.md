@@ -11,7 +11,7 @@ checked against the 2002 release data in `game/GTADATA`.
 | `src/surface.h` | the 32 bpp blitters of the blit module 0x4894a1-0x4897d3 |
 | `src/front/images.c` | frontend images 0x42d490-0x42dc40, pictures of `Front_Enter` 0x42b690 |
 | `src/front/front_text.c` | `Front_LoadFonts` 0x42d2e0, menu items and headings 0x42c340-0x42cf70, `Font_DrawCreditLine` 0x42c030 |
-| `src/savedata.c` | `Front_LoadSettings` 0x42b4a0 |
+| `src/savedata.c` | `Front_LoadSettings` 0x42b4a0 (the file; the rest is in `src/front/front.c`, [frontend.md](frontend.md)) |
 
 Tests: `tests/text_test.c` (all five FXT files), `tests/front_test.c` (renders to `out/front/*.png`).
 
@@ -408,8 +408,8 @@ sfx 4, music 3, pager 3, mode 6, language -1, player 1 (Travis, best 12640). Lev
 ## Not ported here
 
 - The kanji font (`Font_InitKanji` 0x4304a0, `Kanji_*` 0x433d50).
-- The frontend's screens, which call these routines and come with the menu state machine:
-  `Front_DrawEnterPrompt` 0x426fd0, `Front_DrawPlayerPortrait` 0x429f60 (pictures centred on even x,
-  flashing `<` `>` arrows 0x4b07d8 / 0x4b07e0) and `Front_DrawHighScores` 0x427fc0.
-- `Front_LoadTexts` 0x426320.
 - The HUD sprite setup in `HUD_LoadFonts`.
+
+The frontend's screens that use these routines, with `Front_DrawEnterPrompt` 0x426fd0,
+`Front_DrawPlayerPortrait` 0x429f60, `Front_DrawHighScores` 0x427fc0 and `Front_LoadTexts` 0x426320,
+are in [frontend.md](frontend.md).

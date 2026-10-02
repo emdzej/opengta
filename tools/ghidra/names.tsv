@@ -371,9 +371,9 @@
 004277c0	Front_ScreenMain	frontend	high	Main city/chapter select screen (arrows, enter starts game, space = story).
 00427fc0	Front_DrawHighScores	frontend	med	Draw the 3-entry high score table for a city.
 004280b0	Front_ApplyVolumes	frontend	med	Validate and apply sfx/music volumes from settings.
-00428150	Front_ScreenSessionList	frontend	med	Network session list screen (DirectPlay sessions).
-004282c0	Front_ScreenServiceList	frontend	med	Network service/provider select screen.
-00428480	Front_ScreenEnterName	frontend	med	Text entry screen (player/session name).
+00428150	Front_ScreenConnectionList	frontend	high	Network connection (DirectPlay service provider) list, screen 0.
+004282c0	Front_ScreenSessionList	frontend	high	Network session list (join), screen 0xf.
+00428480	Front_ScreenEnterName	frontend	high	Session name entry (host), screen 0x10.
 00428680	Front_ScreenLobbyHost	frontend	low	Network lobby status (host side).
 00428950	Front_ScreenLobbyJoin	frontend	low	Network lobby status (join side).
 00428bf0	Front_ScreenLoading	frontend	high	'Loading' screen: shows chapter/mission title and targets, returns start code.

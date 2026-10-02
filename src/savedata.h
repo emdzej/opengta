@@ -56,3 +56,6 @@ bool save_load(bool demo_mode);
 void save_defaults(bool demo_mode);
 /* File_Save 0x42e0e0 of the 0x414 bytes, to the user file. */
 bool save_store(void);
+/* The frontend's revert (fopen "rb" + fread of 0x414 bytes into the buffer, nothing if the file can't
+   be opened): the user file, else GTADATA/PLAYER_A.DAT. A short file overwrites only its bytes. */
+bool save_reload(void);
