@@ -1,29 +1,30 @@
-/* The site's GTA theme (docs/.vitepress/theme/gta.css), dark variant: the menu font's yellow-to-amber
-   gradient with its hard drop shadow, on the rusted plate of the frontend. */
+/* The site's theme (docs/.vitepress/theme/gta.css), dark variant: GTA 1's box cover, the logo's
+   yellow-to-orange letters with their black outline and a red-orange flame over blue glass towers at night.
+   (The variable names are the old frontend-palette ones; the values are the cover's.) */
 :root {
   color-scheme: dark;
-  --pale: #ffff9b;
-  --yellow: #ffff00;
-  --gold: #ffcf00;
-  --amber: #cf9b00;
-  --shadow: #131313;
-  --orange: #ff6700;
-  --orange-light: #ff9b33;
-  --rust: #f08000;
-  --rust-light: #f0a000;
-  --rust-dark: #7a3a10;
-  --bg: #120e0a;
-  --bg-alt: #0c0907;
-  --bg-soft: #1f1711;
-  --panel: rgba(36, 20, 8, 0.85);
-  --divider: #3a2a1c;
-  --text: #f3ead8;
-  --text-2: #c7b79c;
-  --ok: #b8d86b;
-  --warn: #ff9b33;
-  --bad: #ff6a4a;
-  --menu-text: linear-gradient(180deg, var(--pale) 0%, var(--yellow) 30%, var(--gold) 62%, var(--amber) 100%);
-  --rim: linear-gradient(90deg, var(--rust-dark), var(--rust) 25%, var(--rust-light) 50%, var(--orange) 75%, var(--rust-dark));
+  --pale: #fff27a;
+  --yellow: #ffd400;
+  --gold: #ffd400;
+  --amber: #ffae00;
+  --shadow: #0b0b0b;
+  --orange: #ff7a00;
+  --orange-light: #ffae00;
+  --rust: #2f62a0;
+  --rust-light: #9fd0f0;
+  --rust-dark: #17305a;
+  --bg: #08132a;
+  --bg-alt: #050d1f;
+  --bg-soft: #102446;
+  --panel: rgba(14, 31, 61, 0.88);
+  --divider: #1f3a63;
+  --text: #e9f2fb;
+  --text-2: #a9bfd9;
+  --ok: #8fd18a;
+  --warn: #ffae00;
+  --bad: #ff6b5c;
+  --menu-text: linear-gradient(180deg, var(--pale) 0%, var(--yellow) 28%, var(--amber) 62%, var(--orange) 100%);
+  --rim: linear-gradient(90deg, #e0241b, var(--orange) 45%, var(--yellow) 80%, rgba(255, 212, 0, 0));
   --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
@@ -33,9 +34,9 @@ html { background: var(--bg); }
 body {
   min-height: 100vh;
   background:
-    radial-gradient(1200px 520px at 15% -10%, rgba(240, 128, 0, 0.22), transparent 60%),
-    radial-gradient(900px 420px at 90% -5%, rgba(255, 207, 0, 0.10), transparent 60%),
-    radial-gradient(900px 600px at 50% 110%, rgba(122, 58, 16, 0.30), transparent 60%),
+    radial-gradient(1200px 520px at 50% -10%, rgba(159, 208, 240, 0.22), transparent 60%),
+    radial-gradient(900px 420px at 90% -5%, rgba(47, 98, 160, 0.30), transparent 60%),
+    radial-gradient(900px 600px at 15% 110%, rgba(255, 122, 0, 0.12), transparent 60%),
     var(--bg);
 }
 a { color: var(--gold); text-decoration: none; }
@@ -62,8 +63,8 @@ main { max-width: 1100px; margin: 0 auto; padding: 8px 24px 32px; }
 .lead { color: var(--text-2); max-width: 60rem; }
 .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin: 1.2rem 0; }
 /* Rusted plates with an orange edge. */
-.card { background: linear-gradient(160deg, rgba(48, 22, 6, 0.85), rgba(20, 14, 10, 0.95));
-  border: 1px solid rgba(240, 128, 0, 0.22); border-left: 3px solid var(--gold); border-radius: 6px; padding: 18px 20px;
+.card { background: linear-gradient(160deg, rgba(47, 98, 160, 0.35), rgba(8, 19, 42, 0.95));
+  border: 1px solid rgba(159, 208, 240, 0.18); border-left: 3px solid var(--gold); border-radius: 6px; padding: 18px 20px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 30px rgba(0, 0, 0, 0.25); }
 .card ul { padding-left: 1.2rem; margin: 0; }
 .card li { margin: .35rem 0; }
@@ -71,9 +72,9 @@ main { max-width: 1100px; margin: 0 auto; padding: 8px 24px 32px; }
 
 /* Buttons: the primary one in the menu font's colours with its drop shadow. */
 button { font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; border-radius: 4px; padding: .45rem 1.15rem;
-  border: 1px solid rgba(240, 128, 0, 0.55); background: rgba(48, 26, 10, 0.9); color: var(--text);
+  border: 1px solid rgba(159, 208, 240, 0.35); background: rgba(23, 48, 90, 0.9); color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08); }
-button:hover { background: rgba(72, 38, 14, 0.95); border-color: var(--rust); }
+button:hover { background: rgba(47, 98, 160, 0.9); border-color: var(--rust); }
 button.primary { background: var(--menu-text); border-color: var(--amber); color: var(--shadow); font-weight: 700;
   box-shadow: 3px 3px 0 var(--shadow); }
 button.primary:hover { filter: brightness(1.08); background: var(--menu-text); }
@@ -98,7 +99,7 @@ progress { width: 100%; height: 10px; accent-color: var(--rust); margin-top: .8r
 #game { margin: 1rem 0; }
 .stage { position: relative; background: #000; border-radius: 4px; overflow: hidden; margin: 0 auto;
   width: min(100%, calc((100vh - 150px) * 4 / 3)); aspect-ratio: 4 / 3;
-  box-shadow: 0 0 0 2px rgba(240, 128, 0, 0.7), 6px 6px 0 var(--shadow), 0 18px 40px rgba(0, 0, 0, 0.45); }
+  box-shadow: 0 0 0 2px #0b0b0b, 6px 6px 0 var(--shadow), 0 18px 40px rgba(0, 0, 0, 0.45); }
 .stage canvas { display: block; width: 100%; height: 100%; }
 .stage:fullscreen { width: 100vw; height: 100vh; aspect-ratio: auto; border-radius: 0; box-shadow: none; }
 .stage:-webkit-full-screen { width: 100vw; height: 100vh; aspect-ratio: auto; border-radius: 0; box-shadow: none; }
@@ -111,7 +112,7 @@ th, td { text-align: left; padding: .45rem .7rem; border-bottom: 1px solid var(-
 th { color: var(--text-2); font-weight: 600; }
 tbody tr:nth-child(odd) { background: rgba(255, 255, 255, 0.03); }
 
-dialog { background: var(--bg-soft); color: var(--text); border: 1px solid rgba(240, 128, 0, 0.3); border-radius: 6px; max-width: 640px; width: 90vw; }
+dialog { background: var(--bg-soft); color: var(--text); border: 1px solid rgba(159, 208, 240, 0.3); border-radius: 6px; max-width: 640px; width: 90vw; }
 dialog::backdrop { background: rgba(0, 0, 0, .6); }
 textarea { width: 100%; font: 13px/1.45 var(--mono); background: var(--bg-alt); color: var(--text); border: 1px solid var(--divider); border-radius: 8px; padding: .6rem; }
 .error { color: var(--bad); white-space: pre-wrap; font-size: .85rem; }
@@ -121,7 +122,7 @@ textarea { width: 100%; font: 13px/1.45 var(--mono); background: var(--bg-alt); 
 
 #look { margin: 0 0 1.2rem; }
 h3.sub { font-size: .95rem; margin: 1rem 0 .4rem; color: var(--gold); }
-select { font: inherit; font-size: .9rem; background: rgba(48, 26, 10, 0.9); color: var(--text); border: 1px solid rgba(240, 128, 0, 0.55);
+select { font: inherit; font-size: .9rem; background: rgba(23, 48, 90, 0.9); color: var(--text); border: 1px solid rgba(159, 208, 240, 0.35);
   border-radius: 4px; padding: .35rem .6rem; }
 .skins { list-style: none; padding: 0 !important; margin: .4rem 0 !important; }
 .skins li { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .3rem 0; border-bottom: 1px solid var(--divider); }
