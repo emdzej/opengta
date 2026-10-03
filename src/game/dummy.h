@@ -1,7 +1,7 @@
 /* Mission dummy cars (0x473440-0x473b8f): a DUMMY car driven by an AI controller ("sentinel",
-   0x507ea0, 0x98 bytes each, kind 9) to a block, with up to four followers in a convoy group. The
-   controllers and their driving (path finding, traffic) are not ported: the record is handled as raw
-   bytes at the original's offsets and the module calls are stubs (stubs.h). docs/missions.md. */
+   0x507ea0, 0x98 bytes each, kind 9; ai.h) to a block, with up to four followers in a convoy group.
+   The record is handled as raw bytes at the original's offsets; the route comes from the path finder
+   (path.h), the driving along it from Sentinel_DriveCar. docs/missions.md, docs/traffic.md. */
 #pragma once
 #include <stdint.h>
 

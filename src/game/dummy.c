@@ -1,6 +1,6 @@
 /* Mission dummy cars 0x473440-0x473b8f (dummy.h): the convoy groups and the kind-9 controller states.
-   The controller records belong to the emergency services module (Sentinel_* 0x41ad30.., not ported):
-   they are reached through sentinel_get and handled as raw bytes at the original's offsets. */
+   The controller records (ai.h, Sentinel_Get 0x41ad60) are reached through sentinel_get and handled
+   as raw bytes at the original's offsets. */
 #include "dummy.h"
 #include "car.h"
 #include "game.h"
