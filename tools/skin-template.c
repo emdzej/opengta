@@ -24,6 +24,7 @@
 #include "game/carinfo.h"
 #include "map.h"
 #include "render/hires/hires_png.h"
+#include "render/hires/hires_skin.h"
 #include "render/sprite.h"
 #include "style.h"
 #include "vfs.h"
@@ -1140,12 +1141,24 @@ static int extract(const char *dir)
                 }
             /* car paint: the pixels another remap recolours, white on black */
             if (n < sm->nsprites && sprite_remaps(sm, n, &why) && sm->spr[n].ncars) {
-                const uint32_t *c1 = sprite_remap_clut(in->clut, 1, 0);
+                /* the texels at least 3 of the first car record's 12 remaps recolour (remap r is palette car
+                   base + record * 12 + r - 1) by more than HIRES_PAINT_STEP */
+                const int pal = sprite_car_palette(sm->spr[n].car[0]);
+                bool pt[256] = { false };
+                for (int e = 1; e < 256; e++) {
+                    int changed = 0;
+                    for (int r = 1; r <= CAR_REMAPS; r++) {
+                        const uint32_t *c = sprite_remap_clut(in->clut, r, pal);
+                        int d = 0;
+                        for (int k = 0; k < 24; k += 8) d += abs((int)(c[e * 64] >> k & 0xff) - (int)(clut[e * 64] >> k & 0xff));
+                        changed += d > HIRES_PAINT_STEP;
+                    }
+                    pt[e] = changed >= 3;
+                }
                 int paint = 0;
                 for (int v = 0; v < in->h; v++)
                     for (int u = 0; u < in->w; u++) {
-                        uint8_t e = in->data[v * 256 + u];
-                        bool p = e && (c1[e * 64] & 0xffffff) != (clut[e * 64] & 0xffffff);
+                        bool p = pt[in->data[v * 256 + u]];
                         b[v * in->w + u] = p ? 0xffffffffu : 0xff000000u;
                         paint += p;
                     }

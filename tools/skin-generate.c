@@ -28,7 +28,9 @@
    The output is generated from the structure of your own copy of the game: keep it for your own use,
    don't distribute it (skin.ini says so). */
 #include "exe.h"
+#include "game/carinfo.h"
 #include "map.h"
+#include "render/hires/hires_skin.h"
 #include "render/sprite.h"
 #include "style.h"
 #include "vfs.h"
@@ -39,6 +41,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+
+/* og_core's platform hooks (the game's saves; unused here) */
+uint8_t *plat_load_user_file(const char *name, size_t *size) { (void)name, (void)size; return NULL; }
+bool plat_save_user_file(const char *name, const void *data, size_t size) { (void)name, (void)data, (void)size; return true; }
 
 enum { TILE = 64, MAXK = 64, TRANSPARENT = 255 };
 
@@ -489,7 +495,7 @@ static int classify(float r, float g, float b, const Material *mat, int k)
    strongest material, anti-aliased against the runner-up over about one output pixel. Contours become
    smooth curves at the output resolution, small wiggles below the blur disappear, corners round
    slightly. */
-static float sigma = 2.0f, building_sigma = 0.9f;
+static float sigma = 2.0f, building_sigma = 0.9f, sprite_sigma = 1.3f;
 static void draw_fields(const ClassMap *cm, const Material *mat, uint32_t *out, int L)
 {
     static float field[MAXK + 1][TILE * TILE], tmp[TILE * TILE];
@@ -968,10 +974,10 @@ static void rectify(ClassMap *cm, bool absorb_ragged)
 }
 
 /* Shade groups: materials that are one surface in light and shadow (close in chroma, lightness within
-   45) share the colour of the most used of them. A material joins the first more used representative it
+   dl) are one class, drawn in their mean colour. A material joins the first more used representative it
    is close to (no chaining: black, grey and white stay apart). The same for every tile, so neighbours
    agree. */
-static void shade_groups(const Material *mat, uint8_t *group)
+static void shade_groups(const Material *mat, uint8_t *group, float dl)
 {
     int order[MAXK];
     for (int i = 0; i < nmat; i++) order[i] = i;
@@ -989,11 +995,235 @@ static void shade_groups(const Material *mat, uint8_t *group)
             float dr = m->r - r->r, dg = m->g - r->g, db = m->b - r->b;
             float dy = 0.299f * dr + 0.587f * dg + 0.114f * db;
             float dcb = -0.169f * dr - 0.331f * dg + 0.5f * db, dcr = 0.5f * dr - 0.419f * dg - 0.081f * db;
-            if (fabsf(dy) < 45 && dcb * dcb + dcr * dcr < 14 * 14) g = reps[k];
+            if (fabsf(dy) < dl && dcb * dcb + dcr * dcr < 14 * 14) g = reps[k];
         }
         if (g < 0) reps[nr++] = g = order[i];
         group[order[i]] = (uint8_t)g;
     }
+}
+
+/* ---- sprites: vehicles (with their paint masks), objects, traffic lights ----
+   The same flat look on the sprites the world shows. Peds stay the original's (their clothes are remaps
+   of several colours each, which one paint mask can't carry), as do the HUD's arrows and digits.
+   A sprite larger than 64 is reduced onto the 64 x 64 class map by majority (f x f texels per class
+   pixel) and drawn back at up to 512 pixels. Car paint (the texels remap 1 recolours) gets two classes of
+   its own, light and dark, in the sprite's own paint colours, and a paint mask drawn from the same shapes:
+   the game recolours the masked pixels per car, shaded by their brightness against the paint's. */
+enum { P_LIGHT = MAXK, P_DARK, SPRITE_OUT = 512 };
+
+static bool sprite_wanted(int n, bool *vehicle)
+{
+    static const int VEHICLES[] = { SPRITE_GROUP_BOAT, SPRITE_GROUP_BUS, SPRITE_GROUP_CAR, SPRITE_GROUP_TANK, SPRITE_GROUP_TRAIN, SPRITE_GROUP_BIKE };
+    static const int OTHERS[] = { SPRITE_GROUP_OBJECT, SPRITE_GROUP_TRAFFIC_LIGHTS, SPRITE_GROUP_TRDOORS, SPRITE_GROUP_BOX };
+    for (size_t i = 0; i < sizeof VEHICLES / sizeof *VEHICLES; i++)
+        if (n >= sprite_group_base(VEHICLES[i]) && n < sprite_group_base(VEHICLES[i]) + sprite_group_count(VEHICLES[i])) return *vehicle = true;
+    for (size_t i = 0; i < sizeof OTHERS / sizeof *OTHERS; i++)
+        if (n >= sprite_group_base(OTHERS[i]) && n < sprite_group_base(OTHERS[i]) + sprite_group_count(OTHERS[i])) return !(*vehicle = false);
+    return false;
+}
+
+static bool write_image(int number, const char *name, const uint32_t *img, int L, int w, int h)
+{
+    static uint32_t crop[SPRITE_OUT * SPRITE_OUT];
+    for (int y = 0; y < h; y++) memcpy(crop + y * w, img + y * L, (size_t)w * sizeof *img);
+    char dir[1024], path[1100];
+    snprintf(dir, sizeof dir, "%s/style%03d/sprite", out_dir, number);
+    mkdirs(dir);
+    snprintf(path, sizeof path, "%s/%s.png", dir, name);
+    if (png_write(path, crop, w, h, PNG_RGBA)) return true;
+    fprintf(stderr, "skin_generate: can't write %s\n", path);
+    return false;
+}
+
+/* Paint: a texel at least 3 of the car's 12 remaps recolour (by more than HIRES_PAINT_STEP). */
+static bool paint_texel(int clut, int palette, uint8_t e)
+{
+    if (!e || palette < 0) return false;
+    const uint32_t *c0 = sprite_remap_clut(clut, 0, 0);
+    int n = 0;
+    for (int r = 1; r <= CAR_REMAPS; r++) {
+        const uint32_t *c = sprite_remap_clut(clut, r, palette);
+        int d = 0;
+        for (int k = 0; k < 24; k += 8) d += abs((int)(c0[e * 64] >> k & 0xff) - (int)(c[e * 64] >> k & 0xff));
+        n += d > HIRES_PAINT_STEP;
+    }
+    return n >= 3;
+}
+
+/* A 3 x 3 majority over the sprite's opaque pixels: a pixel whose class has no other pixel around it takes
+   the most common class around it. The outline (transparency) stays. */
+static void sprite_speckle(ClassMap *cm, int cw, int ch)
+{
+    static uint8_t out[TILE * TILE];
+    memcpy(out, cm->cls, sizeof out);
+    for (int y = 0; y < ch; y++)
+        for (int x = 0; x < cw; x++) {
+            uint8_t c = cm->cls[y * TILE + x];
+            if (c == TRANSPARENT) continue;
+            int count[256] = { 0 }, best = -1, same = 0;
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++) {
+                    int X = x + dx, Y = y + dy;
+                    if ((!dx && !dy) || X < 0 || Y < 0 || X >= cw || Y >= ch) continue;
+                    uint8_t o = cm->cls[Y * TILE + X];
+                    if (o == TRANSPARENT) continue;
+                    if (o == c) same++;
+                    else if (++count[o] > (best < 0 ? 0 : count[best])) best = o;
+                }
+            if (!same && best >= 0) out[y * TILE + x] = (uint8_t)best;
+        }
+    memcpy(cm->cls, out, sizeof out);
+}
+
+static bool generate_sprites(const Style *s, int number, const CityPalette *pal)
+{
+    int ns = sprite_count();
+    /* each vehicle sprite's remap 1: the palette of the first car record drawn with it */
+    static int car_pal[0x1000];
+    memset(car_pal, -1, sizeof car_pal);
+    car_info_setup(s);
+    for (int i = car_info_count() - 1; i >= 0; i--) {
+        int n = carinfo_s16(car_info_record(i), 6);
+        if (n >= 0 && n < 0x1000) car_pal[n] = sprite_car_palette(i);
+    }
+    /* the materials of the sprites (paint left out) */
+    Hist *h = NULL;
+    size_t nh = 0, cap = 0;
+    for (int n = 0; n < ns; n++) {
+        bool veh;
+        const SpriteInfo *in = sprite_get_info(n);
+        if (!in || !in->w || !in->h || !in->data || !sprite_wanted(n, &veh)) continue;
+        const uint32_t *c0 = sprite_remap_clut(in->clut, 0, 0);
+        int cp = veh ? car_pal[n] : -1;
+        for (int v = 0; v < in->h; v++)
+            for (int u = 0; u < in->w; u++) {
+                uint8_t e = in->data[v * 256 + u];
+                if (!e || paint_texel(in->clut, cp, e)) continue;
+                if (nh == cap) h = realloc(h, (cap = cap ? cap * 2 : 65536) * sizeof *h);
+                h[nh++] = (Hist){ c0[e * 64] & 0xffffff, 1 };
+            }
+    }
+    qsort(h, nh, sizeof *h, cmp_hist);
+    int nu = 0;
+    for (size_t i = 0; i < nh; i++)
+        if (nu && h[nu - 1].c == h[i].c) h[nu - 1].n++;
+        else h[nu++] = h[i];
+    const int k = 32;
+    Material mat[MAXK] = { 0 }, dmat[MAXK + 2];
+    cluster(h, nu, mat, k);
+    free(h);
+    int saved = nmat, written = 0, masks = 0;
+    nmat = k;
+    /* shade groups as on the roofs (one surface in light and shadow), drawn in their mean colour */
+    uint8_t group[MAXK];
+    shade_groups(mat, group, 24);   /* tighter than the roofs': chrome, glass and body stay apart */
+    {
+        double sr[MAXK] = { 0 }, sg[MAXK] = { 0 }, sb[MAXK] = { 0 }, sn[MAXK] = { 0 };
+        for (int j = 0; j < k; j++) {
+            int g = group[j];
+            sr[g] += mat[j].r * mat[j].n, sg[g] += mat[j].g * mat[j].n, sb[g] += mat[j].b * mat[j].n, sn[g] += mat[j].n;
+        }
+        for (int j = 0; j < k; j++) {
+            dmat[j] = mat[j];
+            if (sn[j] > 0) dmat[j].r = (float)(sr[j] / sn[j]), dmat[j].g = (float)(sg[j] / sn[j]), dmat[j].b = (float)(sb[j] / sn[j]);
+            grade(&dmat[j], pal);
+        }
+    }
+    static uint32_t img[SPRITE_OUT * SPRITE_OUT], mimg[SPRITE_OUT * SPRITE_OUT];
+    static uint8_t paint[256 * 256];
+    static float rgb[256 * 256][3];
+    for (int n = 0; n < ns; n++) {
+        bool veh;
+        const SpriteInfo *in = sprite_get_info(n);
+        if (!in || !in->w || !in->h || !in->data || !sprite_wanted(n, &veh)) continue;
+        const uint32_t *c0 = sprite_remap_clut(in->clut, 0, 0);
+        int cp = veh ? car_pal[n] : -1;
+        bool pt[256];
+        for (int e = 0; e < 256; e++) pt[e] = paint_texel(in->clut, cp, (uint8_t)e);
+        /* texel classes: 0..k-1 materials, P_* paint, TRANSPARENT */
+        int npaint = 0;
+        double pl = 0;
+        for (int v = 0; v < in->h; v++)
+            for (int u = 0; u < in->w; u++) {
+                uint8_t e = in->data[v * 256 + u];
+                uint32_t c = c0[e * 64];
+                float *q = rgb[v * 256 + u];
+                q[0] = (float)(c >> 16 & 0xff), q[1] = (float)(c >> 8 & 0xff), q[2] = (float)(c & 0xff);
+                paint[v * 256 + u] = pt[e];
+                if (paint[v * 256 + u]) npaint++, pl += luma(q[0], q[1], q[2]);
+            }
+        float paint_mid = npaint ? (float)(pl / npaint) : 0;
+        /* onto the class map: f x f texels per class pixel, majority */
+        int f = 1;
+        while (in->w > TILE * f || in->h > TILE * f) f++;
+        int cw = (in->w + f - 1) / f, ch = (in->h + f - 1) / f;
+        ClassMap cm;
+        double ps[2][4] = { { 0 } };
+        for (int i = 0; i < TILE * TILE; i++) cm.cls[i] = TRANSPARENT, cm.shade[i] = 1;
+        for (int y = 0; y < ch; y++)
+            for (int x = 0; x < cw; x++) {
+                int count[256] = { 0 }, best = TRANSPARENT;
+                for (int v = y * f; v < (y + 1) * f && v < in->h; v++)
+                    for (int u = x * f; u < (x + 1) * f && u < in->w; u++) {
+                        const float *q = rgb[v * 256 + u];
+                        int c;
+                        if (!in->data[v * 256 + u]) c = TRANSPARENT;
+                        else if (paint[v * 256 + u]) {
+                            int pc = 0;   /* one flat paint: the body's shading is the paint mask's job */
+                            (void)paint_mid;
+                            c = P_LIGHT + pc;
+                            ps[pc][0] += q[0], ps[pc][1] += q[1], ps[pc][2] += q[2], ps[pc][3]++;
+                        } else c = group[classify(q[0], q[1], q[2], mat, k)];
+                        if (++count[c] > count[best]) best = c;
+                    }
+                cm.cls[y * TILE + x] = (uint8_t)best;
+            }
+        /* the paint drawn in its own colours (the mask's brightness reference is the original paint) */
+        for (int pc = 0; pc < 2; pc++)
+            if (ps[pc][3] > 0) dmat[P_LIGHT + pc].r = (float)(ps[pc][0] / ps[pc][3]), dmat[P_LIGHT + pc].g = (float)(ps[pc][1] / ps[pc][3]), dmat[P_LIGHT + pc].b = (float)(ps[pc][2] / ps[pc][3]);
+        /* speckle out (3 x 3 majority, transparency kept), then boxes: windows, lights, panels */
+        static Lines lines;
+        lines.n = 0;
+        if (cw * ch >= 400) {
+            sprite_speckle(&cm, cw, ch);
+            rectify(&cm, true);
+        }
+        /* drawn at q output pixels per class pixel */
+        int q = SPRITE_OUT / (cw > ch ? cw : ch);
+        if (q > 2 * scale * f) q = 2 * scale * f;
+        if (q < 1) q = 1;
+        int L = TILE * q;
+        if (L > SPRITE_OUT) {   /* only the sprite's corner of the map is kept: draw that part */
+            q = SPRITE_OUT / TILE;
+            L = SPRITE_OUT;
+        }
+        float sg = sigma;
+        sigma = cw * ch >= 400 ? sprite_sigma : 0.7f;
+        draw_fields(&cm, dmat, img, L);
+        draw_lines(&lines, dmat, img, L);
+        int ow = cw * q, oh = ch * q;
+        char name[64];
+        snprintf(name, sizeof name, "%d", n);
+        if (!write_image(number, name, img, L, ow, oh)) return false;
+        written++;
+        if (npaint) {
+            Material mm[MAXK + 2];
+            for (int j = 0; j < MAXK + 2; j++) set_rgb(&mm[j], j >= P_LIGHT ? 0xffffff : 0);
+            draw_fields(&cm, mm, mimg, L);
+            draw_lines(&lines, mm, mimg, L);
+            for (int i = 0; i < L * L; i++) {
+                uint32_t v = (mimg[i] & 0xff) * (mimg[i] >> 24) / 255;   /* opaque grey: white = paint */
+                mimg[i] = 0xff000000u | v << 16 | v << 8 | v;
+            }
+            snprintf(name, sizeof name, "%d_mask", n);
+            if (!write_image(number, name, mimg, L, ow, oh)) return false;
+            masks++;
+        }
+        sigma = sg;
+    }
+    nmat = saved;
+    printf("style %03d: %d sprites (%d paint masks), %d sprite materials\n", number, written, masks, k);
+    return true;
 }
 
 static bool generate_style(int number)
@@ -1031,7 +1261,7 @@ static bool generate_style(int number)
     /* the drawing colours: the materials graded towards the city, then the semantic classes */
     const CityPalette *pal = &PALETTES[number - 1];
     uint8_t group[MAXK];
-    shade_groups(mat, group);
+    shade_groups(mat, group, 45);
     Material dmat[MAXK + NSEM];
     for (int j = 0; j < nmat; j++) dmat[j] = mat[j];
     if (semantic) {
@@ -1119,6 +1349,7 @@ static bool generate_style(int number)
         }
     }
     seam_check(s, number, lid_img, L);
+    if (semantic && !generate_sprites(s, number, pal)) return false;
     for (int i = 0; i < s->nlid; i++) free(lid_img[i]);
     free(lid_img);
     free(img);

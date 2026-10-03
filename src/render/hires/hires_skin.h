@@ -24,6 +24,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* A car's paint: the texels its remap recolours by more than this (|dR| + |dG| + |dB|), the convention of
+   the paint masks (skin_template --extract and skin_generate draw theirs by it). */
+enum { HIRES_PAINT_STEP = 60 };
+
 typedef uint8_t *(*HiresFileReader)(const char *path, size_t *size);   /* malloc'd file or NULL */
 extern HiresFileReader hires_skin_reader;                               /* default: vfs_read_all */
 

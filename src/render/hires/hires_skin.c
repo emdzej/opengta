@@ -168,8 +168,17 @@ static HiresTexture *file(Skin *k, const HiresAsset *a, int variant, const char 
 static unsigned lum(uint32_t c) { return ((c & 0xff) * 77 + (c >> 8 & 0xff) * 150 + (c >> 16 & 0xff) * 29) >> 8; }
 static unsigned lum_xrgb(uint32_t c) { return ((c >> 16 & 0xff) * 77 + (c >> 8 & 0xff) * 150 + (c & 0xff) * 29) >> 8; }
 
+/* Paint: a texel whose colour the remap changes by more than HIRES_PAINT_STEP (|dR| + |dG| + |dB|); the
+   remaps also tint the glass and the dark parts slightly, which isn't paint. */
+static bool is_paint(uint32_t o, uint32_t r)
+{
+    int d = 0;
+    for (int k = 0; k < 24; k += 8) d += abs((int)(o >> k & 0xff) - (int)(r >> k & 0xff));
+    return d > HIRES_PAINT_STEP;
+}
+
 /* The paint colour a remap gives the original sprite: the average remapped colour (and the average own
-   colour) of the texels whose colour the remap changes. */
+   colour) of its paint texels. */
 static bool paint_colours(const HiresAsset *a, unsigned own[3], unsigned rem[3])
 {
     const SpriteInfo *in = a->info;
@@ -179,7 +188,7 @@ static bool paint_colours(const HiresAsset *a, unsigned own[3], unsigned rem[3])
             uint8_t t = in->data[y * 256 + x];
             if (!t) continue;
             uint32_t o = a->own_clut[t * 64] & 0xffffff, r = a->clut[t * 64] & 0xffffff;
-            if (o == r) continue;
+            if (!is_paint(o, r)) continue;
             for (int c = 0; c < 3; c++) so[c] += o >> (16 - 8 * c) & 0xff, sr[c] += r >> (16 - 8 * c) & 0xff;
             n++;
         }
