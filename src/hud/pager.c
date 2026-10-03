@@ -7,10 +7,18 @@
 #include "../font.h"
 #include "../text.h"
 #include "../game/player.h"
+#include "../render/hires/hires_hud.h"
 #include <stdio.h>
 #include <string.h>
 
 Pager g_pager;
+
+/* Sprite_DrawScreen 0x47bbc0, recorded for the hires renderer when it draws the HUD (the port) */
+static void screen_sprite(int x, int y, const SpriteInfo *in)
+{
+    sprite_draw_screen(x, y, in);
+    if (hires_ui_recording) hires_hud_screen_sprite(x, y, in);
+}
 
 static int cols(void) { return hud_fonts.pager_cols; }   /* 0x784860 */
 
@@ -238,14 +246,14 @@ void hud_draw_pager(Surface *s)
     if (!in || g_pager.cur < 0) return;
     int res = g_hud_frame.res;
     g_pager.height = in->h;
-    sprite_draw_screen(0, 0, in);
+    screen_sprite(0, 0, in);
     int row = text_wide() ? (res != 1 ? 8 : 5) * res : 6 * res;
     const PagerSlot *p = &g_pager.slot[g_pager.cur];
     font_select(hud_fonts.pager);
     hud_draw_text_clipped(s, p->text, surface_offset(s, res * 0xb, row), p->scroll, res * 0x3a);
     if (g_pager.light) {
         const SpriteInfo *l = hud_sprite(4);
-        if (l) sprite_draw_screen(res * 0xb, res * 0x13, l);
+        if (l) screen_sprite(res * 0xb, res * 0x13, l);
     }
 }
 

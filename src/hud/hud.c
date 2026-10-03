@@ -18,6 +18,7 @@
 #include "../game/player.h"
 #include "../game/gfx.h"
 #include "../game/heli.h"
+#include "../render/hires/hires_hud.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -212,6 +213,13 @@ const uint32_t *hud_select_aux(int n)
 
 static long ofs(int x, int y) { return surface_offset(&g_hud_frame.s, x, y); }
 
+/* Sprite_DrawScreen 0x47bbc0, recorded for the hires renderer when it draws the HUD (the port) */
+static void screen_sprite(int x, int y, const SpriteInfo *in)
+{
+    sprite_draw_screen(x, y, in);
+    if (hires_ui_recording) hires_hud_screen_sprite(x, y, in);
+}
+
 /* Font_Select(f); a glyph of code c, rows skip.. skip + h - 1 at dst, through clut (Font_GlyphPixels +
    Blit_Sprite; zero-width glyphs are not drawn) */
 static void glyph(const Font *f, int c, int h, int skip, long dst, const uint32_t *clut)
@@ -220,6 +228,7 @@ static void glyph(const Font *f, int c, int h, int skip, long dst, const uint32_
     int w = font_glyph_width((uint16_t)c);
     const uint8_t *g = font_glyph_pixels((uint16_t)c);
     if (w != 0 && g) blit_sprite32(&g_hud_frame.s, dst, g + w * skip, w, h, clut);
+    if (hires_ui_recording && w > 0 && g && clut) hires_ui_glyph(&g_hud_frame.s, dst, f, g, w, skip, h, 0, 0, clut, 1, true);   /* the port */
 }
 
 /* HUD_DrawText 0x483df0 with font f selected raw (Font_SelectRaw) at (x, y) */
@@ -502,10 +511,10 @@ static void draw_zone_texts(void)
             if (spr_res() == 1) {
                 const SpriteInfo *s2 = sprite_get_info(base + spr_hi() + 2);
                 int x0 = (vw - (s2 ? s2->w : 0) - s1->w) / 2;
-                sprite_draw_screen(x0, y, s1);
-                if (s2) sprite_draw_screen(s1->w + x0, y, s2);
+                screen_sprite(x0, y, s1);
+                if (s2) screen_sprite(s1->w + x0, y, s2);
             } else {
-                sprite_draw_screen((vw - s1->w) / 2, y, s1);
+                screen_sprite((vw - s1->w) / 2, y, s1);
             }
             adv = s1->h;
             if (z->wide) font_select(hud_fonts.street);
@@ -513,7 +522,7 @@ static void draw_zone_texts(void)
         } else if (z->type == 200) {
             const SpriteInfo *s = hud_sprite(2);
             if (!s) continue;
-            sprite_draw_screen((vw - s->w) / 2, y, s);
+            screen_sprite((vw - s->w) / 2, y, s);
             adv = s->h;
             int row = z->wide ? y + res * (res != 1 ? 4 : 2) : y + res * 3;
             if (z->wide) font_select(hud_fonts.sub);
@@ -674,7 +683,7 @@ static void draw_subtitle(void)
     int x = text_wide() ? in->w : in->w + 2;
     int row = g_hud_frame.view_h - (h - 1) * H.sub_lines - 1;
     if (H.sub_wrapped) hud_draw_text_multiline(&g_hud_frame.s, H.sub_wrapped, hud_fonts.sub, ofs(x, row), 0);
-    sprite_draw_screen(0, g_hud_frame.view_h - in->h, in);
+    screen_sprite(0, g_hud_frame.view_h - in->h, in);
 }
 
 /* HUD_Brief 0x4821c0. The original sprintfs the text with itself as the format (no FXT text a brief
@@ -727,19 +736,27 @@ static void draw_score_popups(void)
         if (!n) continue;
         p->age++;
         render_world_to_screen(p->x, p->y, p->z, &p->sx, &p->sy);
-        hud_select_aux(p->colour);
+        const uint32_t *pc = hud_select_aux(p->colour);
         font_select(f);
         if (p->age < 5) {
             int x0 = p->sx - (n * w >> 1), y0 = p->sy - (h >> 1);
-            for (int k = 0; k < n; k++)
+            for (int k = 0; k < n; k++) {
                 poly_draw_rect(k * w + x0, (k + 1) * w + x0, y0, h - 1 + y0, w - 1, h - 1,
                                font_glyph_pixels((uint16_t)(p->text[k] - 0x30)));
+                if (hires_ui_recording)   /* the port */
+                    hires_ui_glyph_rect(f, font_glyph_pixels((uint16_t)(p->text[k] - 0x30)), k * w + x0, (k + 1) * w + x0,
+                                        y0, h - 1 + y0, pc);
+            }
         } else {
             int g = p->grow;
             int x0 = p->sx - ((g + w) * n >> 1), y0 = p->sy - ((g + h) >> 1);
-            for (int k = 0; k < n; k++)
+            for (int k = 0; k < n; k++) {
                 poly_draw_rect(k * w + x0, (k + 1) * (g + w) + x0, y0, h + g - 1 + y0, w - 1, h - 1,
                                font_glyph_pixels((uint16_t)(p->text[k] - 0x30)));
+                if (hires_ui_recording)   /* the port */
+                    hires_ui_glyph_rect(f, font_glyph_pixels((uint16_t)(p->text[k] - 0x30)), k * w + x0,
+                                        (k + 1) * (g + w) + x0, y0, h + g - 1 + y0, pc);
+            }
             p->grow = g + 6;
             if (g + 6 > 99) p->len = 0;
         }
@@ -865,7 +882,7 @@ static void draw_weapon_info(void)
         const SpriteInfo *in = hud_sprite(5 + icon);
         if (!in) return;
         if (ammo != 'd' || H.flash_frenzy > 2) {
-            sprite_draw_screen(0, y, in);
+            screen_sprite(0, y, in);
             text_at(sub, b, in->w - dx, in->h - dy + y, false);
         }
         y += 1 + in->h;
@@ -874,7 +891,7 @@ static void draw_weapon_info(void)
     if (p->jail_free) {
         const SpriteInfo *in = hud_sprite(0x14 + flash(&H.flash_jail));
         if (in) {
-            sprite_draw_screen(0, y, in);
+            screen_sprite(0, y, in);
             x = in->w + 1;
             maxh = in->h + 1;
         }
@@ -882,7 +899,7 @@ static void draw_weapon_info(void)
     if (p->armour != 0) {
         const SpriteInfo *in = hud_sprite(0x12 + flash(&H.flash_armour));
         if (in) {
-            sprite_draw_screen(x, y, in);
+            screen_sprite(x, y, in);
             snprintf(b, sizeof b, exe_str(0x4b07cc), p->armour);
             text_at(sub, b, in->w - res * 5 + x, in->h - res * 5 + y, true);
             x += in->w + 1;
@@ -892,7 +909,7 @@ static void draw_weapon_info(void)
     if (p->speedup != 0) {
         const SpriteInfo *in = hud_sprite(0x16 + flash(&H.flash_speed));
         if (in) {
-            sprite_draw_screen(x, y, in);
+            screen_sprite(x, y, in);
             if (maxh < in->h + 1) maxh = in->h + 1;
         }
     }
@@ -921,7 +938,7 @@ static void draw_wanted(void)
     int n = H.wanted;
     int x = (g_hud_screen_w - (a->w + 1) * n) / 2;
     for (int i = 0; i < n; i++, x += a->w + 1) {
-        sprite_draw_screen(x, 0, H.head_alt[i] ? b : a);
+        screen_sprite(x, 0, H.head_alt[i] ? b : a);
         if (--H.head_tick[i] == 0) {
             H.head_tick[i] = 2;
             H.head_alt[i] = !H.head_alt[i];
@@ -1238,6 +1255,7 @@ static void draw_sprite(Sprite *sp)
 {
     sp->info = sprite_get_info(sp->frame);   /* the port: the info of the style loaded now */
     sprite_draw(sp);
+    if (hires_ui_recording) hires_hud_world_sprite(sp);   /* the port: the hires renderer's HUD */
 }
 
 /* HUD_Draw 0x483390, in its order: the area name into the zone texts, the debug texts, the zone

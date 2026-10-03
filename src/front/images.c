@@ -1,5 +1,7 @@
 /* Frontend images (0x42d490-0x42dc40) and the picture loading of Front_Enter 0x42b690. */
 #include "front/images.h"
+#include "render/hires/hires_front.h"
+#include "render/hires/skin_ui.h"
 #include "vfs.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,6 +64,8 @@ bool gfx_load_raw_image(Image *im, const char *name, bool invert)
     if (ok)
         for (size_t i = 0; i < n; i++) im->px[i] = surface_rgb(rgb[3 * i], rgb[3 * i + 1], rgb[3 * i + 2]);
     free(rgb);
+    skin_ui_picture_loaded(im, name);   /* the port: the hires renderer's name for it, and its copies stale */
+    hires_front_image_changed(im);
     return ok;
 }
 
@@ -118,6 +122,8 @@ void gfx_blit_image(Surface *s, int x, int y, const Image *im)
         dst = surface_offset(s, x, y);
         src = 0;
     }
+    if (hires_ui_recording)   /* the port: the hires renderer's copy of the frontend */
+        hires_front_image(im, x < clip_x0 ? 0 : x, y, src, 0, n, im->h, clip_y0, clip_y1);
     for (int row = y; row < im->h + y; row++, dst += s->stride, src += im->w)
         if (clip_y0 <= row && row < clip_y1)
             for (int i = 0; i < n; i++) surface_put(s, dst + i, im->px[src + i]);
@@ -178,6 +184,10 @@ static void copy_row(Surface *s, int y, const uint32_t *src)
 void front_clear_or_draw_bg(Surface *s, int draw)
 {
     const Image *bg = &front_images.bg;
+    if (hires_ui_recording) {   /* the port */
+        if (draw == 0 || !bg->px) hires_front_fill(0, 0, FRONT_W, s->h, 0);
+        else hires_front_image(bg, 0, 0, 0, 0, FRONT_W, s->h < bg->h ? s->h : bg->h, 0, s->h);
+    }
     for (int y = 0; y < s->h; y++)
         copy_row(s, y, draw == 0 || !bg->px ? NULL : bg->px + (size_t)y * FRONT_W);
 }
@@ -194,12 +204,17 @@ void front_draw_background(Surface *s, int animate, int lower, uint32_t clock_ms
         fi->logo_due = clock_ms + 0x53;
     }
     const Image *top = animate == 0 ? &fi->upper : &fi->logo[fi->logo_frame];
-    for (int y = 0; y < UPPER_H; y++) copy_row(s, y, top->px ? top->px + (size_t)y * FRONT_W : NULL);
+    const Image *bot = &fi->lower[lower & 1];   /* callers pass 0 or 1 (unchecked in the original) */
+    if (hires_ui_recording) {   /* the port */
+        if (top->px) hires_front_image(top, 0, 0, 0, 0, FRONT_W, UPPER_H, 0, FRONT_H);
+        else hires_front_fill(0, 0, FRONT_W, UPPER_H, 0);
+        if (bot->px) hires_front_image(bot, 0, UPPER_H, 0, 0, FRONT_W, LOWER_H, 0, FRONT_H);
+        else hires_front_fill(0, UPPER_H, FRONT_W, LOWER_H, 0);
+    }    for (int y = 0; y < UPPER_H; y++) copy_row(s, y, top->px ? top->px + (size_t)y * FRONT_W : NULL);
     if (animate != 0 && (int32_t)fi->logo_due < (int32_t)clock_ms) {
         if (++fi->logo_frame > 7) fi->logo_frame = 0;
         fi->logo_due = clock_ms + 0x53;
     }
-    const Image *bot = &fi->lower[lower & 1];   /* callers pass 0 or 1 (unchecked in the original) */
     for (int y = UPPER_H; y < FRONT_H; y++)
         copy_row(s, y, bot->px ? bot->px + (size_t)(y - UPPER_H) * FRONT_W : NULL);
 }

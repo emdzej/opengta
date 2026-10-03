@@ -33,6 +33,7 @@
 #include "movie/smacker.h"
 #include "audio/audio.h"
 #include "audio/mss.h"
+#include "render/hires/hires_front.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -111,6 +112,10 @@ static void draw(Surface *s, bool black)
     uint32_t pal[256];
     for (int i = 0; i < 256; i++)
         pal[i] = black ? surface_rgb(0, 0, 0) : surface_rgb(k->pal[3 * i], k->pal[3 * i + 1], k->pal[3 * i + 2]);
+    if (hires_ui_recording) {   /* the port: the hires renderer's copy of the screen */
+        if (black) hires_front_fill(0, 0, s->w, s->h, pal[0]);
+        else hires_front_movie(k->video, (int)k->stride, (int)k->w, (int)k->h, MOVIE_TOP * 2, pal, M.shown >= 0);
+    }
     for (int y = 0; y < s->h; y++) {
         uint32_t *row = s->px + (size_t)y * s->stride;
         int my = y / 2 - MOVIE_TOP;

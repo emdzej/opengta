@@ -2,6 +2,8 @@
    string renderers (0x4837a0-0x485910). */
 #include "font.h"
 #include "exe.h"
+#include "render/hires/hires_text.h"
+#include "render/hires/skin_ui.h"
 #include "text.h"
 #include "vfs.h"
 #include <stdio.h>
@@ -50,6 +52,7 @@ Font *font_load(const char *rel, uint16_t first, bool with_palette, char *err, s
         for (int i = 0; i < 256; i++) f->pal[i] = surface_rgb(d[o + 3 * i], d[o + 3 * i + 1], d[o + 3 * i + 2]);
     }
     free(d);
+    skin_ui_font_loaded(f, rel);   /* the port: the name skins replace its glyphs by (not in the original) */
     return f;
 short_file:
     snprintf(err, errcap, "cannot read data from '%s'", rel);
@@ -62,6 +65,7 @@ short_file:
 void font_free(Font *f)
 {
     if (!f) return;
+    hires_ui_font_freed(f);   /* the port: the hires renderer's copies of its glyphs */
     for (int i = 0; i < 256; i++) free(f->glyph[i].px);
     free(f->pal);
     if (cur == f) cur = NULL;
@@ -115,14 +119,17 @@ bool font_is_kanji(void) { return cur && cur->kanji == 1; } /* Font_IsKanji 0x43
 void font_set_front_palette(const uint32_t *pal) { front_pal = pal; }
 
 /* Blit_Copy8to16_640 0x4898ac / Blit_Copy8to16Clip_640 0x489904: the CLUT blitters with the frontend
-   palette and a fixed pitch of 640 pixels (the frontend surface; here the surface stride). */
+   palette and a fixed pitch of 640 pixels (the frontend surface; here the surface stride). The clipped one
+   draws rows row0.. of glyph g. With the hires renderer the glyph is recorded too (hires_text.h). */
 static void front_blit(Surface *s, long dst, const uint8_t *src, int w, int h)
 {
     if (src && front_pal) blit_sprite32(s, dst, src, w, h, front_pal);
+    if (hires_ui_recording && src && front_pal && w > 0) hires_ui_glyph(s, dst, cur, src, w, 0, h, 0, 0, front_pal, 1, false);
 }
-static void front_blit_clip(Surface *s, long dst, const uint8_t *src, int w, int h, int l, int r)
+static void front_blit_clip(Surface *s, long dst, const uint8_t *g, int row0, int w, int h, int l, int r)
 {
-    if (src && front_pal) blit_sprite_clip32(s, dst, src, w, h, l, r, front_pal);
+    if (g && front_pal) blit_sprite_clip32(s, dst, g + (long)w * row0, w, h, l, r, front_pal);
+    if (hires_ui_recording && g && front_pal && w > 0) hires_ui_glyph(s, dst, cur, g, w, row0, h, l, r, front_pal, 1, false);
 }
 
 static void draw_string(Surface *s, const Font *f, int x, int y, const char *text, bool raw)
@@ -185,7 +192,7 @@ void font_draw_string_clipped(Surface *s, const char *text, long dst, int skip, 
     if (cut != 0) {
         if (c != 0x20) {
             const uint8_t *g = font_glyph_pixels(c);
-            if (g) front_blit_clip(s, dst, g + (long)w * row0, w, h, cut, 0);
+            if (g) front_blit_clip(s, dst, g, row0, w, h, cut, 0);
         }
         x = w - cut;
         text_utf8_skip(&p);
@@ -196,10 +203,10 @@ void font_draw_string_clipped(Surface *s, const char *text, long dst, int skip, 
         const uint8_t *g = font_glyph_pixels(c);
         if (x + w > max_w) {
             int clip_r = w - max_w + x;
-            if (clip_r != w && c != 0x20 && g) front_blit_clip(s, dst + x, g + (long)w * row0, w, h, 0, clip_r);
+            if (clip_r != w && c != 0x20 && g) front_blit_clip(s, dst + x, g, row0, w, h, 0, clip_r);
             return;
         }
-        if (c != 0x20 && g) front_blit(s, dst + x, g + (long)w * row0, w, h);
+        if (c != 0x20 && g) front_blit_clip(s, dst + x, g, row0, w, h, 0, 0);
         x += w;
     }
 }
@@ -364,6 +371,7 @@ static void hud_blit(Surface *s, long dst, uint16_t c, int w, int h, const uint3
 {
     const uint8_t *g = font_glyph_pixels(c);
     if (g && clut) blit_sprite32(s, dst, g, w, h, clut);
+    if (hires_ui_recording && g && clut && w > 0) hires_ui_glyph(s, dst, cur, g, w, 0, h, 0, 0, clut, 1, true);   /* the port */
 }
 
 /* HUD_DrawText 0x483df0: zero-width glyphs and spaces are skipped. */
@@ -421,7 +429,10 @@ void hud_draw_text_clipped(Surface *s, const char *text, long dst, int skip, int
     if (cut >= w) return;
     if (cut != 0) {
         const uint8_t *g = font_glyph_pixels(c);
-        if (c != 0x20 && w != 0 && g) blit_sprite_clip32(s, dst, g, w, h, cut, 0, clut);
+        if (c != 0x20 && w != 0 && g) {
+            blit_sprite_clip32(s, dst, g, w, h, cut, 0, clut);
+            if (hires_ui_recording) hires_ui_glyph(s, dst, cur, g, w, 0, h, cut, 0, clut, 1, true);   /* the port */
+        }
         x = w - cut;
         text_utf8_skip(&p);
     }
@@ -431,10 +442,16 @@ void hud_draw_text_clipped(Surface *s, const char *text, long dst, int skip, int
         const uint8_t *g = font_glyph_pixels(c);
         if (max_w < w + x) {
             int clip_r = w - max_w + x;
-            if (clip_r != w && c != 0x20 && w != 0 && g) blit_sprite_clip32(s, dst + x, g, w, h, 0, clip_r, clut);
+            if (clip_r != w && c != 0x20 && w != 0 && g) {
+                blit_sprite_clip32(s, dst + x, g, w, h, 0, clip_r, clut);
+                if (hires_ui_recording) hires_ui_glyph(s, dst + x, cur, g, w, 0, h, 0, clip_r, clut, 1, true);
+            }
             return;
         }
-        if (c != 0x20 && w != 0 && g) blit_sprite32(s, dst + x, g, w, h, clut);
+        if (c != 0x20 && w != 0 && g) {
+            blit_sprite32(s, dst + x, g, w, h, clut);
+            if (hires_ui_recording) hires_ui_glyph(s, dst + x, cur, g, w, 0, h, 0, 0, clut, 1, true);
+        }
         x += w;
     }
 }
