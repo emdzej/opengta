@@ -119,6 +119,7 @@ export default defineConfig({
             { text: "Make a release", link: "/howto/release" },
             { text: "Run the tests", link: "/howto/tests" },
             { text: "Headless runs and hash checks", link: "/howto/headless" },
+            { text: "Create a skin", link: "/howto/create-a-skin" },
             { text: "Reverse-engineering workflow", link: "/howto/reverse-engineering" },
           ],
         },

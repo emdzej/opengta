@@ -43,6 +43,8 @@ game. Next: play missions through and fix differences from the original; London 
 | `src/exe.c` | The original exe read at runtime (size + CRC check, bytes by virtual address) |
 | `src/map.c`, `src/style.c` | `Map_Load` 0x438200 (exe convention: z = 0 is the top layer), `Style_Load` 0x47cf10, tile tables, palette conversion, tile animation |
 | `src/render/` | Camera (`camera.c`), city renderer (`city.c`), DMA's rasteriser `Poly_*` (`poly.c`, 32 bpp only) |
+| `src/render/hires/` | Opt-in additions, not ported: the hires renderer (`hires=N`, display-only, the faithful renderer still runs), its HUD/menu redraw, the upscaler (`upscale=`), skins (`skin=`, PNG overlays, `png.c`). Default output must stay identical (docs/hires.md, docs/skins.md) |
+| `tools/skin-template.c` | `skin_template`: a skin's asset list from your data (metadata only, no game pixels) and `--validate` |
 | `src/game/` | Simulation (`gmath.c`: `Math_InitTables`; the rest to come) |
 | `src/text.c`, `src/font.c`, `src/front/`, `src/savedata.c`, `src/surface.h` | FXT text, FON fonts and text drawing, frontend images, PLAYER_A.DAT, the 32 bpp surface + blitters |
 | `tests/` | Headless tests (`*_test.c`, one executable each) against the real data |

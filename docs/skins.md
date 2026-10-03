@@ -18,8 +18,11 @@ Skins are read as files `skins/<name>/...`. With gasm, a second `--asset-dir` wi
 (gasm's `--asset-dir [prefix=]dir`, see its ABI "Folders") makes a folder of skins appear there; a
 `skins/` folder inside the game folder works too. The gasm backend reads skins straight from the assets,
 so they also work when the game comes from the installer's cabinets. Natively they go through the file
-layer (`hires_skin_reader`, default `vfs_read_all`). The browser player has no way to add a skin folder
-yet.
+layer (`hires_skin_reader`, default `vfs_read_all`). The [browser player](/guide/browser#skins-and-resolution)
+has a skin picker: skins are imported into the browser's storage and passed to the game the same way.
+
+Making one, step by step: [Create a skin](/howto/create-a-skin). The `skin_template` tool lists what your
+data has to replace and checks a skin ([below](#the-skin-template-tool)).
 
 ## Layout
 
@@ -29,6 +32,8 @@ skins/<name>/style<NNN>/side/<n>.png        side tile n
 skins/<name>/style<NNN>/lid/<n>.png         lid tile n
 skins/<name>/style<NNN>/aux/<n>.png         aux tile n (the frames tile animations show)
 skins/<name>/style<NNN>/sprite/<n>.png      sprite n
+skins/<name>/style<NNN>/sprite/<n>_delta<k>.png   delta k of sprite n (damage, doors), optional
+skins/<name>/font/..., skins/<name>/pictures/...  fonts and frontend pictures (see below)
 ```
 
 - `skin.ini`: `name = ...`, `author = ...`, `scale = N` (the hires scale the art is made for; logged,
@@ -63,7 +68,117 @@ right). Sprites have a remap byte (cars: the colour of the car, peds: the clothe
   gives the original (the average remapped colour of the texels the remap changes), shaded by the skin
   pixel's brightness relative to the original paint's average. Without a mask or an `_r` image, every
   remap shows the plain image.
-- Damage and door deltas don't apply to skin sprites (the plain image is drawn whatever the delta mask).
+
+### Deltas: damage and doors
+
+Car sprites (and a few others) have deltas: patches the original lays over the graphic for damage (by
+corner and side), the door animation steps and the siren lights ([Sprites](/sprites), [Cars](/cars)); a
+sprite shows any combination of them (its delta mask). On a skin sprite:
+
+- `sprite/<n>_delta<k>.png`, when the skin has it: an image laid over the sprite's image (alpha
+  blended, stretched over it like the sprite image: draw it at the same size, transparent where delta
+  k changes nothing) when the sprite shows delta k. It isn't recoloured by remaps: draw damage in
+  neutral colours (dents, scratches, glass) or leave the paint out.
+- Otherwise the delta is **derived from the original**: the texels the original delta writes are
+  stretched over the skin image (bilinear, so they soften at the skin's resolution). Where the delta
+  recolours a texel of the graphic, the skin pixel is shaded by the brightness change it makes to the
+  original (new / old luminance, at most 2x), so dents and scratches show in the skin's own colours;
+  where it draws outside the original outline (an open door), its colours are pasted through the
+  sprite's CLUT (with the remap); where it makes a texel transparent, the skin image is cut.
+
+Deltas apply lowest first, as `Sprite_GetComposite` 0x4143a0 builds a composite; each combination of
+sprite, CLUT and delta mask is made once and cached. The derived damage is visible without any work by
+the skin's author; the result of both kinds is in `out/skins/damage_2x.png` (`skin_test`).
+
+## Fonts and pictures
+
+Skins can also replace the glyphs of the game's fonts and the frontend's pictures. They are drawn by
+the hires HUD and frontend ([hires renderer](/hires), "HUD and menus"), so they show with `hires=2..4`,
+or with `hires=1` and a skin (the hires layer then runs at 640 x 480 just to show them). Fonts and
+pictures are found in the same skin stack as the tiles: the last skin of `skin=a,b` that has the file
+wins, and anything no skin has is drawn from the original.
+
+```
+skins/<name>/font/<FONT>/<code>.png      glyph <code> of the font GTADATA/<FONT>.FON
+skins/<name>/pictures/<NAME>.png         the frontend picture GTADATA/<NAME>.RAW
+```
+
+### Fonts
+
+`<FONT>` is the font file's name without folder and extension, in capitals. At 640 x 480 the game uses
+the `2` variants of the HUD fonts (the `1` files are its low-resolution set and are never drawn):
+
+| Font | Used for | First code |
+|---|---|---|
+| `BIG2` | the big messages ("MISSION COMPLETE!", "WASTED!") | 33 |
+| `SUB2` | subtitles, zone texts, ammo and timers, pause and quit texts, the video mode menu | 33 |
+| `STREET2` | street and area names on the zone signs | 33 |
+| `PAGER2` | the pager's scrolling text | 33 |
+| `SCORE2` | the score digits (top right) | 0 |
+| `MISSMUL2` | the lives and the multiplier (glyph 10 is the "x") | 0 |
+| `EXPSCOR2` | the score popups over the city | 0 |
+| `F_MHEAD` | frontend menu items and titles | 33 |
+| `F_MTEXT` | frontend texts, key prompts, the credits | 33 |
+| `F_MMISS` | frontend mission names and score tables | 33 |
+| `CUTTEXT` | the cutscene stills' subtitles | 33 |
+| `F_KEY` | the menu marker (codes 1..13, its animation frames) | 1 |
+| `F_CITY1`..`F_CITY4` | the animated city pictures of the city select (one glyph per frame) and the network results | 1 |
+| `CUT00`..`CUT53`, `CUT00T`.. | the animations over the cutscene stills (one glyph per frame; which fonts a level loads is the exe's table at 0x4af540) | 1 |
+
+`<code>` is the glyph's code in the font, in decimal: the first code (table) plus the glyph's index in the
+.FON file. For the text fonts (first code 33) that is the ASCII code: `65.png` is "A", `97.png` "a",
+`48.png` "0"; spaces are never drawn (they only advance). Letters beyond ASCII (accented letters of the
+French, German, Italian and Spanish texts) are mapped by the original's table (read from the exe at
+0x4b0980) to codes 128 and up of the font (glyphs 95 and up of a text font): `font/F_MTEXT/130.png` is the
+font's glyph 97, whichever accented letter the font has there. The digit fonts (first code 0) are numbered by digit: `font/SCORE2/7.png` is "7". The icon
+fonts (first code 1) start at `1.png`.
+
+- Size: an image is stretched over the glyph's box, which is the original glyph's width times the
+  font's height (each glyph of a font has its own width; the height is the font's), times N at
+  `hires=N`. Make it that box times any factor, e.g. 4 x for `hires=4`; other aspect ratios are
+  stretched. The advance (where the next glyph starts) stays the original glyph's width: a skin can't
+  change the layout. Images much larger than 4 times the box are box-filtered down at load, then
+  resampled to the box with a bicubic filter.
+- Transparency: the alpha channel. Fully transparent pixels show what is below, partial alpha is
+  blended. Draw the glyph's outline or drop shadow into the image if it should have one (the original
+  glyphs carry theirs in their pixels).
+- Colours: the original draws one glyph with different palettes (the HUD: the score in the player's
+  colour, the armour count, the selected and other video modes; the frontend: each font's own palette).
+  A colour image is drawn as it is, whatever the palette. A grey image (every pixel with red = green =
+  blue) is tinted: each pixel's grey is multiplied by the average colour the original glyph has in the
+  palette it is drawn with, divided by the image's average grey, so a white-to-grey glyph takes the
+  colour of each use.
+- Score popups (`EXPSCOR2`) are stretched further over the growing popup rectangle, as the original
+  stretches its digits.
+
+### Pictures
+
+`<NAME>` is the picture's file name without folder and extension (`GTADATA/F_UPPER.RAW` ->
+`pictures/F_UPPER.png`). Each is stretched over the picture's area at N x; the size to make it is the
+original size times any factor:
+
+| Picture | Original size | What |
+|---|---|---|
+| `F_UPPER` | 640 x 168 | the top strip of the backdrop without the logo animation (results screen) |
+| `F_LOGO0`..`F_LOGO7` | 640 x 168 | the animated logo strip (8 frames, 83 ms each) |
+| `F_LOWER0`, `F_LOWER1` | 640 x 312 | the lower part of the backdrop (1: the city select map) |
+| `CUT0`..`CUT5` | 640 x 480 | the cutscene stills (one per level) |
+| `F_PLAY1`..`F_PLAY8` | 102 x 141 | the player portraits |
+| `F_PLAYN` | 180 x 50 | the name plate under a portrait |
+| `F_RSTAR`, `F_RSTARN` | 64 x 59 | the two Rockstar logos of the start menu |
+
+- The backdrop is two pictures: rows 0-167 (`F_UPPER` or the current `F_LOGO` frame) over rows
+  168-479 (`F_LOWER0` / `F_LOWER1`); the screens draw their texts over it.
+- Pictures are opaque, as the original copies them: transparent parts of the image come out black.
+- Where the original leaves a picture's last column out (`Gfx_BlitImage` stops at column 639: an image
+  reaching the right edge loses it; rows from 479 are never drawn), the skin's is cut the same way.
+- Resampling: bicubic from the image to the picture's area at N x, once per picture (images larger
+  than 4 times that area are box-filtered first).
+
+The intro movie (`MOVIE.SMK`) is not skinnable. `tests/hires_ui_test.c` generates a skin with a glyph
+of `F_MHEAD`, a grey digit of `SUB2` and `F_UPPER` (`out/hires_ui/skins/uitest`) and checks all three.
+Implementation: `src/render/hires/skin_ui.c` (the names the art is known by, registered when the
+original loads it; the lookups, on the skin stack's `hires_skin_image`).
 
 ## The sample skin
 
@@ -79,11 +194,51 @@ python3 tools/make-sample-skin.py           # regenerates assets/skins/sample
 ./build/skin_test                           # decoder, stack and fallback checks, renders in out/skins/
 ```
 
+## The skin_template tool
+
+`tools/skin-template.c`, built as `build/skin_template` with the tests. It reads your game data (the
+installed game or the unzipped installer: `--data <folder>`, else `$OPENGTA_DATA`, else `./game`) and
+writes metadata only, never a pixel of the game: the game's art is not ours to redistribute, and a skin
+derived from it couldn't be shared either. Skins are new art; the tool says what there is to draw and
+at what size.
+
+```sh
+./build/skin_template my-skin                     # the template: skin.json, CHECKLIST.md, skin.ini, folders
+./build/skin_template --validate my-skin          # check a skin (exit status 1 on errors)
+./build/skin_template --at nyc 105 119 4          # the tiles of a map column, as skin file names
+```
+
+- **Template.** `skin.json` (for scripts) and `CHECKLIST.md` (for people) list per style: every side,
+  lid and aux tile, with how many faces of the maps show it and with which remaps / directions; the
+  tile animations and their aux frames; every sprite with its group, index in the group, size, deltas
+  (texels each one changes) and the remaps it is drawn with (car records with 12 colours each, peds'
+  clothes); the car info records (model, vtype, sprite, doors); the fonts (`.FON`: first code, height,
+  each glyph's code and width) and the frontend pictures (`.RAW` with their sizes). The checklist marks
+  the files the folder already has, so running it again on a skin in progress shows what's left. It
+  creates `style001`-`style003/{side,lid,aux,sprite}`, `font/` and `pictures/`, and a `skin.ini` if
+  there is none; existing images are never touched.
+- **Validate.** Every file of the folder against the same manifest: folder and file names (style,
+  kind, number in range, `_r` variants 0..3 for tiles and the sprite's remap range, `_delta<k>` below
+  the sprite's delta count, no leading zeros, `.png` in lower case), PNG decoding with the game's own
+  decoder, square tiles and sprite aspect ratios, sizes below the original's or above what is kept,
+  paint masks against their sprite image (same size, grey), delta images against the sprite (an image
+  for it, transparency), glyphs and pictures against the font / picture, `skin.ini` (keys, scale 1..4),
+  the folder name (`skin=` is a comma-separated list), and files the game never reads. Errors, warnings
+  and notes, then a summary of what the skin replaces.
+- **`--at`.** The faces of one map column (map `nyc`, `sanb` or `miami`, x, y and optionally z in blocks,
+  as the city viewer's `front=0 map= x= y= z=`): each face's tile number, its variant and the file that
+  replaces it, and the animation frames if the tile is animated.
+
 ## Implementation
 
 `src/render/hires/hires_skin.c` (loader, overlay layer), `hires_png.c` (decoder, on `src/inflate.c`),
 `hires_tex.c` (the overlay stack the city pass asks: skin n ... skin 1, then the original art). Each skin
 caches what it found and what it didn't, so a missing file is probed once. A layer answers a
 `HiresAsset` (style, kind, number, variant, the CLUT the original would use and its variant-0 CLUT, the
-original texels), so other kinds of layer (an upscaler over the original art, a pack in another format)
-fit the same hook.
+original texels, for sprites the delta mask), so other kinds of layer (an upscaler over the original art,
+a pack in another format) fit the same hook.
+
+Other kinds of art use `hires_skin_image(path, cap, &which)` (`hires_skin.h`): any image of the loaded
+skins by its path inside a skin folder (`font/BIG2/65.png`, `pictures/F_UPPER.png`), the topmost skin
+that has it, decoded once and cached (missing files too), box-filtered down to `cap` texels if larger.
+The fonts and pictures layer (`skin_ui.c`) is built on it.

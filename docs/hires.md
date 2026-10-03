@@ -12,8 +12,11 @@ gasm-run opengta.wasm --asset-dir GTA --param intro=0 --param mission=1 --param 
 gasm-run opengta.wasm --asset-dir GTA --param front=0 --param hires=3      # the city viewer too
 ```
 
-gasm's own display filter (`--filter`) applies to the presented frame afterwards. The frontend, menus and
-the intro movie stay 640 x 480 (the platform scales them).
+With hires on, the HUD, the menus, the cutscene stills and the intro movie are drawn at 640N x 480N too
+([HUD and menus](#hud-and-menus)). `--param upscale=xbr` (or `scale2x`, `scale4x`, `xbr4`) upscales the
+original art once at load ([Upscaling](#upscaling)), and `--param skin=...` layers replacement art over it
+([Skins](/skins), [Creating a skin](/howto/create-a-skin)). gasm's own display filter (`--filter`) applies to
+the presented frame afterwards.
 
 ## What stays faithful
 
@@ -34,17 +37,16 @@ audio hash, which depends on the whole simulation, is the same with and without 
 ## How a frame is made
 
 1. `Game_Render` as ported: `Render_QueueVisibleEntities`, `Render_DrawCity` into the back buffer.
-2. At the start of `HUD_Draw` (`hud_pre_draw_hook`, the port's only hook in the HUD) the app calls
-   `hires_frame_begin`: the hires city pass into the hires frame, then a copy of the faithful frame.
-3. The faithful HUD draws into the back buffer as always.
-4. At present (`Gfx_Present`), `hires_frame_end` takes every faithful pixel that differs from the copy
-   (what the HUD drew) and lays it over the hires frame as an N x N block (nearest neighbour), and the
-   hires frame is presented (`plat_present` with 640N x 480N; gasm allows up to 4096).
+2. At the start of `HUD_Draw` (`hud_pre_draw_hook`) the app runs the hires city pass into the hires frame.
+3. The faithful HUD draws into the back buffer as always; hooks next to its drawing calls record what it
+   draws (glyphs, HUD sprites, arrows), where and with which palette, while a hires frame is recorded.
+4. At present (`Gfx_Present`), the recorded HUD is redrawn into the hires frame at N times every position
+   ([HUD and menus](#hud-and-menus)), and the hires frame is presented (`plat_present` with 640N x 480N; gasm
+   allows up to 4096). The frontend and the intro movie present the same way from their own recorded draws.
 
-So the HUD is the faithful HUD, scaled. Blended HUD pixels (the arrows) come out as the faithful blend
-with the 640 x 480 city below them. A HUD pixel of exactly the colour already below it is not seen and
-shows the hires city there instead (the same colour). Like the original, nothing clears the frame:
-pixels no face covers keep the previous frame (HUD included).
+Like the original, nothing clears the frame: pixels no face covers keep the previous frame. (The city
+viewer and `tests/hires_test.c` still use the older composite: a copy of the faithful frame before the HUD
+and every changed pixel laid over the hires frame as an N x N block.)
 
 ## The city pass (`hires_city.c`)
 
@@ -99,38 +101,168 @@ table's entry, so an animation step or a remap selects another entry rather than
 start over when the style or its pixel format changes, or when they fill up (3072 tiles, 1536 sprites).
 
 Every lookup goes through an overlay stack first (`hires_tile`, `hires_sprite`, `HiresOverlayFn`):
-skin n, ..., skin 1, then the original art (`hires_tile_original`). This is where replacement texture
-packs plug in ([Skins](/skins)), and where an upscaler would: a layer that answers with an upscaled copy
-of the original (for example an xBR / ESRGAN-style pass over `hires_tile_original`'s texels) needs no
-other change.
+skin n, ..., skin 1, then the original art (`hires_tile_original`). This is where skins plug in ([Skins](/skins)); the
+upscaler ([Upscaling](#upscaling)) transforms the original-art layer once, after a sprite's damage and door
+deltas are applied, so skins still win and are never upscaled.
+
+## HUD and menus
+
+With `hires=N` (or skins at `hires=1`) the HUD is drawn at 640N x 480N over the hires city, and the
+frontend (menus, cutscene stills, results, credits) and the intro movie are presented at 640N x 480N.
+The ported HUD and frontend code runs unchanged: it keeps its own state (blink counters, popup ages,
+pager scroll, menu marker frames, logo clock) and still draws its faithful 640 x 480 frame, which is
+what the gasm hash covers without `hires`. Each of its drawing calls has a hook next to it that, while a
+hires frame is being recorded (`hires_ui_recording`), notes what was drawn, where, and with which
+palette. The list is then replayed at N times the resolution.
+
+- Recorded draws (`hires_text.c`): glyph blits of the font renderers (`Font_DrawString` and its
+  variants, `HUD_DrawText`, `HUD_DrawTextClipped`, `HUD_DrawTextMultiline`, `HUD_DrawCenteredLine`, the
+  HUD's own score and lives digits with their roll offsets), including the clipped parts of glyphs (the
+  pager window, the credits' scrolling lines); the score popups' stretched digits (`Poly_DrawRect`);
+  HUD sprites (`Sprite_DrawScreen`: pager, light, icons, cop heads, zone signs, subtitle icon); the
+  arrows and the roof marker (`Sprite_Draw`); frontend pictures (`Gfx_BlitImage`, the backdrop's row
+  copies, the cutscene still); the movie frame (`hires_front.c`, `hires_hud.c`).
+- Layout: every position is the faithful one times N, so the layout is exactly the original's. With
+  the nearest filter every pixel the faithful HUD draws comes out as an N x N block of its colour,
+  except where the HUD blends (below).
+- Glyphs and HUD sprites (pixel art): scaled by `hires_ui=` (launch parameter): `scale` (default),
+  `nearest` or `bilinear`. `scale` is the Scale2x / Scale3x family (EPX; 4x is Scale2x twice), run on
+  the 8-bit indices before the palette: diagonal edges of glyphs and icons are rounded where equal
+  colours meet, colours are never mixed. Compared in `out/hires_ui/hud_*.png` and
+  `front_*_filters.png` (faithful | nearest | bilinear | scale): nearest is the scaled HUD of the
+  POC; bilinear blurs the 1- and 2-pixel strokes of the HUD fonts and the gradient fonts' outlines;
+  scale keeps them sharp and takes the staircase off curves and diagonals (digits, the key, the vest,
+  the menu font's outline). The scaled copies are cached by (pixels, palette contents, filter, N).
+- Arrows and the roof marker: drawn like the city's sprites (`hr_polygon`, bilinear, blended with the
+  50 % blend where the faithful one blends), with `Sprite_Draw`'s centre projected exactly at N x and
+  the rotated corners added at N x; the faithful corners decide culling and winding. They blend with
+  the hires city below them, so they differ from the faithful blend by design.
+- Pictures (backdrop, logo frames, F_PLAY portraits, the Rockstar logos, cutscene stills): scaled once
+  per picture with a separable Catmull-Rom (bicubic) filter, integer arithmetic, and cached until the
+  picture is reloaded (`Gfx_LoadRawImage` tells the cache) or the game starts (the cache and the
+  frontend frame are freed while a level runs).
+- The intro movie: its 320 x 200 frame is filtered each frame to (2N x 320) x (2N x 200) at row 40N,
+  bicubic at 2x and bilinear at 3x and 4x (a frame costs too much in wasm otherwise); the rest of the
+  screen is the movie palette's colour 0, as in the faithful frame.
+- Skins can replace glyphs and pictures ([Skins](/skins), "Fonts and pictures"); HUD sprites come from
+  the skins' sprite layer like the city's (a skin sprite whose image has exactly the original's size is
+  taken for the original and drawn with the pixel-art filter).
+- Quirks: the faithful blitters write a glyph that runs past the end of a row onto the next row; the
+  hires replay clips it at the screen edge instead. Pixels no draw covers keep the previous hires frame,
+  as the faithful frame does.
+
+The proof is `tests/hires_ui_test.c`: hud_test's HUD states at 2x and 3x and without hires, each in its
+own process, end with the same game state hash and the same faithful frames; at nearest, of the pixels
+the faithful HUD drew, 0.1 to 1.6 % are not exactly N x N blocks of their colour (the blended arrows
+and the marker over the player, the popups' stretched digits); the frontend script (intro movie,
+start menu, options, player select, city select, the cutscene still and results after a "game",
+credits) at 2x and 4x leaves the faithful frames unchanged and the hires frame box-filtered back to
+640 x 480 within a mean of 3.2 per channel of the faithful one (the bicubic filter's ringing on the
+pictures). In the gasm module `hires=2` prints the same audio hash as without it, and gasm-run and the
+Node runner the same video hash.
+
+Cost: the HUD replay is under 0.5 ms a frame natively at 3x. The frontend at 4x presents a 2560 x 1920
+frame every 35 ms: gasm-run (headless, with its hashing) runs the menus at 1.1x realtime, the movie at
+0.6x (2x: 1.8x); the bicubic pictures are made once (the first frame of each logo frame at 4x takes a
+few tens of ms).
 
 ## Performance
 
-`gasm-run` (macOS universal, Apple silicon) headless, mission 1 with the "driving" key script, 1150 calls
-at 70 Hz (a game frame every third call, so realtime is 70 calls/s, i.e. 23.3 frames/s), including gasm's
-hashing of every presented frame:
+`gasm-run` 0.6.0 (macOS universal, Apple silicon) headless, mission 1 with the "driving" key script
+(`tools/screenshots.sh`), 1150 calls at 70 Hz. A game frame comes every third call, so realtime is 70
+calls/s (23.3 game frames/s). With gasm's hashing of every presented frame (the default headless run),
+and with `--no-hash`, which is closer to playing in a window:
 
-| hires | presented | calls/s | game frames/s |
+| hires | presented | calls/s, hashed | calls/s, `--no-hash` | before (hashed / `--no-hash`) |
+|---|---|---|---|---|
+| 1 (off) | 640 x 480 | ~1080 | ~2750 | the same |
+| 2 | 1280 x 960 | ~254 | ~658 | 137 / 201 |
+| 3 | 1920 x 1440 | ~126 | ~363 | 62 / 93 |
+| 4 | 2560 x 1920 | ~73 | ~223 | 36 / 53 |
+
+So every scale now runs at least realtime in wasm, without SIMD or threads. The hashed 4x figure is
+mostly gasm's: hashing a 2560 x 1920 frame costs about 27 ms, so even with no hires pass at all a
+hashed 4x run is capped at about 100 calls/s. The hires pass itself is about four times faster than
+before: at 4x about 12 ms a frame in wasm (55 ms before) and 8.5 ms natively (36 ms before; arm64,
+`tests/hires_perf_test.c`).
+
+`tests/hires_perf_test.c` is the harness: the same mission and key script in a process per scale, the
+time of each stage of a frame (the game step with the faithful renderer and HUD, the hires city pass,
+the HUD layer), the rasteriser's counters, and a check against reference frames (`HIRES_PERF_REF=1`
+writes them to `out/hires/perf/`, later runs report how many pixels changed and by how much). What it
+showed, and what was done:
+
+- Overdraw is small: the faces drawn cover 1.17 screens a frame (1.08 opaque, 0.09 keyed sprites and
+  flat faces). Skipping hidden faces could save at most about 8 %, so it was not done.
+- Almost all of the time went into the per-pixel bilinear filter (four texel reads and three blends
+  per pixel, each blend four multiplies).
+- Every face trapezoid has one texture coordinate that is constant along a span (unrotated faces: v;
+  90 and 270 degree faces: u). Those spans now filter the texels they cross once, across the constant
+  coordinate, into a line (0.16 screens of texels a frame against 1.17 screens of pixels), and each
+  pixel blends two neighbours of that line. That is one blend per pixel instead of three. Polygons
+  (slopes, sprites) keep the general filter.
+- A blend is one 64-bit multiply: the four bytes are spread to 16-bit lanes and each lane's difference
+  is multiplied in place. This gives exactly the result per byte (checked exhaustively). Line entries
+  are kept as (entry, difference to the next) pairs in that form.
+- The opaque line loop is unrolled four times. In wasm that is about 5 % faster; natively it makes no
+  difference.
+- Tried and dropped: walking the texels with the two neighbours kept in registers (more branches;
+  slower natively), and setting the opaque alpha in the line (twice as slow under gasm's JIT).
+
+Image change: line spans filter across first and then along the span, where the general filter does it
+the other way round. Rounding therefore differs: in mission 1, 23 % of the pixels differ from the
+previous renderer by 1 to 3 in a channel, never more, and nothing is visibly different. The hires frames
+are still identical between runners (integer arithmetic only), and the faithful frames, audio and game
+state are unchanged (`tests/hires_test.c`; gasm `--asset-dir installer` without hires still prints
+`video_fnv32=67c465c2 audio_fnv32=15edf4c8`).
+
+The browser runs the same wasm at about the speed of the Node runner, plus the upload of the bigger
+frame. Next steps would be wasm SIMD (four lanes per blend in one instruction) or a GPU path.
+
+## Upscaling
+
+`--param upscale=<name>` (an option of this port, off by default) upscales the original tiles and
+sprites once, when they are converted to true colour (`hires_upscale.c`, called from `hires_tex.c`'s
+conversions). The cache keeps the upscaled copy, and the renderer's bilinear filter draws from it. It
+replaces the original art's layer of the overlay stack, so it sits below every skin: a skin's image
+still wins, and skin images are never upscaled. Sprites are upscaled after their deltas (damage,
+doors) are applied, and each delta mask is cached separately as before. The same texels come out on
+every runner (integer arithmetic).
+
+| name | what | texels | 4x city pass, wasm `--no-hash` |
 |---|---|---|---|
-| 1 (off) | 640 x 480 | 923 | ~308 |
-| 2 | 1280 x 960 | 124 | ~41 |
-| 3 | 1920 x 1440 | 56 | ~19 |
-| 4 | 2560 x 1920 | 32 | ~10.5 |
+| `none` | the original art (default) | 64 x 64 a tile | 222 calls/s |
+| `scale2x` | Scale2x / AdvMAME2x: only copies texels, so transparency stays exact | 128 | as `xbr` |
+| `scale4x` | Scale2x twice | 256 | as `xbr4` |
+| `xbr` | xBR level 2 at 2x: blends along the edges it finds (recommended) | 128 | 191 calls/s |
+| `xbr4` | xBR level 2 twice | 256 | 148 calls/s |
 
-Natively (`tests/hires_test.c`, arm64 -O2) the hires pass takes about 9-10 ms per frame at 2x and 35 ms
-at 4x. So 2x has headroom; 3x and 4x run below realtime in wasm. The browser runs the same wasm at
-roughly the speed of the Node runner, plus the upload of a larger frame each presented frame, so 2x is
-the practical setting there. Costs are dominated by overdraw (lower layers' faces under higher ones are
-drawn, as in the original) and the scalar bilinear filter; wasm SIMD, skipping fully hidden faces, or a
-GPU path are the obvious next steps.
+Both are written from the algorithms' public descriptions. In xBR, colour distances are taken in YUV
+with luma weighted most, plus the alpha difference. Blends weight colour by alpha, so the colour of
+transparent texel 0 does not bleed into a sprite's visible edge. On opaque faces, where the original
+draws texel 0's colour, an edge texel that was half texel 0 shows the other colour with half alpha.
+
+Comparisons are in `out/hires/upscale_tiles.png` (the top-left quarter of seven tiles at 8x: original
+nearest, bilinear, scale2x, xbr) and `out/hires/upscale_mission_<present>_<name>.png` (the middle of
+the 4x mission-1 frame for each name), written by `tests/hires_perf_test.c`. The textures are fairly
+noisy and photographic, so the scalers change little on them. They change sprites and clean-edged
+art more: car outlines, windscreens and the flames on the fire station sign get smooth edges with
+`xbr`. Scale2x makes a noisy texture stair-stepped (worst with `scale4x`). `xbr4` makes it look
+painted. `xbr` is the sane choice and costs about 15 % of the 4x pass (more texels per span line).
+Upscaling costs about 0.2 ms a tile natively for `xbr` and 0.02 ms for `scale2x`, once per tile and
+CLUT. Mission 1 uses about 140 tiles, 9 MB at 2x and 35 MB at 4x upscaling.
 
 ## Not done
 
-- The frontend, menus, intro movie and the HUD itself stay at 640 x 480 (the HUD is scaled, not redrawn).
 - Sprite positions are truncated to whole world pixels as the faithful renderer truncates them, so
   motion is no smoother than the original's.
 - Faces wider than the original's grid (views beyond the camera's normal range) are dropped rather than
   spilling into the next grid column as the faithful grid does.
 - No mipmaps for the original art (it is only ever magnified at the camera's heights); skins are box
   filtered at load instead.
-- New art packs beyond the skin loader, and upscalers: see [Skins](/skins) and the overlay hook above.
+- At 4x the intro movie runs below realtime in wasm, and a hashed headless 4x run is capped near
+  realtime by the runner's frame hashing (not by the renderer).
+- A skin HUD sprite of exactly the original's size is taken for the original (drawn with the pixel-art
+  scaler instead of from the skin).
+- The browser player stores skins in its own storage (OPFS); bundles and gasm-run take a skins folder
+  with `--asset-dir skins=<folder>`.
