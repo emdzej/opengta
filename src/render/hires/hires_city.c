@@ -596,6 +596,11 @@ static bool in_shadow(const Map *m, float px, float py, float h0)
 static HiresTexture *shadow_mask(const Map *m, int x, int y, int z)
 {
     if (sh_map != m) {
+        /* each city its own sun: Liberty City a low winter sun, San Andreas the afternoon, Vice City a high
+           tropical sun with short, light shadows */
+        static const float SUN[3][3] = { { -0.8f, -0.55f, 0.42f }, { -0.55f, -0.4f, 0.38f }, { -0.32f, -0.22f, 0.3f } };
+        if (S && S->number >= 1 && S->number <= 3)
+            hires_sun_x = SUN[S->number - 1][0], hires_sun_y = SUN[S->number - 1][1], hires_shadow_strength = SUN[S->number - 1][2];
         if (sh_cache)
             for (int i = 0; i < MAP_Z * MAP_W * MAP_H; i++)
                 if (sh_cache[i] && sh_cache[i] != SH_NONE) hr_texture_free(sh_cache[i]);
@@ -639,6 +644,42 @@ static void draw_shadows(const Map *m, const RenderRect *r, int z)
         }
 }
 
+/* ---- the city's colour grade (an addition, --param grade=1) ----
+   Each city its own vibe, applied to the drawn world before the HUD: Liberty City a cool steel blue,
+   San Andreas warm sandy light, Vice City saturated pastels. Per channel: contrast around the middle,
+   gain, lift; then saturation against the luma. */
+bool hires_grade = false;
+typedef struct { float lift[3], gain[3], contrast, sat; } Grade;
+static const Grade GRADES[3] = {
+    { { -2, 2, 14 }, { 0.96f, 1.00f, 1.06f }, 1.06f, 0.82f },   /* style 1: Liberty City */
+    { { 8, 4, -4 }, { 1.08f, 1.02f, 0.88f }, 1.08f, 1.02f },    /* style 2: San Andreas */
+    { { 4, 2, 6 }, { 1.06f, 0.98f, 1.05f }, 1.02f, 1.38f },     /* style 3: Vice City */
+};
+
+static void grade_frame(const HrTarget *t, int style)
+{
+    if (style < 1 || style > 3) return;
+    const Grade *g = &GRADES[style - 1];
+    uint8_t lut[3][256];
+    for (int c = 0; c < 3; c++)
+        for (int v = 0; v < 256; v++) {
+            float f = ((v / 255.0f - 0.5f) * g->contrast + 0.5f) * 255.0f * g->gain[c] + g->lift[c];
+            lut[c][v] = (uint8_t)(f < 0 ? 0 : f > 255 ? 255 : f + 0.5f);
+        }
+    for (int y = 0; y < t->h; y++) {
+        uint32_t *row = t->px + (size_t)y * t->pitch;
+        for (int x = 0; x < t->w; x++) {
+            uint32_t p = row[x];
+            float r = lut[0][p & 0xff], gr = lut[1][p >> 8 & 0xff], b = lut[2][p >> 16 & 0xff];
+            float l = 0.299f * r + 0.587f * gr + 0.114f * b;
+            r = l + (r - l) * g->sat, gr = l + (gr - l) * g->sat, b = l + (b - l) * g->sat;
+            uint32_t R = r < 0 ? 0 : r > 255 ? 255 : (uint32_t)r, G2 = gr < 0 ? 0 : gr > 255 ? 255 : (uint32_t)gr,
+                     B = b < 0 ? 0 : b > 255 ? 255 : (uint32_t)b;
+            row[x] = (p & 0xff000000u) | B << 16 | G2 << 8 | R;
+        }
+    }
+}
+
 /* ---- the city ---- */
 
 void hires_city_draw(const Map *m, const Style *s, const Viewport *vp, const HrTarget *target, int n)
@@ -666,4 +707,5 @@ void hires_city_draw(const Map *m, const Style *s, const Viewport *vp, const HrT
             }
         if (hires_shadows) draw_shadows(m, r, z);
     }
+    if (hires_grade) grade_frame(&T, s->number);
 }

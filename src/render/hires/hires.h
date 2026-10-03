@@ -17,6 +17,8 @@
 extern bool hires_shadows;
 extern float hires_sun_x, hires_sun_y, hires_shadow_strength;
 extern uint32_t hires_shadow_tint;
+/* The city colour grade (an addition, --param grade=1): each city its own palette. */
+extern bool hires_grade;
 #include "../../map.h"
 #include "../../style.h"
 #include "../camera.h"
