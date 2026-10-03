@@ -45,7 +45,24 @@ making one from start to finish. The reference for every rule is [Skins](/skins)
 | `skin.ini` | the skin's name, author and scale, to fill in |
 | `style001/`, `style002/`, `style003/` with `side/`, `lid/`, `aux/`, `sprite/`; `font/`, `pictures/` | empty folders for your images |
 
-The template holds **no pixels of the game**, on purpose: numbers, names and sizes only. The game's art
+### Reference images: `--extract`
+
+```sh
+./build/skin_template --data ~/Games/GTA --extract my-reference
+```
+
+writes the template plus **every original graphic** as a PNG, already named the way a skin names it:
+tiles (`side/`, `lid/`, `aux/`, with the `_r<n>` remap and direction variants the maps use), sprites
+(`sprite/<n>.png`, the damage and door overlays `<n>_delta<k>.png`, the car paint masks `<n>_mask.png`),
+every font glyph (`font/<FONT>/<code>.png`) and the frontend pictures (`pictures/`), about 9,500 files.
+`--remaps` adds every ped clothes remap (`<n>_r<r>.png`, tens of thousands of files). Loaded as a skin,
+the folder draws exactly like the original, so it is a reference to draw over or to compare with:
+open a tile, paint your own over it at any size, save it under the same name in your skin.
+
+These are your copy's own graphics: keep them on your machine. A skin you share must not contain them or
+anything traced from them.
+
+Without `--extract`, the template holds **no pixels of the game**, on purpose: numbers, names and sizes only. The game's art
 belongs to its owners and can't be redistributed, and an image made from it (an upscaled, traced or
 repainted copy) can't be either. A skin you want to share has to be your own art from scratch. The
 checklist tells you what to draw and at what size; to see what a tile or sprite looks like, look at it in

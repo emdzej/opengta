@@ -743,7 +743,7 @@ static bool generate_style(int number)
         snprintf(dir, sizeof dir, "%s/style%03d/%s", out_dir, number, tiles[i].kind);
         mkdirs(dir);
         snprintf(path, sizeof path, "%s/%d.png", dir, tiles[i].n);
-        if (!png_write(path, img, L, L, PNG_ABGR)) { fprintf(stderr, "skin_generate: can't write %s\n", path); return false; }
+        if (!png_write(path, img, L, L, PNG_RGBA)) { fprintf(stderr, "skin_generate: can't write %s\n", path); return false; }
         if (!strcmp(tiles[i].kind, "lid")) {
             lid_img[tiles[i].n] = malloc((size_t)L * L * sizeof *img);
             memcpy(lid_img[tiles[i].n], img, (size_t)L * L * sizeof *img);

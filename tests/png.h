@@ -1,7 +1,8 @@
 /* A tiny PNG writer for the tests: 8-bit RGB, stored (uncompressed) deflate blocks, no dependencies.
 
      png_write(path, px, w, h, PNG_XRGB)   pixels 0x00RRGGBB (the 32 bpp render surface / style CLUTs)
-     png_write(path, px, w, h, PNG_ABGR)   pixels 0xAABBGGRR (surface.h's display format)
+     png_write(path, px, w, h, PNG_ABGR)   pixels 0xAABBGGRR (surface.h's display format), alpha dropped
+     png_write(path, px, w, h, PNG_RGBA)   pixels 0xAABBGGRR, written with their alpha (skins, sprites)
 
    With PNG_XRGB a pixel of 0xffffffff (never a converted CLUT word: byte 3 is clear) is written as
    magenta, so tests can pre-fill the frame with it to show what was never drawn. Returns false if the
@@ -13,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { PNG_XRGB, PNG_ABGR };
+enum { PNG_XRGB, PNG_ABGR, PNG_RGBA };
 
 static uint32_t png_crc_(uint32_t crc, const uint8_t *p, size_t n)
 {
@@ -50,9 +51,10 @@ static inline bool png_write(const char *path, const uint32_t *px, int w, int h,
     if (!f) return false;
     fwrite("\x89PNG\r\n\x1a\n", 1, 8, f);
     uint8_t ihdr[13] = { (uint8_t)(w >> 24), (uint8_t)(w >> 16), (uint8_t)(w >> 8), (uint8_t)w,
-                         (uint8_t)(h >> 24), (uint8_t)(h >> 16), (uint8_t)(h >> 8), (uint8_t)h, 8, 2, 0, 0, 0 };
+                         (uint8_t)(h >> 24), (uint8_t)(h >> 16), (uint8_t)(h >> 8), (uint8_t)h, 8, fmt == PNG_RGBA ? 6 : 2, 0, 0, 0 };
     png_chunk_(f, "IHDR", ihdr, 13);
-    size_t row = 1 + 3 * (size_t)w, raw_n = (size_t)h * row;
+    const int bpp = fmt == PNG_RGBA ? 4 : 3;
+    size_t row = 1 + (size_t)bpp * w, raw_n = (size_t)h * row;
     uint8_t *raw = malloc(raw_n ? raw_n : 1);
     for (int y = 0; y < h; y++) {
         uint8_t *r = raw + (size_t)y * row;
@@ -65,7 +67,8 @@ static inline bool png_write(const char *path, const uint32_t *px, int w, int h,
             } else {
                 R = c & 0xff, G = c >> 8 & 0xff, B = c >> 16 & 0xff;
             }
-            r[1 + 3 * x] = (uint8_t)R, r[2 + 3 * x] = (uint8_t)G, r[3 + 3 * x] = (uint8_t)B;
+            r[1 + bpp * x] = (uint8_t)R, r[2 + bpp * x] = (uint8_t)G, r[3 + bpp * x] = (uint8_t)B;
+            if (bpp == 4) r[4 + bpp * x] = (uint8_t)(c >> 24);
         }
     }
     size_t nblk = (raw_n + 65534) / 65535, zn = 2 + raw_n + (nblk ? nblk : 1) * 5 + 4;

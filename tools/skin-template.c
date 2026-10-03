@@ -1022,13 +1022,177 @@ static int at(const char *map, int x, int y, int z)
     return 0;
 }
 
+/* ---- --extract: the original graphics, as reference, in the skin layout ----
+   For artists working over the real thing, on your own copy: every tile (with the remap and direction
+   variants the maps use), every sprite (remap 0, plus the damage/door deltas as overlays and the car paint
+   masks), every font glyph and every frontend picture, as PNGs at their original size, named as a skin
+   names them. These are the game's own graphics: keep them for yourself, don't distribute them. */
+
+#include "../tests/png.h"
+#include "front/images.h"
+
+static int nwritten;
+static bool extract_remaps;   /* --remaps: every ped clothes remap too (tens of thousands of files) */
+
+static bool put_png(const char *dir, const char *rel, const uint32_t *px, int w, int h)
+{
+    char p[1100];
+    snprintf(p, sizeof p, "%s/%s", dir, rel);
+    char d[1100];
+    snprintf(d, sizeof d, "%s", p);
+    char *sl = strrchr(d, '/');
+    if (sl) *sl = 0, mkdirs(d);
+    if (!png_write(p, px, w, h, PNG_RGBA)) { fprintf(stderr, "skin_template: can't write %s\n", p); return false; }
+    nwritten++;
+    return true;
+}
+
+static uint32_t abgr(uint32_t xrgb, bool opaque) { return (opaque ? 0xff000000u : 0) | (xrgb & 0xff) << 16 | (xrgb & 0xff00) | (xrgb >> 16 & 0xff); }
+
+/* tile t through the CLUT (colour 0 transparent) */
+static void tile_png(const Style *s, int t, const uint32_t *clut, uint32_t *out)
+{
+    const uint8_t *page = s->buf + style_tile_page(t);
+    int u0 = (t & 3) * 64, v0 = ((t >> 2) & 3) * 64;
+    for (int v = 0; v < 64; v++)
+        for (int u = 0; u < 64; u++) {
+            uint8_t e = page[(v0 + v) * 256 + u0 + u];
+            out[v * 64 + u] = abgr(clut[e * 64], e != 0);
+        }
+}
+
+static void sprite_png(const SpriteInfo *in, const uint8_t *pix, const uint32_t *clut, uint32_t *out)
+{
+    for (int v = 0; v < in->h; v++)
+        for (int u = 0; u < in->w; u++) {
+            uint8_t e = pix[v * 256 + u];
+            out[v * in->w + u] = abgr(clut[e * 64], e != 0);
+        }
+}
+
+static int extract(const char *dir)
+{
+    char err[256], rel[256];
+    static uint32_t tile[64 * 64], a[256 * 256], b[256 * 256];
+    static uint8_t page[256 * 256];
+    for (int si = 0; si < STYLES; si++) {
+        const StyleMan *sm = &styles[si];
+        if (!sm->ok) continue;
+        Style *s = style_load(si + 1, err, sizeof err);
+        if (!s) { fprintf(stderr, "skin_template: %s\n", err); continue; }
+        style_convert_palettes(s, &PIXFMT_32);
+        for (int n = 0; n < s->nside; n++)
+            for (int d = 0; d < 4; d++) {
+                if (d && !(sm->side[n].dirs >> d & 1)) continue;
+                tile_png(s, s->side_base + n, s->side_clut[n][d], tile);
+                snprintf(rel, sizeof rel, d ? "style%03d/side/%d_r%d.png" : "style%03d/side/%d.png", si + 1, n, d);
+                put_png(dir, rel, tile, 64, 64);
+            }
+        for (int n = 0; n < s->nlid; n++)
+            for (int r = 0; r < 4; r++) {
+                if (r && !(sm->lid[n].remaps >> r & 1)) continue;
+                tile_png(s, s->lid_base + n, s->lid_clut[n][r], tile);
+                snprintf(rel, sizeof rel, r ? "style%03d/lid/%d_r%d.png" : "style%03d/lid/%d.png", si + 1, n, r);
+                put_png(dir, rel, tile, 64, 64);
+            }
+        for (int n = 0; n < s->naux; n++) {
+            tile_png(s, s->aux_base + n, s->aux_side_clut[n][0], tile);
+            snprintf(rel, sizeof rel, "style%03d/aux/%d.png", si + 1, n);
+            put_png(dir, rel, tile, 64, 64);
+        }
+        for (int n = 0; n < sprite_count(); n++) {
+            const SpriteInfo *in = sprite_get_info(n);
+            if (!in || !in->w || !in->h || !in->data) continue;
+            const uint32_t *clut = sprite_remap_clut(in->clut, 0, 0);
+            sprite_png(in, in->data, clut, a);
+            snprintf(rel, sizeof rel, "style%03d/sprite/%d.png", si + 1, n);
+            put_png(dir, rel, a, in->w, in->h);
+            /* deltas as overlays: only the pixels the delta changes */
+            for (int k = 0; k < in->ndeltas && k < SPRITE_DELTAS_MAX; k++) {
+                for (int v = 0; v < in->h; v++) memcpy(page + v * 256, in->data + v * 256, in->w);
+                blit_apply_delta(page, in->delta[k].data, in->delta[k].size);
+                sprite_png(in, page, clut, b);
+                int changed = 0;
+                for (int v = 0; v < in->h; v++)
+                    for (int u = 0; u < in->w; u++) {
+                        bool same = page[v * 256 + u] == in->data[v * 256 + u];
+                        if (same) b[v * in->w + u] = 0;
+                        else changed++;
+                    }
+                if (!changed) continue;
+                snprintf(rel, sizeof rel, "style%03d/sprite/%d_delta%d.png", si + 1, n, k);
+                put_png(dir, rel, b, in->w, in->h);
+            }
+            const char *why;
+            /* peds: every clothes remap as its own image (_r<r>) */
+            if (extract_remaps && n < sm->nsprites && sm->spr[n].group == SPRITE_GROUP_PED)
+                for (int r = 1; r < sprite_remaps(sm, n, &why); r++) {
+                    /* as the game draws a ped: the remap within the ped palettes (0x7750d0) */
+                    sprite_png(in, in->data, sprite_remap_clut(in->clut, r, sprite_ped_palette()), b);
+                    snprintf(rel, sizeof rel, "style%03d/sprite/%d_r%d.png", si + 1, n, r);
+                    put_png(dir, rel, b, in->w, in->h);
+                }
+            /* car paint: the pixels another remap recolours, white on black */
+            if (n < sm->nsprites && sprite_remaps(sm, n, &why) && sm->spr[n].ncars) {
+                const uint32_t *c1 = sprite_remap_clut(in->clut, 1, 0);
+                int paint = 0;
+                for (int v = 0; v < in->h; v++)
+                    for (int u = 0; u < in->w; u++) {
+                        uint8_t e = in->data[v * 256 + u];
+                        bool p = e && (c1[e * 64] & 0xffffff) != (clut[e * 64] & 0xffffff);
+                        b[v * in->w + u] = p ? 0xffffffffu : 0xff000000u;
+                        paint += p;
+                    }
+                if (paint) {
+                    snprintf(rel, sizeof rel, "style%03d/sprite/%d_mask.png", si + 1, n);
+                    put_png(dir, rel, b, in->w, in->h);
+                }
+            }
+        }
+        style_free(s);
+        printf("style %d extracted\n", si + 1);
+    }
+    for (int i = 0; i < nfonts; i++) {
+        const FontMan *f = &fonts[i];
+        Font *fo = font_load(f->file, (uint16_t)f->first, true, err, sizeof err);
+        if (!fo) continue;
+        for (int g = 0; g < fo->count; g++) {
+            int w = fo->glyph[g].w, h = fo->height;
+            if (!w || !h || !fo->glyph[g].px) continue;
+            for (int k = 0; k < w * h; k++) {
+                uint8_t e = fo->glyph[g].px[k];
+                a[k] = e ? (fo->pal ? (fo->pal[e] | 0xff000000u) : 0xffffffffu) : 0;
+            }
+            int code = f->first == 33 && g >= 95 ? 128 + (g - 95) : f->first + g;
+            snprintf(rel, sizeof rel, "font/%s/%d.png", f->name, code);
+            put_png(dir, rel, a, w, h);
+        }
+        font_free(fo);
+    }
+    for (int i = 0; i < npics; i++) {
+        const PicMan *p = &pics[i];
+        Image im = { 0 };
+        char name[80];
+        snprintf(name, sizeof name, "%.*s", (int)strlen(p->file) - 4, p->file);
+        if (!gfx_image_alloc(&im, p->w, p->h) || !gfx_load_raw_image(&im, name, false)) { gfx_image_free(&im); continue; }
+        for (int k = 0; k < p->w * p->h; k++) im.px[k] |= 0xff000000u;
+        snprintf(rel, sizeof rel, "pictures/%s.png", p->name);
+        put_png(dir, rel, im.px, p->w, p->h);
+        gfx_image_free(&im);
+    }
+    printf("wrote %d images of the original graphics to %s - your own copy's: keep them, don't distribute them.\n", nwritten, dir);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     const char *data = NULL, *dir = NULL, *at_map = NULL;
     int at_x = 0, at_y = 0, at_z = -1;
-    bool check = false;
+    bool check = false, extract_too = false;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--data") && i + 1 < argc) data = argv[++i];
+        else if (!strcmp(argv[i], "--extract")) extract_too = true;
+        else if (!strcmp(argv[i], "--remaps")) extract_remaps = true;
         else if (!strcmp(argv[i], "--validate")) check = true;
         else if (!strcmp(argv[i], "--at") && i + 3 < argc) {
             at_map = argv[++i], at_x = atoi(argv[++i]), at_y = atoi(argv[++i]), dir = "-";
@@ -1039,6 +1203,9 @@ int main(int argc, char **argv)
     }
     if (!dir) {
         fprintf(stderr, "usage: skin_template [--data <game folder>] <skin folder>             write the template\n"
+                        "       skin_template [--data <game folder>] --extract <folder>  the template plus every original\n"
+                        "                     graphic as reference PNGs in the skin layout (keep them, don't distribute them);\n"
+                        "                     --remaps adds every ped clothes remap (_r<r>, tens of thousands of files)\n"
                         "       skin_template [--data <game folder>] --validate <skin folder>  check a skin\n"
                         "       skin_template [--data <game folder>] --at <nyc|sanb|miami> <x> <y> [<z>]  a map column's tiles\n"
                         "The game data: --data, else $OPENGTA_DATA, else ./game (the installed game or the unzipped installer).\n");
@@ -1053,5 +1220,7 @@ int main(int argc, char **argv)
     char d[1024];
     snprintf(d, sizeof d, "%s", dir);
     for (size_t n = strlen(d); n > 1 && d[n - 1] == '/';) d[--n] = 0;
-    return check ? validate(d) : generate(d);
+    if (check) return validate(d);
+    int r = generate(d);
+    return r || !extract_too ? r : extract(d);
 }
