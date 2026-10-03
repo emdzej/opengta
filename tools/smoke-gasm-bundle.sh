@@ -92,6 +92,6 @@ if [ -n "${OPENGTA_SMOKE_DATA:-}" ]; then
   a=$(grep -E "^video_fnv32=" "$T/launch.all" | tail -n 1); b=$(grep -E "^video_fnv32=" "$T/direct.out" | tail -n 1)
   echo "launcher: $a"; echo "direct:   $b"
   grep -q "frames=400 " "$T/launch.all" || fail "the game did not run 400 frames"
-  [ -n "$a" ] && [ "$a" = "$b" ] || fail "the launcher's hashes differ from gasm-run's"
+  if [ -z "$a" ] || [ "$a" != "$b" ]; then fail "the launcher's hashes differ from gasm-run's"; fi
 fi
 echo "PASS $(basename "$ARCHIVE")"
