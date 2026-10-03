@@ -25,6 +25,7 @@ compared with the original yet, so expect differences and bugs.
 | Police and emergency services | The wanted level and crime reports, police pursuits and roadblocks, arrests, ambulances, fire engines, the gang, the scripted helicopter. [Police](/police) |
 | Objects | Moving and animated objects, explosions, fires and the fire engines that put them out, power-ups, animated doors, map edits. [Objects](/objects) |
 | Trains | The elevated trains: track following, stations, doors, passengers, riding and driving, crashes. [Trains](/trains) |
+| High resolution and skins (additions) | Not in the original, opt-in: `hires=2..4` renders the game, HUD, menus and intro at up to 2560x1920 with the game unchanged underneath; `upscale=xbr` upscales the original art; `skin=` layers replacement art (tiles, sprites, fonts, pictures), with a template generator and validator. [High resolution](/hires), [Creating a skin](/howto/create-a-skin) |
 | HUD | Score, multiplier and lives, the wanted level, weapon and ammo, the pager, subtitles, the arrow, area and car-name signs, the big messages, the pause and quit screens. [HUD](/hud) |
 
 ## Not yet

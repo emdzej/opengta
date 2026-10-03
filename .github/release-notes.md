@@ -10,4 +10,7 @@ No game data is included. OpenGTA is early work: see the [status](https://opengt
 The launchers ask for the game folder once and remember it (`--change-data` picks another). Every file has a
 `.sha256` next to it. Install guide: https://opengta.emdzej.pl/guide/install
 
+Optional, not in the original: `--param hires=2|3|4` (up to 2560x1920), `--param upscale=xbr`, and skins with
+your own replacement art (`--asset-dir skins=<folder> --param skin=<name>`): https://opengta.emdzej.pl/howto/create-a-skin
+
 Or play in the browser: https://opengta.emdzej.pl/play/

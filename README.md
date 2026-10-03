@@ -12,6 +12,13 @@ from your own copy of the game.
 with traffic, police, trains, explosions, the HUD and the mission script. Whole missions haven't been
 played through and compared with the original yet, so expect differences and bugs. Details: [opengta.emdzej.pl/guide/status](https://opengta.emdzej.pl/guide/status).
 
+## High resolution and skins
+
+Optional additions that aren't part of the original: `--param hires=2|3|4` renders the game, HUD and menus
+at up to 2560x1920 (the game itself runs unchanged underneath), `--param upscale=xbr` upscales the
+original art, and `--param skin=<name>` layers your own replacement art over it. See
+[High resolution](https://opengta.emdzej.pl/hires) and [Creating a skin](https://opengta.emdzej.pl/howto/create-a-skin).
+
 ## Game data
 
 OpenGTA uses the Windows version of Rockstar's 2002 re-release (`GTAINSTALLER.zip`). It reads either the installed game

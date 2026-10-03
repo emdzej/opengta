@@ -3,7 +3,7 @@ if(NOT CMAKE_OSX_ARCHITECTURES)
   set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "Target architectures (use \"arm64;x86_64\" for universal)")
 endif()
 set(CMAKE_OSX_DEPLOYMENT_TARGET 11.0 CACHE STRING "Minimum macOS version")
-project(OpenGTA VERSION 0.1.0 LANGUAGES C)
+project(OpenGTA VERSION 0.2.0 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(OG_WARN -Wall -Wextra -Wno-unused-parameter)
 
