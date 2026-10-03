@@ -1,6 +1,7 @@
 /* The frontend state machine (0x426320-0x42b7a0) and WinMain's frontend loop (0x437230). */
 #include "front/front_internal.h"
 #include "exe.h"
+#include "movie/intro.h"
 #include "text.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -644,13 +645,6 @@ out:
 
 /* ---------------------------------------------------------------- WinMain */
 
-/* Movie_PlayIntro 0x44b160 (not ported: Smacker). The original flushes the key queue, opens
-   ..\gtadata\movie.smk (pointer 0x4b1dc8) with SMACKW32, switches to the movie mode
-   (Gfx_SetVideoMode(-2)) and shows each frame doubled to 640x480 (MGL_stretchBltCoord of the dirty
-   rectangles), with the movie's palette, until the last frame or a key other than Alt (0x38); then it
-   clears the screen and closes the sound device it opened for the soundtrack. */
-void movie_play_intro(void) {}
-
 /* Input_GetKey 0x414a80 adds 0x100 to the keypad / cursor scan codes 0x47-0x53 when the event has no
    character (cursor keys, and the keypad with Num Lock off). Our codes carry the extended flag
    instead; non-extended keypad keys are taken as Num Lock off. Other extended keys (keypad Enter)
@@ -665,6 +659,40 @@ static int original_code(uint16_t k)
     default:
         return c;
     }
+}
+
+/* Movie_PlayIntro 0x44b160 (src/movie/intro.c): starts GTADATA/MOVIE.SMK; front_frame then runs it one
+   step per frame (movie_step) before WinMain goes on to Front_Enter(FS_CD). */
+void movie_play_intro(void) { movie_intro_start(); }
+
+/* The rest of WinMain after Movie_PlayIntro returned. */
+static bool after_movie(Front *f)
+{
+    f->nqueue = 0;
+    f->shift = 0;
+    return front_enter(f, FS_CD);
+}
+
+/* One frame of Movie_PlayIntro's loop. Its Input_GetKey sees key releases too (+0x80): we get presses
+   and the held state, so releases are the held keys that went up since the last frame. */
+static uint8_t movie_held[0x200];   /* KEY_COUNT */
+
+static FrontStep movie_step(Front *f, const FrontInput *in, Surface *s)
+{
+    uint16_t ev[96];
+    int n = 0;
+    if (in) {
+        for (int i = 0; i < in->nkeys && n < 64; i++) ev[n++] = (uint16_t)original_code(in->keys[i]);
+        if (in->held) {
+            for (int k = 0; k < 0x200 && n < 96; k++)
+                if (movie_held[k] && !in->held[k]) ev[n++] = (uint16_t)(original_code((uint16_t)k) + 0x80);
+            memcpy(movie_held, in->held, sizeof movie_held);
+        }
+    }
+    FrontStep r = {FRONT_CONTINUE, 0, 0, 0};
+    if (!movie_intro_step(ev, n, s) && !after_movie(f)) r.code = FRONT_QUIT;
+    f->clock_ms += 35;
+    return r;
 }
 
 /* WinMain's mapping of one key event. Shift presses / releases (0x2a / 0xaa left, 0x36 / 0xb6 right)
@@ -709,9 +737,11 @@ bool front_init(Front *f)
     if (!front_load_settings(f)) return false;
     if (f->hooks.player_name) f->hooks.player_name(0, exe_str(0x4b0c7c), 0);   /* "Player" */
     movie_play_intro();
-    f->nqueue = 0;
-    f->shift = 0;
-    return front_enter(f, FS_CD);
+    if (movie_intro_playing()) {
+        memset(movie_held, 0, sizeof movie_held);
+        return true;
+    }
+    return after_movie(f);
 }
 
 /* One pass of WinMain's inner loop: Input_GetKey reads one key event (key down or up; repeats are
@@ -720,6 +750,7 @@ bool front_init(Front *f)
    re-reads MISSION.INI (Mission_ReadIni) before Game_Run. */
 FrontStep front_frame(Front *f, const FrontInput *in, Surface *s)
 {
+    if (movie_intro_playing()) return movie_step(f, in, s);
     if (in) {
         for (int i = 0; i < in->nkeys; i++)
             if (f->nqueue < (int)(sizeof f->queue / sizeof *f->queue)) f->queue[f->nqueue++] = (uint16_t)original_code(in->keys[i]);
@@ -768,6 +799,7 @@ bool front_game_over(Front *f, const FrontGameResult *res)
 
 void front_shutdown(Front *f)
 {
+    movie_intro_stop();
     free_cut_fonts(f);
     if (f->in_front) front_leave(f);
 }

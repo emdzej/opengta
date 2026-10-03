@@ -251,5 +251,5 @@ int front_sel_city(const Front *f);
 int front_sel_mission(const Front *f);
 int front_sel_level(const Front *f);
 
-/* Movie_PlayIntro 0x44b160, a stub: the original plays GTADATA/MOVIE.SMK with Smacker (docs/frontend.md). */
+/* Movie_PlayIntro 0x44b160: starts MOVIE.SMK (src/movie/intro.c, docs/movie.md); front_frame steps it until it ends. */
 void movie_play_intro(void);

@@ -21,7 +21,7 @@ cp "$WASM" "$tmp/opengta.wasm"   # a snapshot: other builds may replace build-ga
 
 shot() {   # name frames [gasm-run options...]
   local name=$1 frames=$2; shift 2
-  "$RUN" "$tmp/opengta.wasm" --asset-dir "$DATA" --headless "$frames" --screenshot "$tmp/$name.png" "$@" \
+  "$RUN" "$tmp/opengta.wasm" --asset-dir "$DATA" --headless "$frames" --screenshot "$tmp/$name.png" --param intro=0 "$@" \
     2>/dev/null | tr '\n' ' '
   sips -s format jpeg -s formatOptions 80 "$tmp/$name.png" --out "$OUT/$name.jpg" >/dev/null
   echo "-> $OUT/$name.jpg ($(($(wc -c < "$OUT/$name.jpg") / 1024)) KB)"

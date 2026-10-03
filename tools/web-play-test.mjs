@@ -43,7 +43,7 @@ const CASES = [
 // Reference hashes from the native runner (same module, same data, same input).
 function native(c, dir) {
   if (!existsSync(RUN)) return null;
-  const args = [WASM, '--asset-dir', dir, '--headless', String(c.frames)];
+  const args = [WASM, '--asset-dir', dir, '--headless', String(c.frames), '--param', 'intro=0'];   // the scripts drive the menus
   if (c.input) args.push('--input', c.input);
   return execFileSync(RUN, args, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim().split('\n').join(' ');
 }
@@ -76,7 +76,7 @@ async function nodeRef(c, dir) {
   walk(dir, []);
   table.finish();
   const script = new InputScript(c.input);
-  const host = new gasm.GasmHost({ assets: table, storage: new gasm.MemoryStorage(), virtualTime: true, onLog: () => {},
+  const host = new gasm.GasmHost({ assets: table, params: { intro: '0' }, storage: new gasm.MemoryStorage(), virtualTime: true, onLog: () => {},
     getPad: (p) => (p !== 0 ? 0 : script.pad(host.frameIndex)) });
   host.hashing = true;
   await host.load(await WebAssembly.compile(readFileSync(WASM)));
@@ -184,7 +184,7 @@ try {
       const natCab = native(c, INSTALLER);
       report(natCab === nat, `${c.name}: gasm-run, installer = game folder`, natCab === nat ? '' : natCab);
     }
-    const url = `${base}?hashframes=${c.frames}${c.input ? `&input=${encodeURIComponent(c.input)}` : ''}`;
+    const url = `${base}?intro=0&hashframes=${c.frames}${c.input ? `&input=${encodeURIComponent(c.input)}` : ''}`;
     const check = (label, got) => report(!want || got.hash === want, `${c.name}: ${label}`,
       `${got.hash}  (${got.secs.toFixed(1)} s)${want && got.hash !== want ? `\n      native: ${want}` : ''}`);
 

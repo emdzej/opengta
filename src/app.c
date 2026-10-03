@@ -6,7 +6,7 @@
      results / cutscene screens (front_game_over), or the same mission again (F12, quit code 3);
    - APP_VIEWER: the development city viewer (viewer_*), a movable camera target without the game.
 
-   Launch params: front=0 (straight into the viewer: map=nyc|sanb|miami, x=, y=, z= the target cell, exe
+   Launch params: intro=0 (no intro movie), front=0 (straight into the viewer: map=nyc|sanb|miami, x=, y=, z= the target cell, exe
    convention z = 0 top; default NYC mission 1's player start (105,119,4)), mission=<MISSION.INI section>
    (straight into that mission). Viewer keys: arrows / d-pad move the target (Shift: faster), Page Up /
    Page Down (pad L / R) change z, Esc goes to the frontend. */
@@ -16,6 +16,7 @@
 #include "game/input.h"
 #include "game/mission.h"
 #include "hud/hud.h"
+#include "movie/intro.h"
 #include "exe.h"
 #include "front/front.h"
 #include "text.h"
@@ -231,6 +232,9 @@ static void hk_level_options(int pager, int effects, int sequential)
 
 static bool init_front(void)
 {
+    char b[8];
+    /* Movie_PlayIntro 0x44b160 (MOVIE.SMK) before the frontend, as WinMain does; intro=0 skips it */
+    movie_intro_set_enabled(!(plat_param("intro", b, sizeof b) && !strcmp(b, "0")));
     text_init_language(TEXT_ENGLISH);
     front_screen = (Surface){ calloc(SCREEN_W * SCREEN_H, 4), SCREEN_W, SCREEN_H, SCREEN_W };
     front.net_active = true;   /* Net_IsActive: the network entries show (DirectPlay is stubbed) */

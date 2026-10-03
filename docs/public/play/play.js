@@ -19,7 +19,7 @@ import * as data from './data.js';
 
 const $ = (id) => document.getElementById(id);
 const query = new URLSearchParams(location.search);
-const GAME_PARAMS = ['front', 'map', 'x', 'y', 'z', 'mission'];
+const GAME_PARAMS = ['intro', 'front', 'map', 'x', 'y', 'z', 'mission'];
 const HASH_FRAMES = Number(query.get('hashframes') || 0);
 const BATCH = Number(query.get('batch') || 250);   // hash runs: frames per worker batch
 const STORAGE = 'opengta';                // gasm:storage namespace (IndexedDB): PLAYER_A.DAT

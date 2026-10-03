@@ -34,9 +34,10 @@ Test: `tests/frontend_test.c` drives the menus with key presses and writes `out/
 The port makes the loop a step: `front_frame` is one pass (the app's 35 ms frame, `APP_FRAME_HZ`) and
 returns `FrontStep {code, section, level, player}`; `front_game_over(f, result)` is step 6.
 
-`Movie_PlayIntro` is a stub. The original flushes the keys, opens `..\gtadata\movie.smk` with
-SMACKW32, switches to the movie mode (`Gfx_SetVideoMode(-2)`), shows every frame doubled to 640 x 480
-with the movie's palette, and stops at the last frame or at a key other than Alt (0x38).
+`Movie_PlayIntro` plays `..\gtadata\movie.smk` ([Intro movie](/movie)): the original flushes the keys,
+opens it with SMACKW32, switches to the movie mode (`Gfx_SetVideoMode(-2)`), shows every frame doubled to
+640 x 480 with the movie's palette, and stops at the last frame or at a key other than Alt (0x38). The port
+runs it as frames of the frontend loop before `Front_Enter(4)`; `intro=0` skips it.
 
 ### Input bits
 
