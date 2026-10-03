@@ -87,7 +87,7 @@ export default defineConfig({
       {
         text: "Internals",
         link: "/internals/",
-        activeMatch: "/(internals|formats|render|sprites|text-fonts|frontend|audio|game-core|missions|peds|cars|hud|movie|traffic|objects|trains|police)",
+        activeMatch: "/(internals|formats|render|sprites|text-fonts|frontend|audio|game-core|missions|peds|cars|hud|movie|traffic|objects|trains|police|hires|skins)",
       },
       { text: "Reverse engineering", link: "/re/", activeMatch: "/re/" },
       // A static app in docs/public/play/: target _self makes it a full page load, not a VitePress route.
@@ -171,6 +171,8 @@ export default defineConfig({
             { text: "City renderer", link: "/render" },
             { text: "Sprites", link: "/sprites" },
             { text: "Text, fonts, images", link: "/text-fonts" },
+            { text: "Hires renderer (not original)", link: "/hires" },
+            { text: "Skins (not original)", link: "/skins" },
           ],
         },
         {

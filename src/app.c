@@ -8,13 +8,16 @@
 
    Launch params: intro=0 (no intro movie), front=0 (straight into the viewer: map=nyc|sanb|miami, x=, y=, z= the target cell, exe
    convention z = 0 top; default NYC mission 1's player start (105,119,4)), mission=<MISSION.INI section>
-   (straight into that mission). Viewer keys: arrows / d-pad move the target (Shift: faster), Page Up /
+   (straight into that mission), hires=2..4 (the in-game view drawn again at 640N x 480N by the hires
+   renderer, src/render/hires; not part of the original, docs/hires.md), skin=<name>[,<name>...] (skins over
+   the original art in the hires renderer, also at hires=1: docs/skins.md). Viewer keys: arrows / d-pad move the target (Shift: faster), Page Up /
    Page Down (pad L / R) change z, Esc goes to the frontend. */
 #include "app.h"
 #include "audio/audio.h"
 #include "game/game.h"
 #include "game/input.h"
 #include "game/mission.h"
+#include "game/player.h"
 #include "hud/hud.h"
 #include "movie/intro.h"
 #include "exe.h"
@@ -25,6 +28,8 @@
 #include "platform.h"
 #include "render/camera.h"
 #include "render/city.h"
+#include "render/hires/hires.h"
+#include "render/hires/hires_skin.h"
 #include "render/poly.h"
 #include "style.h"
 #include <stdio.h>
@@ -51,6 +56,23 @@ static int param_int(const char *name, int def)
 {
     char b[32];
     return plat_param(name, b, sizeof b) ? atoi(b) : def;
+}
+
+/* hires=N: 1 (off) unless 2..HIRES_MAX */
+static int hires_param(void)
+{
+    int n = param_int("hires", 1);
+    return n >= 2 && n <= HIRES_MAX ? n : 1;
+}
+
+/* The hires renderer for the back buffer fb: on with hires=2..4, or at 1x with skins. */
+static void hires_setup(const uint32_t *fb)
+{
+    char list[256];
+    int n = hires_param();
+    bool skins = plat_param("skin", list, sizeof list) && list[0] && hires_skins_load(list, n, plat_log) > 0;
+    if (!skins) hires_skins_free();
+    if (!hires_init(n > 1 || skins ? n : 0, fb, SCREEN_W, SCREEN_H)) plat_log("OpenGTA: hires: out of memory");
 }
 
 static void viewer_target(Viewer *v)
@@ -82,6 +104,7 @@ static bool viewer_init(Viewer *v, int city)
     camera_set_viewport(&v->player, SCREEN_W, SCREEN_H);
     viewer_target(v);
     camera_init(&v->player, &v->world);
+    hires_setup(v->fb);
     return true;
 }
 
@@ -124,6 +147,14 @@ static void viewer_frame(Viewer *v)
     render_compute_visible_rect(&v->player.vp);
     render_copy_camera(&v->player.vp);
     render_draw_city(v->map, v->style, &v->player.vp);
+    if (hires_active()) {
+        int w, h;
+        hires_frame_begin(v->map, v->style, &v->player.vp);
+        hires_frame_end();
+        const uint32_t *px = hires_pixels(&w, &h);
+        plat_present(px, w, h);
+        return;
+    }
     /* present (Gfx_Present 0x414b10): X8R8G8B8 -> the platform's RGBA bytes */
     for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
         uint32_t c = v->fb[i];
@@ -154,6 +185,13 @@ static int game_section;
 static void game_present_cb(void *ctx)
 {
     (void)ctx;
+    if (hires_active()) {   /* the hires frame with the HUD laid over it */
+        int w, h;
+        hires_frame_end();
+        const uint32_t *px = hires_pixels(&w, &h);
+        plat_present(px, w, h);
+        return;
+    }
     for (int i = 0; i < SCREEN_W * SCREEN_H; i++) {
         uint32_t c = game_fb[i];
         game_rgba[i] = 0xff000000u | (c & 0xff) << 16 | (c & 0xff00) | (c >> 16 & 0xff);
@@ -163,12 +201,17 @@ static void game_present_cb(void *ctx)
 
 static void game_fatal_cb(const char *msg) { plat_log(msg); }
 
+/* HUD_Draw's first step in hires mode: the city again at N times the resolution (hires.h). */
+static void game_hires_cb(void) { hires_frame_begin(g_game.map, g_game.style, &g_players[g_player_local].vp); }
+
 static bool start_game(int section)
 {
     poly_set_screen_rows(game_fb, SCREEN_W * 4, SCREEN_H);
     poly_set_clip(0, 0, SCREEN_W - 1, SCREEN_H - 1);
     g_game.present = game_present_cb;
     g_game.on_fatal = game_fatal_cb;
+    hires_setup(game_fb);
+    hud_pre_draw_hook = hires_active() ? game_hires_cb : NULL;
     game_set_screen(SCREEN_W, SCREEN_H);
     map_clear_name();
     if (!mission_set_ini_section(section)) { plat_log("OpenGTA: no such mission.ini section"); return false; }
@@ -202,6 +245,7 @@ static bool start_viewer(int city)
 
 static void end_viewer(void)
 {
+    hires_init(0, NULL, 0, 0);
     viewer_free(viewer);
     free(viewer);
     viewer = NULL;

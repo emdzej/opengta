@@ -27,6 +27,9 @@ void hud_set_pager_speed(int speed);          /* HUD_SetPagerSpeed 0x482140: 0..
 /* ---- per frame ---- */
 void hud_update(void);                        /* HUD_Update 0x485d70 (from Game_Update) */
 void hud_draw(void);                          /* HUD_Draw 0x483390 (from Game_Render) */
+/* The port (not in the original): called at the start of every hud_draw, before anything is drawn; the
+   hires renderer (src/render/hires) uses it to tell the HUD's pixels from the city's. NULL: nothing. */
+extern void (*hud_pre_draw_hook)(void);
 void hud_tick_big_message(void);              /* HUD_TickBigMessage 0x486640 (while paused) */
 
 /* ---- keys ---- */

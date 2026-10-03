@@ -103,6 +103,7 @@ int sprite_group_count(int group);                   /* from the numbers section
    sprite palette clut, or palette + remap - 1 when remapped). They set poly_clut and return it. */
 const uint32_t *sprite_select_palette(int n);
 const uint32_t *sprite_select_remap(int clut, int remap, int palette);
+const uint32_t *sprite_remap_clut(int clut, int remap, int palette);   /* the same without setting poly_clut */
 int sprite_car_palette(int record);                  /* car base 0x77530c + record * 12 */
 int sprite_ped_palette(void);                        /* 0x7750d0: car base + car records * 12 */
 
@@ -133,6 +134,10 @@ void sprite_draw_screen(int x, int y, const SpriteInfo *info);
 void sprite_clear_levels(void);        /* DrawList_Clear_thunk 0x47c020 */
 void sprite_queue(Sprite *sp);         /* Sprite_Queue 0x47c940 */
 void sprite_draw_level(int z);         /* Sprite_DrawLevel 0x47c030 */
+/* For the hires renderer (src/render/hires): the rotated corner offsets Sprite_Draw* use (16.16, y up:
+   top left, top right, bottom left, bottom right), and a read-only walk of draw tree z. */
+void sprite_get_corners(const SpriteInfo *in, int angle, int32_t c[8]);
+void sprite_walk_level(int z, void (*fn)(void *item));
 
 /* ---- Render_QueueVisibleEntities 0x437000 ----
    The entity side walks the collision grid (0x5278f8: 128 x 128 cells of 2 x 2 blocks, each a list of

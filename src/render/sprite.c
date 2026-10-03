@@ -181,10 +181,15 @@ const uint32_t *sprite_select_palette(int n)
 
 /* Tile_SelectSpriteRemap 0x4385e0: remap 0 is the sprite's own palette (sprite base 0x77531c + clut),
    remap r the palette base + r - 1 (16-bit sums). */
+const uint32_t *sprite_remap_clut(int clut, int remap, int palette)
+{
+    if (remap == 0) return palette_entry((int16_t)(S->sprite_pal_base + (int16_t)clut));
+    return palette_entry((int16_t)(remap - 1 + palette));
+}
+
 const uint32_t *sprite_select_remap(int clut, int remap, int palette)
 {
-    if (remap == 0) return poly_clut = palette_entry((int16_t)(S->sprite_pal_base + (int16_t)clut));
-    return poly_clut = palette_entry((int16_t)(remap - 1 + palette));
+    return poly_clut = sprite_remap_clut(clut, remap, palette);
 }
 
 /* ---- the sprite object ---- */
@@ -256,6 +261,8 @@ static void sprite_corners(const SpriteInfo *in, int angle, int32_t c[8])
     c[4] = mul32(co, xl) - mul32(s, yb), c[5] = mul32(s, xl) + mul32(co, yb);
     c[6] = mul32(co, xr) - mul32(s, yb), c[7] = mul32(s, xr) + mul32(co, yb);
 }
+
+void sprite_get_corners(const SpriteInfo *in, int angle, int32_t c[8]) { sprite_corners(in, angle, c); }
 
 /* Sprite_WorldToScreen 0x47bb10 with the depth from the high short of z (as both drawers read it). */
 static void project(uint32_t x, uint32_t y, int32_t z, int32_t *sx, int32_t *sy)
@@ -372,6 +379,13 @@ void sprite_draw_level(int z)
 {
     if (z < 0 || z >= SPRITE_LEVELS) return;
     drawlist_walk(levels[z], draw_item);
+}
+
+/* The hires renderer's walk of the same tree (read only). */
+void sprite_walk_level(int z, void (*fn)(void *item))
+{
+    if (z < 0 || z >= SPRITE_LEVELS) return;
+    drawlist_walk(levels[z], fn);
 }
 
 /* ---- Render_QueueVisibleEntities 0x437000 ---- */

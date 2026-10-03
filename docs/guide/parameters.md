@@ -12,6 +12,7 @@ as the original does.
 | `map` | `nyc`, `sanb`, `miami` | The viewer's city (default `nyc`). |
 | `x`, `y` | 0-255 | The viewer's target block (default: NYC mission 1's start, 105, 119; 128, 128 in the other cities). |
 | `z` | 0-6 | The viewer target's layer, the original's convention: 0 is the top (default 4, the usual ground). |
+| `hires` | `2`, `3`, `4` | Not in the original, opt-in: the in-game view (and the viewer) drawn again at 640N x 480N by the [hires renderer](/hires), sharper geometry and filtered textures, the same game; `skin=` adds [skins](/skins) (`skin=sample`, with `--asset-dir skins=assets/skins`). |
 
 ```sh
 gasm-run opengta.wasm --asset-dir GTA --param mission=202

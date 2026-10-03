@@ -1244,8 +1244,11 @@ static void draw_sprite(Sprite *sp)
    texts, the scores, the arrows and the roof marker (sprites on), the wanted heads, the pager, the
    weapon and items, the subtitle, the score popups, the video menu, the big message, the quit
    prompt, the pause info. Nothing with the option 0x502f70. */
+void (*hud_pre_draw_hook)(void);
+
 void hud_draw(void)
 {
+    if (hud_pre_draw_hook) hud_pre_draw_hook();   /* the port: the hires renderer's HUD layer (not in the original) */
     if (g_game.opt.opt502f70 != 0 || !hud_fonts.res || poly_nrows <= 0) return;
     g_hud_frame.s = (Surface){ poly_rows[0], render_cam.w, poly_nrows, poly_pitch_px };
     g_hud_frame.view_w = render_cam.w;

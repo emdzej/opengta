@@ -10,6 +10,7 @@
 #include "app.h"
 #include "iscab.h"
 #include "platform.h"
+#include "render/hires/hires_skin.h"
 #include "vfs.h"
 #include <gasm.h>
 #include <stdio.h>
@@ -197,6 +198,27 @@ static bool mount_game(void)
     return false;
 }
 
+/* Skins (docs/skins.md) are assets too (gasm-run --asset-dir skins=<folder of skins>), read by name even
+   when the game comes from the installer's cabinets, which hide the assets underneath. */
+static uint8_t *skin_read(const char *rel, size_t *size)
+{
+    char name[512];
+    norm_path(rel, name, sizeof name);
+    int64_t n = gasm_asset_size64(name, (uint32_t)strlen(name));
+    if (n < 0 || n > (1 << 28)) return vfs_read_all(rel, size);
+    uint8_t *d = malloc(n ? (size_t)n : 1);
+    if (!d) return NULL;
+    int64_t got = 0;
+    while (got < n) {
+        int32_t k = gasm_asset_read_at64(name, (uint32_t)strlen(name), (uint64_t)got, d + got, (uint32_t)(n - got));
+        if (k <= 0) break;
+        got += k;
+    }
+    if (got != n) { free(d); return NULL; }
+    if (size) *size = (size_t)n;
+    return d;
+}
+
 /* ---- exports ---- */
 
 static bool running;
@@ -210,6 +232,7 @@ GASM_EXPORT("gasm_init") int32_t og_gasm_init(void)
     gasm_audio_config(APP_AUDIO_RATE, 2);
     gasm_input_mode(GASM_INPUT_KEYS_RAW);
     init_keys();
+    hires_skin_reader = skin_read;
     if (!mount_game()) {
         plat_log("OpenGTA: game data not found. Pass the installed GTA folder (gasm-run opengta.wasm "
                  "--asset-dir <folder with GTADATA/>) or the unzipped installer (--asset-dir <folder with data1.cab>)");
