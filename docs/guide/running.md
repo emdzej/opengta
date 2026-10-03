@@ -9,8 +9,9 @@ newer.
   [gasm releases](https://github.com/emdzej/gasm/releases) (macOS universal, Linux x86-64 and arm64,
   Windows x86-64). From a checkout, `tools/fetch-gasm-runner.sh macos-universal` fetches the pinned
   version into `.deps/`.
-- **opengta.wasm**: there are no releases yet. [Build it from source](/howto/build-from-source), or take the
-  module the browser player runs, [opengta.wasm](https://opengta.emdzej.pl/play/opengta.wasm){target="_self"},
+- **opengta.wasm**: from a release (`opengta-<version>.wasm`, or a ready-to-run gasm bundle: see
+  [Installing](/guide/install)), [build it from source](/howto/build-from-source), or take the module the
+  browser player runs, [opengta.wasm](https://opengta.emdzej.pl/play/opengta.wasm){target="_self"},
   built from `main` by the site's workflow. It is the engine only: no game data.
 
 ## Run it

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=OpenGTA (gasm)
+GenericName=Action game
+Comment=OpenGTA, a reimplementation of Grand Theft Auto (1997), on gasm. Needs your GTA from Rockstar's 2002 re-release.
+Exec="@DIR@/opengta.sh"
+Icon=@DIR@/opengta.png
+Terminal=false
+Categories=Game;ActionGame;

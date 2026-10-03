@@ -1,0 +1,198 @@
+name: Release
+
+# Triggered by plain semver tags (no "v" prefix): `git tag 0.1.0 && git push origin 0.1.0`; the tag must equal
+# `project(OpenGTA VERSION ...)` in CMakeLists.txt.
+# Builds the gasm module opengta-<version>.wasm and the gasm bundles (opengta.wasm + the released gasm-run,
+# GASM_VERSION in tools/fetch-gasm-sdk.sh) for macOS, Linux x86_64/arm64 and Windows x86_64, smoke-tests each
+# bundle on its own OS without game data, and attaches everything (with SHA-256 files) to a GitHub Release
+# with .github/release-notes.md. No native app and never any game data.
+# workflow_dispatch builds the same files as artifacts only (version 0.0.0-snapshot.<sha>).
+
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # to create the Release and upload assets
+
+jobs:
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: version
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            v="$GITHUB_REF_NAME"
+            grep -Eq "^project\(OpenGTA VERSION $v( |\))" CMakeLists.txt ||
+              { echo "tag $v does not match project(OpenGTA VERSION ...) in CMakeLists.txt" >&2; exit 1; }
+          else
+            v="0.0.0-snapshot.${GITHUB_SHA::7}"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: fetch wasi-sdk and the gasm C SDK
+        run: tools/fetch-gasm-sdk.sh
+
+      - name: build opengta.wasm
+        run: |
+          cmake -S . -B build-gasm -DOPENGTA_PLATFORM=gasm -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=.deps/gasm-c-sdk/cmake/gasm-toolchain.cmake -DWASI_SDK_PREFIX="$PWD/.deps/wasi-sdk"
+          cmake --build build-gasm -j
+          name="opengta-${{ steps.ver.outputs.version }}.wasm"
+          cp build-gasm/opengta.wasm "$name"
+          sha256sum "$name" > "$name.sha256"
+          ls -l "$name"
+
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opengta-wasm
+          path: opengta-*.wasm*
+          retention-days: 14
+
+  gasm-macos:
+    needs: wasm
+    runs-on: macos-latest   # iconutil, codesign (ad hoc)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: opengta-wasm
+          path: wasm
+      - name: package
+        run: |
+          v=$(basename wasm/opengta-*.wasm .wasm); v=${v#opengta-}
+          OPENGTA_WASM=$(ls wasm/opengta-*.wasm) tools/package-gasm.sh "$v" macos-universal \
+            "$(tools/fetch-gasm-runner.sh macos-universal)" dist
+      - name: smoke test (no game data)
+        run: tools/smoke-gasm-bundle.sh dist/opengta-gasm-*-macos-universal.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opengta-gasm-macos-universal
+          path: dist/opengta-gasm-*.zip*
+          retention-days: 14
+
+  gasm-package:
+    needs: wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: opengta-wasm
+          path: wasm
+      - name: package (Linux x86_64 and arm64, Windows x86_64)
+        run: |
+          v=$(basename wasm/opengta-*.wasm .wasm); v=${v#opengta-}
+          for p in linux-x86_64 linux-arm64 windows-x86_64; do
+            OPENGTA_WASM=$(ls wasm/opengta-*.wasm) tools/package-gasm.sh "$v" "$p" "$(tools/fetch-gasm-runner.sh "$p")" "dist/$p"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opengta-gasm-linux-x86_64
+          path: dist/linux-x86_64/*
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opengta-gasm-linux-arm64
+          path: dist/linux-arm64/*
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opengta-gasm-windows-x86_64
+          path: dist/windows-x86_64/*
+          retention-days: 14
+
+  gasm-smoke-linux:
+    needs: gasm-package
+    strategy:
+      matrix:
+        include:
+          - { arch: x86_64, os: ubuntu-latest }
+          - { arch: arm64, os: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: opengta-gasm-linux-${{ matrix.arch }}
+          path: dist
+      - name: runtime libraries (ALSA)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libasound2t64
+      - name: smoke test (no game data)
+        run: tools/smoke-gasm-bundle.sh dist/opengta-gasm-*-linux-${{ matrix.arch }}.tar.gz
+
+  gasm-smoke-windows:
+    needs: gasm-package
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: opengta-gasm-windows-x86_64
+          path: dist
+      - name: smoke test (no game data)
+        shell: pwsh
+        env:
+          OPENGTA_NO_PAUSE: '1'
+        run: |
+          $zip = Get-ChildItem dist/opengta-gasm-*-windows-x86_64.zip | Select-Object -First 1
+          Expand-Archive $zip.FullName -DestinationPath unpacked
+          $d = (Get-ChildItem unpacked -Directory | Select-Object -First 1).FullName
+          foreach ($f in 'gasm-run.exe', 'opengta.wasm', 'OpenGTA.cmd', 'opengta.ps1', 'README.txt', 'LICENSE.txt', 'LICENSE-gasm.txt') {
+            if (-not (Test-Path (Join-Path $d $f))) { throw "missing $f" }
+          }
+          # No data: OpenGTA's clean error, exit code 1 (not a crash).
+          $out = & "$d\gasm-run.exe" "$d\opengta.wasm" --headless 5 --mute 2>&1 | Out-String
+          $rc = $LASTEXITCODE
+          $out
+          if ($rc -ne 1) { throw "gasm-run without data: exit $rc, expected 1" }
+          if ($out -notmatch 'game data not found') { throw "no 'game data not found' message" }
+          # The launcher (no dialogs: OPENGTA_DATA / --dry-run, scratch APPDATA and LOCALAPPDATA).
+          $env:APPDATA = Join-Path $PWD 'appdata'; $env:LOCALAPPDATA = Join-Path $PWD 'localappdata'
+          $help = & "$d\OpenGTA.cmd" --help | Out-String
+          if ($LASTEXITCODE -ne 0 -or $help -notmatch 'OpenGTA') { throw '--help' }
+          # fakes: the installed game (a space in the path), the unzipped installer, folders that must be refused
+          New-Item -ItemType Directory -Force 'my gta\GTADATA', 'my gta\WINO', installer, half, wrongexe\GTADATA, wrongexe\WINO | Out-Null
+          New-Item -ItemType File -Force 'my gta\GTADATA\MISSION.INI', installer\data1.cab, installer\data2.cab, half\data1.cab, wrongexe\GTADATA\MISSION.INI, 'wrongexe\WINO\Grand Theft Auto.exe', GTAINSTALLER.zip | Out-Null
+          $f = [IO.File]::Create((Join-Path $PWD 'my gta\WINO\Grand Theft Auto.exe')); $f.SetLength(774144); $f.Close()
+          $env:OPENGTA_DATA = Join-Path $PWD 'my gta'
+          $cmd = & "$d\OpenGTA.cmd" --dry-run --param intro=0 | Out-String
+          $cmd
+          if ($LASTEXITCODE -ne 0 -or $cmd -notmatch '--asset-dir' -or $cmd -notmatch 'intro=0') { throw 'dry run with an installed folder' }
+          $env:OPENGTA_DATA = Join-Path $PWD 'installer'
+          $cmd = & "$d\OpenGTA.cmd" --dry-run | Out-String
+          if ($LASTEXITCODE -ne 0 -or $cmd -notmatch '--asset-dir') { throw 'dry run with an installer folder' }
+          foreach ($bad in 'half', 'wrongexe', 'GTAINSTALLER.zip', 'missing') {
+            $env:OPENGTA_DATA = Join-Path $PWD $bad
+            & "$d\OpenGTA.cmd" --dry-run 2>&1 | Out-String | Write-Host
+            if ($LASTEXITCODE -ne 2) { throw "$bad accepted (exit $LASTEXITCODE, expected 2)" }
+          }
+          if (Test-Path (Join-Path $env:APPDATA 'OpenGTA\data-location')) { throw 'a dry run saved the data location' }
+          $global:LASTEXITCODE = 0
+          'PASS'
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [wasm, gasm-macos, gasm-package, gasm-smoke-linux, gasm-smoke-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ls -l artifacts
+          gh release create "$GITHUB_REF_NAME" artifacts/* \
+            --title "OpenGTA $GITHUB_REF_NAME" \
+            --notes-file .github/release-notes.md \
+            --generate-notes

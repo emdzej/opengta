@@ -101,6 +101,7 @@ export default defineConfig({
           items: [
             { text: "Introduction", link: "/guide/" },
             { text: "Status", link: "/guide/status" },
+            { text: "Installing", link: "/guide/install" },
             { text: "Game data", link: "/guide/game-data" },
             { text: "Running on gasm", link: "/guide/running" },
             { text: "Playing in the browser", link: "/guide/browser" },
@@ -115,6 +116,7 @@ export default defineConfig({
           text: "How-tos",
           items: [
             { text: "Build from source", link: "/howto/build-from-source" },
+            { text: "Make a release", link: "/howto/release" },
             { text: "Run the tests", link: "/howto/tests" },
             { text: "Headless runs and hash checks", link: "/howto/headless" },
             { text: "Reverse-engineering workflow", link: "/howto/reverse-engineering" },

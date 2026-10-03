@@ -1,6 +1,7 @@
 name: CI
 
-# Builds the native core and every test program, and the gasm module opengta.wasm, on each push / PR.
+# Builds the native core and every test program, the gasm module opengta.wasm and the gasm bundles
+# (macOS, Linux, Windows; smoke-tested on macOS and Linux x86_64) on each push / PR.
 # The tests need the original game data (not redistributable): without it they skip, so CI runs them as a
 # smoke test only. Run them locally with your copy of GTA (OPENGTA_DATA, default ./game).
 
@@ -52,3 +53,42 @@ jobs:
           name: opengta-wasm
           path: build-gasm/opengta.wasm
           retention-days: 14
+
+  # The gasm bundles (tools/package-gasm.sh) from the module above, smoke-tested without game data. The
+  # release workflow (release.yml) does the same for every platform on its own OS, Windows included.
+  gasm-bundle-macos:
+    needs: wasm
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: opengta-wasm
+          path: wasm
+      - name: package and smoke test
+        run: |
+          OPENGTA_WASM=wasm/opengta.wasm tools/package-gasm.sh "0.0.0-ci.${GITHUB_SHA::7}" macos-universal \
+            "$(tools/fetch-gasm-runner.sh macos-universal)" dist
+          tools/smoke-gasm-bundle.sh dist/opengta-gasm-*-macos-universal.zip
+
+  gasm-bundle-linux:
+    needs: wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: opengta-wasm
+          path: wasm
+      - name: shellcheck the launchers and packaging scripts
+        run: shellcheck tools/package-gasm.sh tools/fetch-gasm-*.sh tools/smoke-gasm-bundle.sh tools/make-icns.sh tools/gasm-bundle/*.sh
+      - name: package (Linux x86_64 and arm64, Windows x86_64)
+        run: |
+          for p in linux-x86_64 linux-arm64 windows-x86_64; do
+            OPENGTA_WASM=wasm/opengta.wasm tools/package-gasm.sh "0.0.0-ci.${GITHUB_SHA::7}" "$p" \
+              "$(tools/fetch-gasm-runner.sh "$p")" dist
+          done
+      - name: runtime libraries (ALSA)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libasound2t64
+      - name: smoke test (Linux x86_64)
+        run: tools/smoke-gasm-bundle.sh dist/opengta-gasm-*-linux-x86_64.tar.gz
