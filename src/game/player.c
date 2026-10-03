@@ -3,6 +3,7 @@
 #include "car.h"
 #include "game.h"
 #include "ped.h"
+#include "heli.h"
 #include "stubs.h"
 #include "mission_obj.h"
 #include "../audio/audio.h"
@@ -182,9 +183,9 @@ void camera_debug_move(int n)
 /* Camera_DebugStop 0x43cbb0 */
 void camera_debug_stop(int n) { memset(g_players[n].dbg, 0, sizeof g_players[n].dbg); }
 
-/* Player_GetViewTargetPos 0x462d50 with the records of Car_GetCamTarget 0x408220 (kind 0) and
-   Ped_GetPosRect 0x45fb00 (kind 2). Kinds 1 (trains) and 5 (the heli) aren't ported: they give the
-   fixed point. */
+/* Player_GetViewTargetPos 0x462d50 with the records of Car_GetCamTarget 0x408220 (kind 0),
+   Ref_GetKind1PosRect 0x45fb60 (kind 1, a ridden train: its position) and Ped_GetPosRect 0x45fb00
+   (kind 2) and Heli_GetPos 0x40dc80 (kind 5). */
 CameraTarget player_view_target(int n)
 {
     const Player *p = &g_players[n];
@@ -199,6 +200,17 @@ CameraTarget player_view_target(int n)
         t.speed = (int16_t)(c->speed * 3);
         t.h = (int16_t)-c->length;
         t.w = c->cam_w;
+        break;
+    }
+    case CAM_TARGET_KIND1: {   /* a ridden train: Ref_GetKind1PosRect 0x45fb60 */
+        const int32_t *r = ref_get_kind1_pos_rect((int16_t)p->view_id);
+        t.x = r[0], t.y = r[1], t.z = r[2];
+        break;
+    }
+    case CAM_TARGET_HELI: {   /* Heli_GetPos 0x40dc80 */
+        const HeliPos *h = heli_get_pos();
+        t.x = h->x, t.y = h->y, t.z = h->z;
+        t.speed = (int16_t)h->speed;
         break;
     }
     case CAM_TARGET_PED: {

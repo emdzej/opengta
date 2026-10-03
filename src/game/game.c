@@ -9,6 +9,7 @@
 #include "event.h"
 #include "fileio.h"
 #include "gmath.h"
+#include "heli.h"
 #include "mission.h"
 #include "obj.h"
 #include "ped.h"
@@ -351,7 +352,8 @@ static Sprite *world_embedded(void *ctx, int kind, void *owner)
         return g_obj_infos[o->type]->status == OBJ_STATUS_INVISIBLE ? NULL : &o->spr;
     }
     case COLL_CAR: return &((Car *)owner)->spr;
-    default: return NULL;   /* kind 0x1e: the heli (not ported) */
+    case COLL_HELI: return &g_heli.spr;   /* the helicopter */
+    default: return NULL;
     }
 }
 

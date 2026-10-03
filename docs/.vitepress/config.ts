@@ -87,7 +87,7 @@ export default defineConfig({
       {
         text: "Internals",
         link: "/internals/",
-        activeMatch: "/(internals|formats|render|sprites|text-fonts|frontend|audio|game-core|missions|peds|cars|hud)",
+        activeMatch: "/(internals|formats|render|sprites|text-fonts|frontend|audio|game-core|missions|peds|cars|hud|movie|traffic|objects|trains|police)",
       },
       { text: "Reverse engineering", link: "/re/", activeMatch: "/re/" },
       // A static app in docs/public/play/: target _self makes it a full page load, not a VitePress route.
@@ -156,6 +156,10 @@ export default defineConfig({
           items: [
             { text: "Peds, player, input", link: "/peds" },
             { text: "Cars", link: "/cars" },
+            { text: "Traffic", link: "/traffic" },
+            { text: "Objects, explosions, power-ups", link: "/objects" },
+            { text: "Trains", link: "/trains" },
+            { text: "Police, emergency services", link: "/police" },
             { text: "Missions", link: "/missions" },
           ],
         },
@@ -169,7 +173,10 @@ export default defineConfig({
         },
         {
           text: "Sound",
-          items: [{ text: "Sound and music", link: "/audio" }],
+          items: [
+            { text: "Sound and music", link: "/audio" },
+            { text: "Intro movie (Smacker)", link: "/movie" },
+          ],
         },
         {
           text: "Data",

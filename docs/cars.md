@@ -234,6 +234,6 @@ fields the sound module reads (+0x80, +0x88, +0x110, +0x11a, +0x136, +0x138, +0x
 - Out-of-range reads of the type cache (negative layers, the map edge) give 0 where the original reads
   neighbouring memory.
 - sin / cos precision as above.
-- Not ported here (stubs): traffic driving (`Car_DummyFollowRoad`, `Car_DummyDrive`,
-  `Car_DummyKeepLane`), the AI drivers, hunters, explosions, the objects attached to tanks, the peds'
-  side (`Ped_EjectDriver`, `Ped_PanicNear`), power-ups; `Car_SetHorn` 0x406e90.
+- Traffic driving (`Car_DummyFollowRoad`, `Car_DummyDrive`, `Car_DummyKeepLane`, `Car_SetHorn`) is in
+  `src/game/traffic.c` ([Traffic](/traffic)). Not ported here (stubs): the AI drivers, hunters, explosions, the objects attached to tanks, the peds'
+  side (`Ped_EjectDriver`, `Ped_PanicNear`), power-ups.

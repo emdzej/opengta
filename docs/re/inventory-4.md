@@ -252,7 +252,7 @@ sfx volume is 0x4b3114 and music volume is 0x4b3110.
 - Player kind 1 (train) versus the camera kinds 3/4. Several player fields are still unnamed (+0xac block, +0x184,
   +0x1ac..0x1b0 timers, the 10 ints at +0xfc).
 - Exact bit meanings of the control word for axis 2 (bits 13-14) and bit 22.
-- Train kind 2 (single unit) and the predicate kinds of `0x44b310` (1 rail, 3 spawn test, 5 slope, 7 switch, 9 platform).
+- Train kind 2 (single unit): never created (the original jumps over it at 0x46b2f7; docs/trains.md). The predicate kinds of `0x44b310` (1 rail, 3 spawn test, 5 slope, 7 switch, 9 platform).
 - Path slot space: dynamic paths are indexed by controller id (up to 128), while CMP routes sit at 50+. The
   buffer size and how collisions are avoided are not verified.
 - Trigger type numbers (3, 8..0x21) versus the MISSION.INI keywords (TRIGGER, GUN_TRIG, CARDESTROY_TRIG,

@@ -154,7 +154,9 @@ static void check_grid(int section)
     int counted = 0;
     for (int y = 0; y < COLL_GRID; y++)
         for (int x = 0; x < COLL_GRID; x++) counted += g_coll_count[y][x];
-    CHECK(counted == n_obj + n_car + n_ped, "[%d] cell counters %d != %d nodes", section, counted, n_obj + n_car + n_ped);
+    /* the per-cell counters also count the trains' bogies and bodies (kinds 8 and 10, 12 nodes a train) */
+    int n_all = n_obj + n_car + n_ped + coll_count_nodes(COLL_KIND8) + coll_count_nodes(COLL_KIND10);
+    CHECK(counted == n_all, "[%d] cell counters %d != %d nodes", section, counted, n_all);
     (void)objs;
 }
 
@@ -164,6 +166,7 @@ static uint32_t state_hash(void)
     uint32_t h = crc32(g_rng, sizeof g_rng);
     for (int i = 0; i < OBJ_MAX; i++) {
         const Obj *o = &g_objs[i];
+        if ((o->state & 0xff) == 0) continue;   /* free: Obj_InitFromMap only clears state, the rest is stale */
         int32_t v[6] = { o->type, o->state, o->spr.x, o->spr.y, o->spr.z, o->spr.zkey };
         h ^= crc32(v, sizeof v) + (uint32_t)i * 0x9e3779b9u;
     }

@@ -13,6 +13,7 @@
 #include "ped.h"
 #include "player.h"
 #include "stubs.h"
+#include "traffic.h"
 #include "trigger.h"
 #include <math.h>
 #include <stdio.h>
@@ -38,7 +39,6 @@ static struct {
     int16_t bomb_damage;                     /* 0x501550 damage that sets off a damage bomb (10) */
     int16_t u4be23c, u4be23e;
     int16_t tram_doors;                      /* 0x4be244 the tram's doors animate while set */
-    int u504f38, u504f3c;
     int16_t near_view[4];                    /* 0x501548 dummies near each player's view this frame */
 } cs;
 
@@ -75,25 +75,6 @@ void cars_init(void)
     traffic_init_model_tables();
 }
 
-/* Traffic_InitModelTables 0x418f80: three rows of 100 car models (0x4ac108, read from the exe), each
-   shuffled by swapping every entry with a random one of its row (Math_Random % 100). */
-void traffic_init_model_tables(void)
-{
-    const uint8_t *src = exe_data(0x4ac108, sizeof g_traffic_models);
-    if (!src) game_fatal(-2, 0, 0x4ac108);
-    for (int i = 0; i < 300; i++) (&g_traffic_models[0][0])[i] = (uint16_t)(src[2 * i] | src[2 * i + 1] << 8);
-    for (int r = 0; r < 3; r++)
-        for (int i = 0; i < 100; i++) {
-            int j = (int16_t)math_random() % 100;
-            uint16_t t = g_traffic_models[r][i];
-            g_traffic_models[r][i] = g_traffic_models[r][j];
-            g_traffic_models[r][j] = t;
-        }
-    g_traffic_cycle = 0;
-    cs.u504f38 = 0;
-    cs.u504f3c = 0;
-}
-
 int cars_in_use(void)
 {
     int k = 0;
@@ -119,7 +100,7 @@ static bool player_drives_car(int car)       /* Player_IsCarPlayerDriven 0x462a1
         if (car == g_players[n].ped - 200) return true;
     return false;
 }
-static bool player_views_car(int car)        /* Player_IsCarViewTarget 0x462a60 */
+bool player_is_car_view_target(int car)       /* Player_IsCarViewTarget 0x462a60 */
 {
     if (!g_players_ready) return false;
     for (int n = player_first(); n > -1; n = player_next(n))
@@ -136,7 +117,7 @@ static int car_alloc(void)
         const Ped *p = ped_get(i + PED_DRIVER_FIRST);
         if (c->status == -1 && c->unk139 == 0 &&
             (p->control == -1 || (p->health == 0 && p->anim == 0 && p->state != 0xc)) &&
-            !player_drives_car(i) && !player_views_car(i))
+            !player_drives_car(i) && !player_is_car_view_target(i))
             break;
     }
     return i;
@@ -512,7 +493,7 @@ void car_delete(int n)
     if (c->model == 4 && c->sentinel > -1) {
         uint8_t *s = sentinel_get(c->sentinel);
         if (s && *(int32_t *)(s + 4) == 1) {
-            /* an ambulance on a call stays (its crew walks away) */
+            /* a patrol car (record +0x04 == 1) stays: its crew walks away */
             c->damage = 0;
             if (c->control != 3) {
                 coll_remove(c, c->spr.unk20);

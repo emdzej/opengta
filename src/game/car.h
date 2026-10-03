@@ -185,7 +185,6 @@ extern int16_t g_car_forced_accel[CAR_MAX]; /* 0x4bde08 (Car_SetForcedAccel 0x40
 
 static inline Car *car_get(int n) { return &g_cars[n]; }        /* Car_Get 0x408200 */
 void cars_init(void);                       /* Cars_Init 0x4070a0 */
-void traffic_init_model_tables(void);       /* Traffic_InitModelTables 0x418f80 */
 int cars_in_use(void);                      /* slots with status != -1 (for checks) */
 /* the style's car info record of a model (via 0x4be178 and the record table), NULL if none */
 const uint8_t *car_info_of_model(int model);
@@ -247,6 +246,7 @@ bool car_info_is_convertible(int car);      /* CarInfo_IsConvertible 0x40bdb0 */
 bool car_is_on_screen(const Car *c);        /* Car_IsOnScreen 0x40acd0 */
 bool pos_is_near_any_view(int32_t x, int32_t y);   /* Pos_IsNearAnyView 0x40ad40 */
 bool car_is_near_view(const Car *c);        /* Car_IsNearView 0x409960 */
+bool player_is_car_view_target(int car);    /* Player_IsCarViewTarget 0x462a60 (a player's camera follows it) */
 static inline void car_set_status(int n, int s) { g_cars[n].status = (int16_t)s; }   /* Car_SetStatus 0x407070 */
 static inline bool car_is_burning(const Car *c) { return c->burning > 0; }          /* Car_IsBurning 0x40be40 */
 static inline bool car_is_turning(const Car *c) { return c->turn_delta != 0; }      /* Car_IsTurning 0x40be00 */

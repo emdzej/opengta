@@ -278,28 +278,8 @@ static CameraTarget target_pos(const ArrowTarget *a)
     }
 }
 
-/* Map_IsCovered 0x438800 (map module, not ported there yet): a lid over the position, either the
-   block of its own layer with a lid and neither flat nor sloped, or any block above with a lid that
-   isn't flat. */
-static bool map_is_covered(int32_t x, int32_t y, int32_t z)
-{
-    const Map *m = g_game.map;
-    if (!m) return false;
-    int bx = (int16_t)(x >> 22), by = (int16_t)(y >> 22);
-    if (bx < 0 || by < 0 || bx >= MAP_W || by >= MAP_H) return false;
-    const int16_t *col = map_column(m, bx, by);
-    int top = col[0], l = (int16_t)(z >> 22);
-    if (l >= top && l < MAP_Z) {
-        const MapBlock *b = &m->blocks[col[l - top + 1]];
-        if (b->lid && (b->type_map & 0x3f80) == 0) return true;
-    }
-    for (int k = (int16_t)((z >> 22) - 1); k >= 0; k--) {
-        if (k < top || k >= MAP_Z) continue;
-        const MapBlock *b = &m->blocks[col[k - top + 1]];
-        if (b->lid && !(b->type_map & 0x80)) return true;
-    }
-    return false;
-}
+/* Map_IsCovered 0x438800 (src/map.c) */
+static bool map_is_covered(int32_t x, int32_t y, int32_t z) { return g_game.map && map_covered(g_game.map, x, y, z); }
 
 /* ---------------------------------------------------------------- fonts, sprites, init */
 

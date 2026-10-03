@@ -18,15 +18,18 @@ OpenGTA is **early**. What follows is what runs today; the rest of the original 
 | Player and peds | The keyboard controls and the control word, replays, walking, running, turning, wall collision, getting into and out of cars, ambient pedestrians, weapons and projectiles. [Peds, player, input](/peds) |
 | Cars | Car creation and the per-frame update, the player's driving, the rigid-body physics (the original's floating point, operation by operation), collision with the map, objects and other cars, damage and dents. [Cars](/cars) |
 | Missions | The `MISSION.INI` interpreter with all its commands, phones, triggers, doors, cranes, timed bombs, garages, mission cars and briefs. [Missions](/missions) |
+| Intro movie | `MOVIE.SMK` through a clean-room Smacker decoder, picture and sound, before the menus (`intro=0` skips it). [Intro movie](/movie) |
+| Traffic | Cars spawning around the view and driving: lanes, junctions, traffic lights, path finding for AI drivers. [Traffic](/traffic) |
+| Police and emergency services | The wanted level and crime reports, police pursuits and roadblocks, arrests, ambulances, the gang, the scripted helicopter. [Police](/police) |
+| Objects | Moving and animated objects, explosions, fires, power-ups, animated doors, map edits. [Objects](/objects) |
+| Trains | The elevated trains: track following, stations, doors, passengers, riding and driving, crashes. [Trains](/trains) |
 | HUD | Score, multiplier and lives, the wanted level, weapon and ammo, the pager, subtitles, the arrow, area and car-name signs, the big messages, the pause and quit screens. [HUD](/hud) |
 
 ## Not yet
 
-- Traffic (cars driving by themselves), the police, emergency services, gangs: nothing chases you yet,
-  and mission cars that should drive stand still.
-- Moving objects, explosions, fires, trains, power-ups: projectiles are fired but objects don't move yet.
-- So missions start and their briefs play, but most can't be completed.
-- The intro movie (`MOVIE.SMK`) and networked games.
+- Fire engines don't drive yet (fires burn); a few helpers are still stubs (`src/game/stubs.c`).
+- Whole missions haven't been played through and checked against the original yet.
+- Networked games.
 - The 8, 15 and 16 bpp render paths (the port draws the 32 bpp one).
 
 Subsystems that aren't ported are explicit stubs with the original's address (`src/game/stubs.c`), so

@@ -52,7 +52,11 @@ static bool start(int section)
     if (!mission_set_ini_section(section)) return false;
     poly_set_screen_rows(fb, W * 4, H);
     poly_set_clip(0, 0, W - 1, H - 1);
-    return game_run_begin();
+    if (!game_run_begin()) return false;
+    /* empty the traffic pool (Traffic_PrimeCarPool's free slots) so the scripted scenes have the street */
+    for (int i = 0; i < CAR_MAX; i++)
+        if (g_cars[i].status == -1) g_cars[i].unk139 = 0;
+    return true;
 }
 
 static uint8_t held[KEY_COUNT];

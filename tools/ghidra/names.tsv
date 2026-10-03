@@ -192,7 +192,7 @@
 0040d640	Police_InitPursuits	police	med	Init 4 pursuit records (stride 0x3a at 501ac0)
 0040d690	Police_EndPursuit	police	med	Release a pursuit: free its cop drivers, reset counters
 0040d800	Police_UpdatePursuits	police	med	Per frame: recompute wanted level from points (city thresholds), manage cop unit count
-0040da90	Police_SpawnRoadblock	police	low	Spawn cop units from a crime record near the target car/ped (465b20), register them
+0040da90	Police_StartPursuit	police	med	Criminal 0 pursuit countdown; at 0 take a free pursuit group and queue +0x24 police units (nearest patrol cars, 465b20) on the dispatch list 5058a8
 0040dc80	Heli_GetPos	heli	med	Return pickup aircraft position struct 501bb0
 0040dcc0	Heli_Init	heli	med	Reset pickup aircraft state 501bc8
 0040dd10	Heli_SetExitTarget	heli	med	Set fly-away target 501bf4/501bf8
@@ -995,11 +995,11 @@
 0046a9a0	Train_InitAll	train	high	Builds curve tables once, creates trains from the map train list
 0046a9d0	Train_UpdateAll	train	high	Per-frame train update if trains exist; returns 0x14/0x15
 0046a9f0	Train_Command	train	high	Player/train interface: board, leave, door left/right, query speed, etc.
-0046ab00	Train_FindDoorNear	train	med	Tests whether a point is near a carriage door; returns {angle, speed/10}
-0046ae40	Train_CheckPlatformSides	train	med	Marks which carriage sides face pavement (type 3) blocks
+0046ab00	Train_FindDoorNear	train	med	Point near a bogie, midpoint or quarter point of carriage id (same layer): returns {angle, speed/10}
+0046ae40	Train_CheckPlatformSides	train	med	Carriage 1 sides with pavement 3*0x14 px out may let the rider off; 0xff if neither
 0046b090	Train_GetDoorOffsets	train	med	Door exit offsets for a carriage if alive
 0046b200	Train_GetCarriage	train	med	Pointer to carriage centre data (train,carriage)
-0046b240	Train_CreateFromMap	train	high	Creates trains from list 0x77d368 (dir, x, y, z, station)
+0046b240	Train_CreateFromMap	train	high	Creates trains from list 0x77d368 (dir, x, y, z, station); kind 2 (road spawn block) records get only the kind (skipped)
 0046b510	Train_CreateCarriage	train	med	Places a carriage's two bogies and centre, registers in object grid, adds door objects
 0046bc30	Train_BuildCurveTables	train	med	Fills curve offset tables 0x4b22e8.. with __ftol trig and mirrored copies
 0046bd60	Train_Update	train	high	Train state machine: station stops, doors, acceleration, bogie track following, collisions
@@ -1007,18 +1007,18 @@
 0046c5d0	Train_BogieNextPiece	train	med	Chooses next track piece from neighbouring rail blocks (0x44b310 kind 1)
 0046cdb0	Train_BogieComputePos	train	med	Computes bogie world position/angle from block, sub-position and curve table
 0046d050	Train_CarriageUpdateCentre	train	med	Carriage centre/angle from its two bogies
-0046d210	Train_BogieCheckJunction	train	low	Handles rail switch blocks (kind 7)
+0046d210	Train_BogieCheckCurve	train	med	Curve marks (ext 4/5, 0x44b310 kind 7) set the curve row 3-6 (0x46 steps) / 7-8 between them; unmarked blocks straight
 0046d320	Train_BogieCollide	train	med	Collision of bogie with objects; damage, slowdown, crash
 0046d4f0	Train_CheckCarriageHits	train	med	Collides carriages of different trains; crashes both
 0046d650	Train_Crash	train	high	Wrecks a carriage (state 0xd), removes doors, kicks riders, explosion; propagates to all carriages
 0046d7a0	Train_BogieSlope	train	med	Sets bogie height from slope type of current block
-0046da30	Train_CheckStation	train	med	Detects arrival at a station block (0x480c20/0x480c90)
+0046da30	Train_CheckSwitch	train	med	Switch cells (Rail_FindSwitch): an entry cell of a held switch makes the train wait (1), others toggle it; returns 0/1
 0046dae0	Train_DoorLeft	train	low	Player-side door command (cmd 3)
 0046db60	Train_DoorRight	train	low	Player-side door command (cmd 4)
 0046dbe0	Train_ToggleBoarded	train	med	Player boards/leaves: flips +3 and sets max speed
 0046dca0	Train_IsBoarded	train	med	True if player is riding train
 0046dcc0	Train_UpdateDoorSprites	train	low	Sets door object frames from door animation counter
-0046dd70	Train_SpawnExitPed	train	low	Leaving player/ped placed beside the train door
+0046dd70	Train_CheckRoadAhead	train	low	Single-unit trains only (never created): stop for a car/ped half a block ahead or a junction light not green
 0046df90	Train_Reverse	train	low	Reverses travel direction and swaps curve angle constants
 0046e1e0	Train_FindPlatformDoors	train	low	At station: flags carriage sides adjoining platform blocks (kind 9)
 0046e300	Train_UnloadPassengers	train	low	Spawns passengers stepping off at station (random)
@@ -1351,7 +1351,7 @@
 004807e0	Lights_AddGroupMode	lights	med	Adds to mode of all lights in group (clamped to 3)
 00480970	Lights_SetGroupMode	lights	med	Sets mode of all lights in group
 00480ad0	Lights_SetMode	lights	med	Sets mode of one light (0 auto, 3 forced)
-00480bc0	Rail_FindStation	rail	low	Looks up station by (x,y) (result unused)
+00480bc0	Rail_FindStation	rail	med	True (AL) if a station record is at (x,y)
 00480c20	Rail_FindSwitch	rail	med	Returns switch index at (x,y) or 0xFF
 00480c90	Rail_IsSwitchSet	rail	med	True if switch state is 1
 00480cc0	Rail_ToggleSwitch	rail	med	Toggles switch state

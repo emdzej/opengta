@@ -9,8 +9,8 @@ original code, assets or data: it reads the data files, and the tables of the or
 from your own copy of the game.
 
 **Status: early.** The frontend, the city renderer, sound, the HUD and the mission script run as ported
-from the original; you can walk, get into a car and drive. Traffic, the police and moving objects are
-next, so most missions can't be completed yet. Details: [opengta.emdzej.pl/guide/status](https://opengta.emdzej.pl/guide/status).
+from the original; you can walk and drive through traffic, with the police, trains and explosions. Whole missions haven't
+been played through and checked against the original yet. Details: [opengta.emdzej.pl/guide/status](https://opengta.emdzej.pl/guide/status).
 
 ## Game data
 

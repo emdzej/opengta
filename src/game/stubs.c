@@ -41,28 +41,8 @@ int gfx_get_mode_index(void) { return 0; }
 void gfx_select_mode_index(int i) { (void)i; gfx_select_mode(); }
 
 /* ---- Game_Init / Game_Shutdown ---- */
-void heli_init(void) {}
-void lights_init(void) {}                                     /* junctions and their light sprites */
-/* Sentinel_InitAll 0x41abd0: sentinels, ped requests, junction overrides (not ported); the location
-   counts it also takes are ported (route_init_locations). */
-void sentinel_init_all(void) { route_init_locations(); }
-void path_reset(void) {}
-void train_init_all(void) {}
-void fire_init(void) {}
-void expl_init(void) {}
-void blockanim_reset(void) {}
-void hunt_init(void) {}
-void powerup_init_all(void) {}                                /* clears the 256 power-ups at 0x74f858 */
 
 /* ---- the frame ---- */
-void heli_update(void) {}
-int train_update_all(void) { return 20; }
-int lights_update(void) { return 20; }
-void junction_update_override_timers(void) {}
-void obj_update_all(void) {}
-void emergency_update_all(void) {}
-void expl_update_all(void) {}
-void blockanim_tick(void) {}
 
 /* ---- Game_HandleKey ---- */
 void net_build_chat_prefix(int to) { (void)to; }
@@ -70,115 +50,43 @@ void net_build_chat_prefix(int to) { (void)to; }
 /* ---- events ---- */
 
 /* ---- Mission_Load ---- */
-/* Traffic_PrimeCarPool 0x418f00: creates and deletes n cars of the traffic model row at block (1, 1, 1)
-   with the sound suspended, pre-allocating their slots. */
-void traffic_prime_car_pool(int n) { (void)n; stub_calls[STUB_TRAFFIC_PRIME]++; }
 
-void gang_add_car(int car) { (void)car; }
 
-void police_update_criminal_target(int a, int car, int b, int ped) { (void)a, (void)car, (void)b, (void)ped; }
 
-void heli_set_exit_target(int32_t x, int32_t y) { (void)x, (void)y; }
 
 /* ---- objects ---- */
-void fire_register(int obj) { (void)obj; }
+/* Car_DampThrust 0x40c0c0: thrust below a fraction of the car info's is scaled (constants 0x4a7358 /
+   0x4a7350): not ported */
+void car_damp_thrust(Car *c) { (void)c; }
+/* FireEngine_Dispatch 0x42ec70: the nearest of the 4 fire stations sends a fire engine (FireEngine_Spawn
+   0x42e920, car model 0x2a, sentinel type 6) to the fire {object, x, y, z}: AI, not ported (no engine) */
+int fire_engine_dispatch(const int16_t info[4], int slot) { (void)info, (void)slot; return -1; }
 
 /* ---- player module (the accessors as in the original; the rest does nothing yet) ---- */
 #include "player.h"
 /* Player_AddScore 0x461f20: score += points * multiplier (with the HUD and frenzy cases): not ported. */
 
 /* ---- other subsystems the mission interpreter calls ---- */
-bool car_is_marked_for_removal(int car) { (void)car; return false; }
-void ambulance_clear_request(int id) { (void)id; }
-void heli_spawn(int32_t x, int32_t y, int32_t z, int size, int32_t tx, int32_t ty, int32_t tz)
-{
-    (void)x, (void)y, (void)z, (void)size, (void)tx, (void)ty, (void)tz;
-}
-void police_report_crime(int a, int id, int kind, int32_t x, int32_t y, int32_t z)
-{
-    (void)a, (void)id, (void)kind, (void)x, (void)y, (void)z;
-}
-void hunt_remove(int ped) { (void)ped; }
-int hunt_add_block_target(int ped, int bx, int by, int bz) { (void)ped, (void)bx, (void)by, (void)bz; return 0; }
-int hunt_add_block_target2(int ped, int bx, int by, int bz) { (void)ped, (void)bx, (void)by, (void)bz; return 0; }
-void powerup_add(int type, int param, int32_t x, int32_t y, int32_t z) { (void)type, (void)param, (void)x, (void)y, (void)z; }
-void powerup_remove_at(int32_t x, int32_t y) { (void)x, (void)y; }
 
 /* ---- what the mission helpers (mission_obj.c, dummy.c) call ---- */
-void expl_create(int32_t x, int32_t y, int32_t z, int owner) { (void)x, (void)y, (void)z, (void)owner; }
-void expl_damage_area(int32_t x, int32_t y, int32_t r, int owner) { (void)x, (void)y, (void)r, (void)owner; }
-int obj_create_animated(int32_t x, int32_t y, int32_t z, int type, int owner, int angle)
-{
-    (void)x, (void)y, (void)z, (void)type, (void)owner, (void)angle;
-    return -1;
-}
-void obj_kick(int32_t x, int32_t y, int obj, int kind, int angle) { (void)x, (void)y, (void)obj, (void)kind, (void)angle; }
-void obj_set_state(int obj, int state) { obj_get(obj)->state = (int16_t)state; }
-void ambulance_cancel_for_ped(int ped) { (void)ped; }
-void hunt_add_car_target(int car, int target, int mode) { (void)car, (void)target, (void)mode; }
-int train_get_count(void) { return 0; }
-uint8_t *train_get(int i) { static uint8_t rec[0x5c8]; (void)i; return rec; }
-void train_crash(int train, int mode) { (void)train, (void)mode; }
-int sentinel_find_free(void) { return -1; }
-uint8_t *sentinel_get(int i) { static uint8_t rec[0x98]; (void)i; return rec; }
-void sentinel_override_lights(uint8_t *rec, Car *c) { (void)rec, (void)c; }
-int map_find_nearest_road(uint8_t out[8]) { (void)out; return 0; }
-int path_find(int x, int y, int z, int dx, int dy, int dz, int mode, int ctrl)
-{
-    (void)x, (void)y, (void)z, (void)dx, (void)dy, (void)dz, (void)mode, (void)ctrl;
-    return 0;
-}
-int16_t g_path_owner = -1;
-int16_t g_path_result;
 void front_get_multi_target(uint8_t *kind, uint8_t *value) { *kind = 0, *value = 0; }
-void map_set_block_face(int x, int y, int z, int face, int tile) { (void)x, (void)y, (void)z, (void)face, (void)tile; }
-void map_set_block_type(int x, int y, int z, uint32_t info) { (void)x, (void)y, (void)z, (void)info; }
-int police_find_criminal_by_ped(int ped) { (void)ped; return -1; }
-void police_clear_criminal(int i) { (void)i; }
-void police_spawn_patrol_cars(void) {}
-void police_init_criminals(void) {}
-void police_init_pursuits(void) {}
 int32_t g_police_no_patrols;
 
 /* ---- for the MissionOp_* handlers (mission_ops.c) ---- */
 void camera_start_transition(int n) { (void)n; }
-bool powerup_exists_at(int32_t x, int32_t y) { (void)x, (void)y; return false; }
-bool train_any_wrecked(void) { return false; }
-int ambulance_busy_sentinel(void) { return -1; }
-bool obj_is_on_screen(const Obj *o) { (void)o; return false; }
+int ambulance_busy_sentinel(void) { return g_path_owner; }   /* 0x4b3094 is the path search owner (path.c) */
 
 /* ---- what the player / ped modules call ---- */
-int train_command(int cmd, int train) { (void)cmd, (void)train; return 0; }
-int train_is_boarded(int train) { (void)train; return 0; }
-void car_set_horn_by_id(int car, int on) { (void)car, (void)on; }
-void police_show_criminal_record(void) {}
 
 /* ---- what the mission runtime objects (trigger.c) call ---- */
-static int blockanim_next;   /* 0x4bbc68 */
-int blockanim_create(int x, int y, int z, int face) { (void)x, (void)y, (void)z, (void)face; return blockanim_next++ & 0x3f; }
-void blockanim_set_tile(int a, int mode, int tile) { (void)a, (void)mode, (void)tile; }
-int blockanim_get_tile_slot(int a) { return a; }
-void blockanim_start_forward(int a, int n, int frames, int mode, int tile) { (void)a, (void)n, (void)frames, (void)mode, (void)tile; }
-void blockanim_start_reverse(int a, int n, int frames, int mode, int tile) { (void)a, (void)n, (void)frames, (void)mode, (void)tile; }
-void blockanim_set_event(int a, int type, int arg) { (void)a, (void)type, (void)arg; }
-void map_set_block_kind(int x, int y, int z, int kind) { (void)x, (void)y, (void)z, (void)kind; }
-void map_or_block_flags(int x, int y, int z, int flags) { (void)x, (void)y, (void)z, (void)flags; }
-void gang_update(void) {}
 int player_get_view_id(int n) { return (int16_t)g_players[n].view_id; }   /* 0x462fa0 */
 int player_get_multiplier(int n) { return (int16_t)g_players[(int16_t)n].mult; }   /* 0x463090 */
+/* Player_TrainCrashKick 0x463b70 (player module): every player riding train t (kind 1) dies (its ped's +0x49 = 0) */
+int player_train_crash_kick(int t) { int r = 0; for (int n = player_first(); n > -1; n = player_next(n)) if (g_players[n].ctl_kind == 1 && g_players[n].ctl_id == (t & 0xff)) g_peds[g_players[n].ped].health = 0, r = 1; return r; }
 void player_award_bonus(int n, int kind, int32_t x, int32_t y, int32_t z, int a, int cause)
 {
     (void)n, (void)kind, (void)x, (void)y, (void)z, (void)a, (void)cause;
 }
-void powerup_collect(int player, int32_t x, int32_t y, int how) { (void)player, (void)x, (void)y, (void)how; }
-int lights_query(int what, int bx, int by) { (void)what, (void)bx, (void)by; return 0; }   /* (no lights: peds may cross) */
-/* Police_CopsForWanted 0x4131d0: wanted level 1-2 -> 1, 3-4 -> 2, else 0 (no side effects) */
-int police_cops_for_wanted(int player)
-{
-    int l = g_players[player < 0 ? 0 : player].wanted_level;
-    return l == 1 || l == 2 ? 1 : l == 3 || l == 4 ? 2 : 0;
-}
-void obj_delete_wrapper(int obj) { obj_delete(obj); }   /* a thunk to Obj_Delete */
 /* Map_GetLidBelow 0x4387b0: the lid tile of block (x, y, (z >> 22) + 1) (16.16), 0 above the column */
 int map_get_lid_below(int32_t x, int32_t y, int32_t z)
 {
@@ -216,31 +124,58 @@ int map_test_block_attr(int what, int bx, int by, int bz)
     }
     return 0;
 }
-int obj_create_attached(int owner, int kind, int dx, int dy, int type) { (void)owner, (void)kind, (void)dx, (void)dy, (void)type; return -1; }
-void ambulance_request_for_ped(int ped) { (void)ped; }
 
 /* ---- what the car module (car.c, carcoll.c) calls ---- */
-void car_dummy_follow_road(Car *c) { (void)c; }
-void car_dummy_drive(Car *c) { (void)c; }
-void car_dummy_keep_lane(Car *c) { (void)c; }
-void sentinel_drive_car(Car *c) { (void)c; }
-void hunt_update_car(Car *c) { (void)c; }
-void traffic_spawn_around_view(int player, int near) { (void)player, (void)near; }
-void expl_car_explode(int car) { (void)car; }
-void car_mark_for_removal(int car) { (void)car; }
-void obj_list_rotate(void) {}
-void obj_remove_moving(int obj) { (void)obj; }
-void obj_delete_by_owner(int owner) { (void)owner; }
-void fire_clear_objects(int car) { (void)car; }
-void obj_on_car_wrecked(Car *c) { (void)c; }
-void powerup_reveal(int32_t x, int32_t y) { (void)x, (void)y; }
 void car_fire_rocket(Car *c) { (void)c; }
 /* ---- what the projectiles (proj.c) call ---- */
-bool expl_at_face_if_solid(int bx, int by, int bz, int face, int player) { (void)bx, (void)by, (void)bz, (void)face, (void)player; return false; }
 
-int train_check_platform_sides(int train) { (void)train; return -1; }   /* (no trains) */
-int train_get_door_offsets(int train) { (void)train; return 0; }
-void train_update_door_sprites(int train) { (void)train; }
-void train_load_passengers(int train, int ped) { (void)train, (void)ped; }
-void cop_dismiss(Car *c, int ped) { (void)c, (void)ped; }
-int fire_has_objects(int car) { (void)car; return 0; }
+/* ---- what the police / wanted level call (real ports, here until their modules have them) ---- */
+#include "../exe.h"
+#include "../hud/hud.h"
+/* Area_GetSample 0x44b7b0: the first nav zone with a sample containing block (x, y), except sample 1
+   in style 1 and 11 in style 3 (as Area_GetName): its sample and the compass part of the zone the
+   block is in (Area_SubDirection through the table 0x4b1dec); 0, 0 outside every zone. */
+void area_get_sample(uint8_t x, uint8_t y, uint8_t *area, uint8_t *dir)
+{
+    int style = style_requested();
+    const uint8_t *map = exe_data(0x4b1dec, 16);
+    for (int i = 0; i < g_nav_count; i++) {
+        const NavZone *z = &g_nav[i];
+        if (z->sample == 0 || x < z->x || y < z->y || x >= z->x + z->w || y >= z->y + z->h) continue;
+        if ((style == 1 && z->sample == 1) || (style == 3 && z->sample == 0xb)) continue;
+        int d = area_sub_direction((uint8_t)(x - z->x), (uint8_t)(y - z->y), z->w, z->h);
+        *dir = map ? map[d & 0xf] : 0;
+        *area = z->sample;
+        return;
+    }
+    *dir = 0;
+    *area = 0;
+}
+/* Player_IncKills 0x462960: the counters at +0xfc are shorts: [kind] this life, [10 + kind] total (the
+   original's "below 0x8000" test on a short is always true: they wrap) */
+void player_inc_kills(int n, int kind)
+{
+    int16_t *k = (int16_t *)(void *)g_players[n].stats;
+    k[kind] = (int16_t)(k[kind] + 1);
+    k[10 + kind] = (int16_t)(k[10 + kind] + 1);
+}
+/* Player_SetViewFixed4 0x462d00: the camera of player n on the fixed point (x, y, z), kind 4 */
+void player_set_view_fixed4(int32_t x, int32_t y, int32_t z, int n)
+{
+    Player *p = &g_players[n];
+    p->view_x = x, p->view_kind = 4, p->view_id = 0, p->view_y = y, p->view_z = z;
+}
+/* the fire engines (fire module) as Sentinel_DriveCar calls them */
+int fire_engine_update(Sentinel *s) { (void)s; return 0; }   /* FireEngine_Update 0x42f460 (0: don't drive on) */
+void fire_engine_remove(Sentinel *s) { (void)s; }            /* FireEngine_Remove 0x42e870 */
+/* Ref_GetKind1PosRect 0x45fb60 (ped module): x, y, z of the train a ped rides (Train_Command 7 fills
+   the board record); the original copies the whole record with speed / 10 into 0x74f10c */
+#include "train.h"
+const int32_t *ref_get_kind1_pos_rect(int train)
+{
+    static int32_t rec[3];
+    train_command(7, train);
+    const TrainBoardInfo *r = train_get_board_info();
+    rec[0] = r->x, rec[1] = r->y, rec[2] = r->z;
+    return rec;
+}

@@ -419,7 +419,7 @@ Traffic (`Traffic_SpawnAroundView`) comes next.
 
 ## Open questions
 
-- **0x41a490 `Map_FindNearestRoad`**: when following a road it moves x-1 for direction bit 1, x+1 for bit 2, y+1 for bit 4 and y-1 for bit 8. That contradicts the -y/+y/-x/+x meaning used by the sentinel and traffic code. Either the original has a quirk, or the struct field order needs rechecking.
+- **0x41a490 `Map_FindNearestRoad`**: when following a road it moves x-1 for direction bit 1, x+1 for bit 2, y+1 for bit 4 and y-1 for bit 8. That contradicts the -y/+y/-x/+x meaning used by the sentinel and traffic code. **Settled:** it is the original's own behaviour (the jump table at 0x41a72c), kept in the port; see docs/traffic.md.
 - `Emergency_UpdateAll` 0x419880 could not be decompiled. Only its data flow is known (from the disassembly): ambulance queue, police dispatch list at 0x5058a8 (stride 12), junction override list at 0x50586c.
 - Exact semantics of 0x5031d8 (WinMain picks a network/direct-start path) and of the switches set by the 43-argument call to 0x4146d0.
 - Collision kinds 7, 8, 10, 0xd, 0xe, 0x13, 0x1e are not identified (likely trains, lights and doors).

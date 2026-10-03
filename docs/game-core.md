@@ -255,5 +255,6 @@ All 17 sections of the shipped MISSION.INI load (tests/level_test.c).
   `game_map_load`. `Coll_Init` and `Obj_LoadInfos` (called from inside `Style_Load`) run right after
   `style_load` in `style_load_requested`.
 - Car creation (`Car_Init` 0x4067c0) is a placeholder in stubs.c: the slot the original picks, model,
-  info, size, sprite frame and palette, the grid; no physics. `Traffic_PrimeCarPool` does nothing, so
-  the car count doesn't include the 100 pre-allocated traffic slots.
+  info, size, sprite frame and palette, the grid; no physics (since replaced by the real `Car_Init`,
+  [Cars](/cars)). `Traffic_PrimeCarPool` is ported too ([Traffic](/traffic)): mission 1 primes 100
+  traffic slots.

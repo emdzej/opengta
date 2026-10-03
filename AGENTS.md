@@ -19,8 +19,9 @@ fix deviations *of the port* from the original.
 tables (`src/exe.c`), every function named in Ghidra (`docs/re/`), map + style, camera, city renderer and
 DMA's rasteriser (32 bpp), sprites, text/fonts/frontend images, the frontend state machine, sound (Miles
 mixer port), game core (`Game_Run`, MISSION.INI loading, entity tables, collision grid), peds/player/input,
-cars and their physics, the mission interpreter, the HUD. Next: traffic and AI drivers, police, objects
-(`Obj_UpdateAll`), explosions and fires, trains, power-ups, the intro movie.
+cars and their physics, the mission interpreter, the HUD, traffic and AI drivers, police and emergency
+services, objects/explosions/fires/power-ups, trains, the intro movie (Smacker). Next: play missions
+through and compare with the original, the remaining stubs (`src/game/stubs.c`), fire engines, London.
 
 ## Hard rules
 
@@ -80,10 +81,10 @@ tools/fetch-gasm-sdk.sh && RUN="$(tools/fetch-gasm-runner.sh macos-universal)/ga
 cmake -S . -B build-gasm -DOPENGTA_PLATFORM=gasm -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_TOOLCHAIN_FILE=.deps/gasm-c-sdk/cmake/gasm-toolchain.cmake -DWASI_SDK_PREFIX="$PWD/.deps/wasi-sdk"
 cmake --build build-gasm -j
-# menus, Enter x3 -> mission 1 (front=0 skips the menus)
-$RUN build-gasm/opengta.wasm --asset-dir installer --headless 200 \
+# menus, Enter x3 -> mission 1 (intro=0: no intro movie, front=0 skips the menus)
+$RUN build-gasm/opengta.wasm --asset-dir installer --headless 200 --param intro=0 \
   --input "60:KEY(Enter),100:KEY(Enter),140:KEY(Enter)" --screenshot /tmp/g.png
-node ../gasm/runners/web/headless.mjs build-gasm/opengta.wasm --asset-dir installer --headless 200 \
+node ../gasm/runners/web/headless.mjs build-gasm/opengta.wasm --asset-dir installer --headless 200 --param intro=0 \
   --input "60:KEY(Enter),100:KEY(Enter),140:KEY(Enter)"     # must print the same hash line
 ```
 

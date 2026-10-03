@@ -6,6 +6,7 @@ as the original does.
 
 | Parameter | Values | What |
 |---|---|---|
+| `intro` | `0` | No intro movie (it plays before the menus, as in the original; any key but Alt skips it). |
 | `mission` | a `MISSION.INI` section | Skip the menus and start that section's level, e.g. `1` and `2` (Liberty City), `102`, `103` (San Andreas), `202`, `203` (Vice City). The game quits when the level ends. |
 | `front` | `0` | Skip the menus and open the **city viewer**: the city drawn by the ported renderer around a camera target you move, without the game. |
 | `map` | `nyc`, `sanb`, `miami` | The viewer's city (default `nyc`). |

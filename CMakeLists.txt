@@ -8,7 +8,7 @@ set(CMAKE_C_STANDARD 11)
 set(OG_WARN -Wall -Wextra -Wno-unused-parameter)
 
 # The portable core: everything except host backends (no platform headers).
-file(GLOB CORE_SRC CONFIGURE_DEPENDS src/*.c src/render/*.c src/game/*.c src/front/*.c src/audio/*.c src/hud/*.c)
+file(GLOB CORE_SRC CONFIGURE_DEPENDS src/*.c src/render/*.c src/game/*.c src/front/*.c src/audio/*.c src/hud/*.c src/movie/*.c)
 set(HOST_SRC src/vfs_host.c)
 foreach(f ${HOST_SRC} src/platform_gasm.c)
   list(REMOVE_ITEM CORE_SRC "${CMAKE_SOURCE_DIR}/${f}")
