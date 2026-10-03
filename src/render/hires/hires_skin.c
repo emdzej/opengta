@@ -43,7 +43,7 @@ static void (*logf_)(const char *);
 static void say(const char *fmt, const char *a, const char *b)
 {
     if (!logf_) return;
-    char m[512];
+    char m[640];   /* fits a 340-byte path and a 160-byte error */
     snprintf(m, sizeof m, fmt, a, b);
     logf_(m);
 }
@@ -94,6 +94,35 @@ static uint32_t *load_png(const char *path, int *w, int *h)
     return px;
 }
 
+/* Per-resolution variants: "<base>@<k>x.png" is the image hand-made for hires=k. At hires=N the first
+   that exists of: @Nx, the nearest larger level (@N+1x .. @4x, scaled down), the master "<base>.png" (any
+   size, scaled), the nearest smaller level (@N-1x .. @1x, scaled up). `path` ends in ".png". */
+static uint32_t *load_png_level(const char *path, int *w, int *h)
+{
+    size_t n = strlen(path);
+    if (n < 4 || strcmp(path + n - 4, ".png")) return load_png(path, w, h);
+    char base[320], p[340];
+    snprintf(base, sizeof base, "%.*s", (int)(n - 4), path);
+    int order[9], no = 0;
+    order[no++] = scale;
+    for (int k = scale + 1; k <= 4; k++) order[no++] = k;
+    order[no++] = 0;   /* the master */
+    for (int k = scale - 1; k >= 1; k--) order[no++] = k;
+    for (int i = 0; i < no; i++) {
+        if (order[i]) snprintf(p, sizeof p, "%s@%dx.png", base, order[i]);
+        else snprintf(p, sizeof p, "%s.png", base);
+        size_t size;
+        uint8_t *f = hires_skin_reader(p, &size);
+        if (!f) continue;
+        char err[160];
+        uint32_t *px = hires_png_decode(f, size, w, h, err, sizeof err);
+        free(f);
+        if (px) return px;
+        say("OpenGTA: skin: %s: %s", p, err);
+    }
+    return NULL;
+}
+
 static Entry *slot(Skin *k, int style, int kind, int n, int variant, const uint32_t *clut, uint32_t deltas, bool *found)
 {
     uint32_t hh = (uint32_t)(style * 7919 + kind * 104729 + n * 31 + variant * 1299709) ^ (uint32_t)(uintptr_t)clut;
@@ -121,7 +150,7 @@ static HiresTexture *file(Skin *k, const HiresAsset *a, int variant, const char 
     char path[256];
     snprintf(path, sizeof path, "skins/%s/style%03d/%s/%d%s.png", k->info.name, a->style, FOLDER[a->kind], a->n, suffix);
     int w, h;
-    uint32_t *px = load_png(path, &w, &h);
+    uint32_t *px = load_png_level(path, &w, &h);
     HiresTexture *t = NULL;
     if (px) {
         int cap = 128 * scale;
@@ -443,7 +472,7 @@ static HiresTexture *path_image(Skin *k, const char *rel, int cap, bool *have)
     char path[320];
     snprintf(path, sizeof path, "skins/%s/%s", k->info.name, rel);
     int w, h2;
-    uint32_t *px = load_png(path, &w, &h2);
+    uint32_t *px = load_png_level(path, &w, &h2);
     HiresTexture *t = NULL;
     if (px) {
         if (cap > 0) shrink(&px, &w, &h2, cap);

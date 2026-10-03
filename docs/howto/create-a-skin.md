@@ -144,6 +144,22 @@ Tiles are square: 64 x 64 in the original. Draw them square at any size; good si
 Larger images are box-filtered down to 128 x scale at load (they look the same and use less memory), so
 one 512 x 512 set serves every scale.
 
+### Details per scale: `@1x` .. `@4x`
+
+A 512 x 512 tile box-filtered to 128 x 128 loses its thin lines and small lettering. To draw a scale by
+hand, put the version next to the plain file with the scale in its name:
+
+```
+my-skin/style001/lid/7.png       the master: used where no level fits
+my-skin/style001/lid/7@1x.png    drawn for hires=1 (128 x 128: bolder lines, no small detail)
+my-skin/style001/lid/7@4x.png    drawn for hires=4 (512 x 512: every detail)
+```
+
+At `hires=N` the game takes `@Nx`, else the nearest larger level (scaled down), else the master, else
+the nearest smaller level (scaled up). With the files above, `hires=2` and `hires=3` use `7@4x.png`
+scaled down. This works for every kind of file, variants included (`7_r1@2x.png`, `72_mask@4x.png`,
+`font/BIG1/65@1x.png`), and you only need levels where a scale looks wrong: the rest stays one master.
+
 - **Lids** are the tops of blocks (roads, pavements, roofs). A block can tint its lid with a remap
   (0 to 3; mostly shading, like a shadowed pavement). Without `lid/<n>_r<r>.png` your plain image is
   shaded the way the remap shades the original, which is usually what you want.

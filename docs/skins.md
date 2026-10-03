@@ -53,6 +53,25 @@ skins/<name>/font/..., skins/<name>/pictures/...  fonts and frontend pictures (s
 - Images much larger than the scale can show are box-filtered down at load: tiles to 128 N texels, sprites
   to 2 N times their original size (so a 256 x 256 tile is drawn from 128 x 128 at `hires=1`).
 
+### Per-resolution variants: `@Nx`
+
+Any image of a skin (tiles, their `_r` variants, sprites, masks, deltas, glyphs, pictures) can come in
+versions drawn by hand for one scale: `<name>@1x.png` .. `<name>@4x.png` next to (or instead of)
+`<name>.png`, e.g. `lid/7@2x.png`, `sprite/72_mask@4x.png`, `font/BIG1/65@1x.png`. At `hires=N` the
+first that exists is used:
+
+1. `<name>@Nx.png`, the image for this scale;
+2. the nearest larger level, `@(N+1)x` .. `@4x` (scaled down: losing detail is safe);
+3. the master `<name>.png`, any size;
+4. the nearest smaller level, `@(N-1)x` .. `@1x` (scaled up).
+
+Every level is scaled to the footprint like any skin image, so the sizes are a recommendation (tiles
+`128 N`, sprites `2 N` times the original); a level larger than the cap is box-filtered down. The
+variant suffixes go before the level: `7_r1@2x.png`, not `7@2x_r1.png`. A skin can mix freely: a master
+for most files and levels only where a scale needs its own detail (thinner lines at 1x, small text that
+only reads at 4x). `skin_template --validate` checks a level's name like its master's and reports any
+other `@` suffix.
+
 ### Variants: remaps and directions
 
 The original draws one tile with different CLUTs: lids with the block's remap (ext bits 3-4, 0..3; mostly

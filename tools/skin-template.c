@@ -796,6 +796,12 @@ static int validate(const char *dir)
                 p += l + (p[l] == '/');
             }
             if (nseg == 0) continue;   /* an empty path */
+            /* a per-resolution variant "<name>@<k>x.png" (k = 1..4) is checked like "<name>.png" */
+            char *at = strrchr(seg[nseg - 1], '@');
+            if (at) {
+                if (at[1] >= '1' && at[1] <= '4' && !strcmp(at + 2, "x.png")) memmove(at, at + 3, strlen(at + 3) + 1);
+                else { if (!pass) report(ERR, rel, "a resolution variant is <name>@1x.png .. <name>@4x.png"); continue; }
+            }
             const char *last = seg[nseg - 1];
             size_t ll = strlen(last);
             bool png = ll > 4 && !strcmp(last + ll - 4, ".png"), PNG = ll > 4 && !strcasecmp(last + ll - 4, ".png");
