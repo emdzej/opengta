@@ -495,7 +495,8 @@ static int classify(float r, float g, float b, const Material *mat, int k)
    strongest material, anti-aliased against the runner-up over about one output pixel. Contours become
    smooth curves at the output resolution, small wiggles below the blur disappear, corners round
    slightly. */
-static float sigma = 2.0f, building_sigma = 0.9f, sprite_sigma = 1.3f;
+static float sigma = 2.0f, building_sigma = 0.9f, sprite_sigma = 1.3f, vehicle_sigma = 1.5f;
+static int field_mirror;   /* > 0: the fields are made symmetric about x = (field_mirror - 1) / 2 (cars) */
 static void draw_fields(const ClassMap *cm, const Material *mat, uint32_t *out, int L)
 {
     static float field[MAXK + 1][TILE * TILE], tmp[TILE * TILE];
@@ -524,6 +525,15 @@ static void draw_fields(const ClassMap *cm, const Material *mat, uint32_t *out, 
                 f[y * TILE + x] = v;
             }
     }
+    if (field_mirror > 0)
+        for (int j = 0; j < np; j++)
+            for (int y = 0; y < TILE; y++)
+                for (int x = 0; x < field_mirror / 2; x++) {
+                    int px = field_mirror - 1 - x;
+                    if (px >= TILE) continue;
+                    float *a = &field[j][y * TILE + x], *b = &field[j][y * TILE + px], m = (*a + *b) / 2;
+                    *a = *b = m;
+                }
     float gain = (float)L / TILE * sigma * 1.25f;
     for (int y = 0; y < L; y++)
         for (int x = 0; x < L; x++) {
@@ -1009,7 +1019,7 @@ static void shade_groups(const Material *mat, uint8_t *group, float dl)
    pixel) and drawn back at up to 512 pixels. Car paint (the texels remap 1 recolours) gets two classes of
    its own, light and dark, in the sprite's own paint colours, and a paint mask drawn from the same shapes:
    the game recolours the masked pixels per car, shaded by their brightness against the paint's. */
-enum { P_LIGHT = MAXK, P_DARK, SPRITE_OUT = 512 };
+enum { P_LIGHT = MAXK, P_DARK, SPRITE_OUT = 512, VEHICLE_COLOURS = 6 };
 
 static bool sprite_wanted(int n, bool *vehicle)
 {
@@ -1073,6 +1083,190 @@ static void sprite_speckle(ClassMap *cm, int cw, int ch)
             if (!same && best >= 0) out[y * TILE + x] = (uint8_t)best;
         }
     memcpy(cm->cls, out, sizeof out);
+}
+
+/* The vector outline: pixels within r of the silhouette (alpha) darkened, anti-aliased by how many of
+   16 directions reach outside. */
+static void outline(uint32_t *img, int L, int w, int h, float r)
+{
+    static uint8_t a[SPRITE_OUT * SPRITE_OUT];
+    for (int i = 0; i < L * L; i++) a[i] = (uint8_t)(img[i] >> 24);
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            uint32_t c = img[y * L + x];
+            if ((c >> 24) < 8) continue;
+            int out = 0;
+            for (int d = 0; d < 16; d++) {
+                float ang = (float)d * 0.3926991f;
+                int X = x + (int)lroundf(cosf(ang) * r), Y = y + (int)lroundf(sinf(ang) * r);
+                out += X < 0 || Y < 0 || X >= w || Y >= h || a[Y * L + X] < 128;
+            }
+            if (!out) continue;
+            float t = 1 - 0.45f * (out > 4 ? 1 : out / 4.0f);
+            uint32_t R = (uint32_t)((c & 0xff) * t), G = (uint32_t)((c >> 8 & 0xff) * t), B = (uint32_t)((c >> 16 & 0xff) * t);
+            img[y * L + x] = (c & 0xff000000u) | B << 16 | G << 8 | R;
+        }
+}
+
+/* ---- vehicles as designed shapes ----
+   Seen from above a vehicle is symmetric about its long axis, so its parts are profiles: for every row
+   of the class map, a half-width around the centre line. The body is the silhouette's; the glass is the
+   dark rows inside it, grouped into runs (windscreen, rear window); the roof is the paint between the first
+   two runs, a shade lighter. Profiles are smoothed along the car, then drawn at the output resolution with
+   the half-width interpolated between rows: clean curves instead of traced pixels. What is left (lights,
+   stripes, light bars, signs) is drawn over from the symmetric class fields, regions of 6 class pixels or
+   more only. White in the paint mask: the body minus the glass and the details (roof included, so it is
+   recoloured with the car and stays lighter). */
+enum { GLASS = MAXK - 1, P_HI = MAXK - 2 };
+
+static void smooth_profile(float *p, int n, int passes)
+{
+    float t[TILE];
+    for (int k = 0; k < passes; k++) {
+        for (int i = 0; i < n; i++) {
+            if (p[i] < 0) { t[i] = p[i]; continue; }
+            float a = i > 0 && p[i - 1] >= 0 ? p[i - 1] : p[i], b = i < n - 1 && p[i + 1] >= 0 ? p[i + 1] : p[i];
+            t[i] = (a + 2 * p[i] + b) / 4;
+        }
+        memcpy(p, t, sizeof(float) * (size_t)n);
+    }
+}
+
+/* coverage of |x - cx| < hw(y) at class-map position (sx, sy), anti-aliased over one output pixel (1/q) */
+static float profile_cover(const float *hw, int n, float sx, float sy, float cx, int q)
+{
+    int y0 = (int)floorf(sy);
+    float fy = sy - y0;
+    float a = y0 >= 0 && y0 < n ? hw[y0] : -1, b = y0 + 1 >= 0 && y0 + 1 < n ? hw[y0 + 1] : -1;
+    float h = a < 0 && b < 0 ? -1 : a < 0 ? b - (1 - fy) * (b + 1) * 2 : b < 0 ? a - fy * (a + 1) * 2 : a + (b - a) * fy;
+    float c = (h + 0.5f - fabsf(sx - cx)) * q;
+    return c < 0 ? 0 : c > 1 ? 1 : c;
+}
+
+static uint32_t rgba_of(const Material *m, float a)
+{
+    return (uint32_t)(a * 255 + 0.5f) << 24 | (uint32_t)(m->b + 0.5f) << 16 | (uint32_t)(m->g + 0.5f) << 8 | (uint32_t)(m->r + 0.5f);
+}
+
+static void blend_over(uint32_t *d, const Material *m, float a)
+{
+    if (a <= 0) return;
+    uint32_t o = *d;
+    float da = (float)(o >> 24) / 255, oa = a + da * (1 - a);
+    float r = ((float)(o & 0xff) * da * (1 - a) + m->r * a) / oa, g = ((float)(o >> 8 & 0xff) * da * (1 - a) + m->g * a) / oa,
+          b = ((float)(o >> 16 & 0xff) * da * (1 - a) + m->b * a) / oa;
+    Material t = { r, g, b, 0, 0 };
+    *d = rgba_of(&t, oa);
+}
+
+/* cm: P_LIGHT paint, GLASS, 0..kv-1 the vehicle's other colours; colours in vm (P_LIGHT the paint). */
+static void draw_vehicle(const ClassMap *cm, int cw, int ch, const Material *vm, int q, int L, uint32_t *img, uint32_t *mask)
+{
+    float cx = (field_mirror - 1) / 2.0f, body[TILE], glass[TILE];
+    int run_of[TILE];
+    for (int y = 0; y < ch; y++) {
+        int l = -1, r = -1, gl = -1, gr = -1, ng = 0;
+        for (int x = 0; x < cw; x++) {
+            uint8_t c = cm->cls[y * TILE + x];
+            if (c == TRANSPARENT) continue;
+            if (l < 0) l = x;
+            r = x;
+            if (c == GLASS) { if (gl < 0) gl = x; gr = x; ng++; }
+        }
+        body[y] = l < 0 ? -1 : ((cx - l) + (r - cx)) / 2;
+        /* a glass row: glass over a third of the body's width */
+        glass[y] = l >= 0 && ng * 3 >= (r - l + 1) ? ((cx - gl) + (gr - cx)) / 2 : -1;
+    }
+    /* glass runs (rows of glass with gaps of at most one row), short ones dropped */
+    int nruns = 0, rs[8], re[8];
+    for (int y = 0; y < ch;) {
+        if (glass[y] < 0) { y++; continue; }
+        int a = y;
+        while (y < ch && (glass[y] >= 0 || (y + 1 < ch && glass[y + 1] >= 0))) {
+            if (glass[y] < 0) glass[y] = (glass[y - 1] + glass[y + 1]) / 2;
+            y++;
+        }
+        if (y - a >= 3 && nruns < 8) rs[nruns] = a, re[nruns] = y - 1, nruns++;
+        else for (int k = a; k < y; k++) glass[k] = -1;
+    }
+    for (int y = 0; y < ch; y++) run_of[y] = -1;
+    for (int r = 0; r < nruns; r++)
+        for (int y = rs[r]; y <= re[r]; y++) run_of[y] = r;
+    smooth_profile(body, ch, 2);
+    /* each run on its own (they don't blend into each other) */
+    float gr[8][TILE];
+    for (int r = 0; r < nruns; r++) {
+        for (int y = 0; y < ch; y++) gr[r][y] = run_of[y] == r ? glass[y] : -1;
+        smooth_profile(gr[r], ch, 2);
+        for (int y = 0; y < ch; y++)
+            if (gr[r][y] > body[y] - 1.5f && gr[r][y] >= 0) gr[r][y] = body[y] - 1.5f;   /* a frame of paint around the glass */
+    }
+    /* roof: the paint between the first two runs, inset from the body's sides */
+    float roof[TILE];
+    for (int y = 0; y < ch; y++) roof[y] = nruns >= 2 && y > re[0] && y < rs[1] && body[y] >= 0 ? body[y] - 2.0f : -1;
+    Material paint = vm[P_LIGHT], light = paint, glass_c = vm[GLASS];
+    light.r = fminf(255, paint.r * 1.15f + 12), light.g = fminf(255, paint.g * 1.15f + 12), light.b = fminf(255, paint.b * 1.15f + 12);
+    /* details: the other colours from the symmetric fields, small regions out */
+    /* paint tones first (they stay paint in the mask), then the other colours */
+    static uint32_t pdet[SPRITE_OUT * SPRITE_OUT], det[SPRITE_OUT * SPRITE_OUT];
+    for (int layer = 0; layer < 2; layer++) {
+    ClassMap dm;
+    for (int i = 0; i < TILE * TILE; i++) {
+        uint8_t c = cm->cls[i];
+        bool tone = c == P_DARK || c == P_HI;
+        dm.cls[i] = layer == 0 ? (tone ? c : TRANSPARENT) : (c < P_HI ? c : TRANSPARENT);
+        dm.shade[i] = 1;
+    }
+    {
+        static int16_t label[TILE * TILE];
+        static int stack[TILE * TILE], members[TILE * TILE];
+        memset(label, -1, sizeof label);
+        for (int st = 0; st < TILE * TILE; st++) {
+            if (label[st] != -1 || dm.cls[st] == TRANSPARENT) continue;
+            uint8_t c = dm.cls[st];
+            int sp = 0, nm = 0;
+            stack[sp++] = st, label[st] = 1;
+            while (sp) {
+                int p = stack[--sp], x = p % TILE, y = p / TILE;
+                members[nm++] = p;
+                const int nb[4] = { x > 0 ? p - 1 : -1, x < TILE - 1 ? p + 1 : -1, y > 0 ? p - TILE : -1, y < TILE - 1 ? p + TILE : -1 };
+                for (int k = 0; k < 4; k++)
+                    if (nb[k] >= 0 && label[nb[k]] == -1 && dm.cls[nb[k]] == c) label[nb[k]] = 1, stack[sp++] = nb[k];
+            }
+            if (nm < 6)
+                for (int i = 0; i < nm; i++) dm.cls[members[i]] = TRANSPARENT;
+        }
+    }
+    float sg = sigma;
+    sigma = 1.0f;
+    draw_fields(&dm, vm, layer == 0 ? pdet : det, L);
+    sigma = sg;
+    }
+    int ow = cw * q, oh = ch * q;
+    for (int Y = 0; Y < oh; Y++)
+        for (int X = 0; X < ow; X++) {
+            float sx = (X + 0.5f) / q - 0.5f, sy = (Y + 0.5f) / q - 0.5f;
+            float b = profile_cover(body, ch, sx, sy, cx, q);
+            uint32_t *d = &img[Y * L + X];
+            *d = 0;
+            if (b <= 0) { mask[Y * L + X] = 0xff000000u; continue; }
+            *d = rgba_of(&paint, b);
+            float rf = profile_cover(roof, ch, sx, sy, cx, q);
+            blend_over(d, &light, rf * b);
+            uint32_t pc = pdet[Y * L + X];
+            Material pmc = { (float)(pc & 0xff), (float)(pc >> 8 & 0xff), (float)(pc >> 16 & 0xff), 0, 0 };
+            blend_over(d, &pmc, (float)(pc >> 24) / 255 * b);
+            float g = 0;
+            for (int r = 0; r < nruns; r++) g = fmaxf(g, profile_cover(gr[r], ch, sx, sy, cx, q));
+            blend_over(d, &glass_c, g * b);
+            uint32_t dc = det[Y * L + X];
+            float da = (float)(dc >> 24) / 255 * b;
+            Material dmc = { (float)(dc & 0xff), (float)(dc >> 8 & 0xff), (float)(dc >> 16 & 0xff), 0, 0 };
+            blend_over(d, &dmc, da);
+            float pm = b * (1 - g) * (1 - da);
+            uint32_t v = (uint32_t)(pm * 255 + 0.5f);
+            mask[Y * L + X] = 0xff000000u | v << 16 | v << 8 | v;
+        }
 }
 
 static bool generate_sprites(const Style *s, int number, const CityPalette *pal)
@@ -1153,12 +1347,36 @@ static bool generate_sprites(const Style *s, int number, const CityPalette *pal)
                 if (paint[v * 256 + u]) npaint++, pl += luma(q[0], q[1], q[2]);
             }
         float paint_mid = npaint ? (float)(pl / npaint) : 0;
+        /* a vehicle's own few colours besides its paint (glass, trim, chrome, lights): k-means on its texels,
+           lightness counting fully */
+        Material vm[MAXK + 2];
+        int kv = 0;
+        if (veh) {
+            static Hist vh[256 * 256];
+            int nvh = 0;
+            for (int v = 0; v < in->h; v++)
+                for (int u = 0; u < in->w; u++)
+                    if (in->data[v * 256 + u] && !paint[v * 256 + u]) vh[nvh++] = (Hist){ c0[in->data[v * 256 + u] * 64] & 0xffffff, 1 };
+            qsort(vh, (size_t)nvh, sizeof *vh, cmp_hist);
+            int nvu = 0;
+            for (int i = 0; i < nvh; i++)
+                if (nvu && vh[nvu - 1].c == vh[i].c) vh[nvu - 1].n++;
+                else vh[nvu++] = vh[i];
+            kv = nvu < VEHICLE_COLOURS ? nvu : VEHICLE_COLOURS;
+            float lw = light_weight;
+            light_weight = 1;
+            memset(vm, 0, sizeof vm);
+            if (kv) cluster(vh, nvu, vm, kv);
+            light_weight = lw;
+            for (int j = 0; j < kv; j++) grade(&vm[j], pal);
+        }
         /* onto the class map: f x f texels per class pixel, majority */
         int f = 1;
         while (in->w > TILE * f || in->h > TILE * f) f++;
         int cw = (in->w + f - 1) / f, ch = (in->h + f - 1) / f;
         ClassMap cm;
-        double ps[2][4] = { { 0 } };
+        double ps[3][4] = { { 0 } };
+        static const int TONE[3] = { P_LIGHT, P_DARK, P_HI };
         for (int i = 0; i < TILE * TILE; i++) cm.cls[i] = TRANSPARENT, cm.shade[i] = 1;
         for (int y = 0; y < ch; y++)
             for (int x = 0; x < cw; x++) {
@@ -1169,24 +1387,56 @@ static bool generate_sprites(const Style *s, int number, const CityPalette *pal)
                         int c;
                         if (!in->data[v * 256 + u]) c = TRANSPARENT;
                         else if (paint[v * 256 + u]) {
-                            int pc = 0;   /* one flat paint: the body's shading is the paint mask's job */
-                            (void)paint_mid;
-                            c = P_LIGHT + pc;
+                            /* paint in three tones (mid, dark, light): the engine keeps a skin pixel's brightness
+                               against the paint's when it recolours, so windscreens and panels stay readable */
+                            float l = luma(q[0], q[1], q[2]);
+                            int pc = l < 0.7f * paint_mid ? 1 : l > 1.3f * paint_mid ? 2 : 0;
+                            c = TONE[pc];
                             ps[pc][0] += q[0], ps[pc][1] += q[1], ps[pc][2] += q[2], ps[pc][3]++;
+                        } else if (veh) {
+                            float lw = light_weight;
+                            light_weight = 1;
+                            c = kv ? classify(q[0], q[1], q[2], vm, kv) : TRANSPARENT;
+                            light_weight = lw;
                         } else c = group[classify(q[0], q[1], q[2], mat, k)];
                         if (++count[c] > count[best]) best = c;
                     }
                 cm.cls[y * TILE + x] = (uint8_t)best;
             }
         /* the paint drawn in its own colours (the mask's brightness reference is the original paint) */
-        for (int pc = 0; pc < 2; pc++)
-            if (ps[pc][3] > 0) dmat[P_LIGHT + pc].r = (float)(ps[pc][0] / ps[pc][3]), dmat[P_LIGHT + pc].g = (float)(ps[pc][1] / ps[pc][3]), dmat[P_LIGHT + pc].b = (float)(ps[pc][2] / ps[pc][3]);
-        /* speckle out (3 x 3 majority, transparency kept), then boxes: windows, lights, panels */
+        Material *draw_mat = veh ? vm : dmat;
+        for (int pc = 0; pc < 3; pc++)
+            if (ps[pc][3] > 0) draw_mat[TONE[pc]].r = (float)(ps[pc][0] / ps[pc][3]), draw_mat[TONE[pc]].g = (float)(ps[pc][1] / ps[pc][3]), draw_mat[TONE[pc]].b = (float)(ps[pc][2] / ps[pc][3]);
+        /* speckle out (3 x 3 majority, transparency kept); objects then as boxes; vehicles as smooth shapes,
+           made symmetric when the original mostly is (it faces up: left and right mirror each other) */
         static Lines lines;
         lines.n = 0;
         if (cw * ch >= 400) {
             sprite_speckle(&cm, cw, ch);
-            rectify(&cm, true);
+            if (!veh) rectify(&cm, true);
+        }
+        field_mirror = 0;
+        if (veh) {
+            /* the axis: the silhouette's centre line (to the half pixel), averaged over its rows */
+            double sum = 0;
+            int rows = 0;
+            for (int y = 0; y < ch; y++) {
+                int l = -1, r = -1;
+                for (int x = 0; x < cw; x++)
+                    if (cm.cls[y * TILE + x] != TRANSPARENT) { if (l < 0) l = x; r = x; }
+                if (l >= 0) sum += l + r, rows++;
+            }
+            int m2 = rows ? (int)lround(sum / rows) : cw - 1;   /* twice the axis */
+            int same = 0, opaque = 0;
+            for (int y = 0; y < ch; y++)
+                for (int x = 0; x < cw; x++) {
+                    int px = m2 - x;
+                    bool a = cm.cls[y * TILE + x] != TRANSPARENT, b = px >= 0 && px < cw && cm.cls[y * TILE + px] != TRANSPARENT;
+                    if (!a && !b) continue;
+                    opaque++, same += a == b;
+                }
+            if (opaque && same * 10 >= opaque * 9) field_mirror = m2 + 1;
+            if (getenv("SKIN_GENERATE_DEBUG")) printf("  sprite %d: %dx%d symmetric %d%% paint %d colours %d\n", n, cw, ch, opaque ? same * 100 / opaque : 0, npaint, kv);
         }
         /* drawn at q output pixels per class pixel */
         int q = SPRITE_OUT / (cw > ch ? cw : ch);
@@ -1198,17 +1448,56 @@ static bool generate_sprites(const Style *s, int number, const CityPalette *pal)
             L = SPRITE_OUT;
         }
         float sg = sigma;
-        sigma = cw * ch >= 400 ? sprite_sigma : 0.7f;
-        draw_fields(&cm, dmat, img, L);
-        draw_lines(&lines, dmat, img, L);
         int ow = cw * q, oh = ch * q;
         char name[64];
+        bool designed = veh && field_mirror;
+        if (designed && !npaint) {
+            /* a vehicle that keeps its colours (police, ambulance, taxi): its most common light colour is the body */
+            int count[MAXK] = { 0 }, best = -1;
+            for (int i = 0; i < TILE * TILE; i++)
+                if (cm.cls[i] < kv && luma(vm[cm.cls[i]].r, vm[cm.cls[i]].g, vm[cm.cls[i]].b) >= 80 && ++count[cm.cls[i]] > (best < 0 ? 0 : count[best])) best = cm.cls[i];
+            if (best < 0) designed = false;
+            else {
+                vm[P_LIGHT] = vm[best];
+                for (int i = 0; i < TILE * TILE; i++)
+                    if (cm.cls[i] == best) cm.cls[i] = P_LIGHT;
+            }
+        }
+        if (designed) {
+            /* the glass: the vehicle's dark colours inside the silhouette */
+            double gs[4] = { 0 };
+            for (int y = 0; y < ch; y++)
+                for (int x = 0; x < cw; x++) {
+                    uint8_t *c = &cm.cls[y * TILE + x];
+                    if (*c >= kv) continue;
+                    bool edge = false;
+                    for (int d = 0; d < 4 && !edge; d++) {
+                        int X = x + (d == 0) - (d == 1), Y = y + (d == 2) - (d == 3);
+                        edge = X < 0 || Y < 0 || X >= cw || Y >= ch || cm.cls[Y * TILE + X] == TRANSPARENT;
+                    }
+                    if (edge || luma(vm[*c].r, vm[*c].g, vm[*c].b) >= 80) continue;
+                    gs[0] += vm[*c].r, gs[1] += vm[*c].g, gs[2] += vm[*c].b, gs[3]++;
+                    *c = GLASS;
+                }
+            if (gs[3] > 0) vm[GLASS].r = (float)(gs[0] / gs[3]), vm[GLASS].g = (float)(gs[1] / gs[3]), vm[GLASS].b = (float)(gs[2] / gs[3]);
+            draw_vehicle(&cm, cw, ch, vm, q, L, img, mimg);
+            outline(img, L, ow, oh, 0.9f * q);
+        } else {
+            sigma = veh ? vehicle_sigma : cw * ch >= 400 ? sprite_sigma : 0.7f;
+            draw_fields(&cm, draw_mat, img, L);
+            draw_lines(&lines, draw_mat, img, L);
+            if (veh) outline(img, L, ow, oh, 0.9f * q);
+        }
         snprintf(name, sizeof name, "%d", n);
         if (!write_image(number, name, img, L, ow, oh)) return false;
         written++;
-        if (npaint) {
+        if (designed && npaint) {
+            snprintf(name, sizeof name, "%d_mask", n);
+            if (!write_image(number, name, mimg, L, ow, oh)) return false;
+            masks++;
+        } else if (!designed && npaint) {
             Material mm[MAXK + 2];
-            for (int j = 0; j < MAXK + 2; j++) set_rgb(&mm[j], j >= P_LIGHT ? 0xffffff : 0);
+            for (int j = 0; j < MAXK + 2; j++) set_rgb(&mm[j], j >= P_LIGHT || j == P_HI ? 0xffffff : 0);
             draw_fields(&cm, mm, mimg, L);
             draw_lines(&lines, mm, mimg, L);
             for (int i = 0; i < L * L; i++) {
@@ -1220,6 +1509,7 @@ static bool generate_sprites(const Style *s, int number, const CityPalette *pal)
             masks++;
         }
         sigma = sg;
+        field_mirror = 0;
     }
     nmat = saved;
     printf("style %03d: %d sprites (%d paint masks), %d sprite materials\n", number, written, masks, k);
