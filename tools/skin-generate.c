@@ -336,7 +336,7 @@ static void mode_filter(ClassMap *cm)
 
 /* Regions on a coarser grid (grid x grid cells, majority): outlines in steps of `grid` pixels, which the
    vote then draws as straight edges and 45-degree corners. */
-static int grid = 2;
+static int grid = 1;   /* --grid N: regions on an N-pixel grid first (blockier) */
 static void coarsen(ClassMap *cm)
 {
     for (int cy = 0; cy < TILE; cy += grid)
@@ -478,6 +478,70 @@ static int classify(float r, float g, float b, const Material *mat, int k)
 }
 
 /* Tile class map -> L x L RGBA (0xAABBGGRR). */
+/* The flat look: a smooth coverage field per material (its mask blurred with a Gaussian of sigma
+   source pixels, clamped at the border), sampled at full output resolution; each pixel takes the
+   strongest material, anti-aliased against the runner-up over about one output pixel. Contours become
+   smooth curves at the output resolution, small wiggles below the blur disappear, corners round
+   slightly. */
+static float sigma = 2.0f;
+static void draw_fields(const ClassMap *cm, const Material *mat, uint32_t *out, int L)
+{
+    static float field[MAXK + 1][TILE * TILE], tmp[TILE * TILE];
+    int present[MAXK + 1], np = 0;
+    bool has[256] = { 0 };
+    for (int i = 0; i < TILE * TILE; i++) has[cm->cls[i]] = true;
+    for (int c = 0; c < 256; c++)
+        if (has[c] && np < MAXK + 1) present[np++] = c;
+    int R = (int)ceilf(sigma * 3);
+    float kern[32], ks = 0;
+    for (int k = -R; k <= R; k++) ks += kern[k + R] = expf(-(float)(k * k) / (2 * sigma * sigma));
+    for (int k = 0; k <= 2 * R; k++) kern[k] /= ks;
+    for (int j = 0; j < np; j++) {
+        float *f = field[j];
+        for (int i = 0; i < TILE * TILE; i++) f[i] = cm->cls[i] == present[j];
+        for (int y = 0; y < TILE; y++)
+            for (int x = 0; x < TILE; x++) {
+                float v = 0;
+                for (int k = -R; k <= R; k++) { int X = x + k < 0 ? 0 : x + k > TILE - 1 ? TILE - 1 : x + k; v += kern[k + R] * f[y * TILE + X]; }
+                tmp[y * TILE + x] = v;
+            }
+        for (int y = 0; y < TILE; y++)
+            for (int x = 0; x < TILE; x++) {
+                float v = 0;
+                for (int k = -R; k <= R; k++) { int Y = y + k < 0 ? 0 : y + k > TILE - 1 ? TILE - 1 : y + k; v += kern[k + R] * tmp[Y * TILE + x]; }
+                f[y * TILE + x] = v;
+            }
+    }
+    float gain = (float)L / TILE * sigma * 1.25f;
+    for (int y = 0; y < L; y++)
+        for (int x = 0; x < L; x++) {
+            float sx = (x + 0.5f) * TILE / L - 0.5f, sy = (y + 0.5f) * TILE / L - 0.5f;
+            sx = sx < 0 ? 0 : sx > TILE - 1 ? TILE - 1 : sx;
+            sy = sy < 0 ? 0 : sy > TILE - 1 ? TILE - 1 : sy;
+            int x0 = (int)sx, y0 = (int)sy, x1 = x0 < TILE - 1 ? x0 + 1 : x0, y1 = y0 < TILE - 1 ? y0 + 1 : y0;
+            float fx = sx - x0, fy = sy - y0;
+            float f1 = -1, f2 = -1;
+            int c1 = 0, c2 = 0;
+            for (int j = 0; j < np; j++) {
+                const float *f = field[j];
+                float v = (f[y0 * TILE + x0] * (1 - fx) + f[y0 * TILE + x1] * fx) * (1 - fy) +
+                          (f[y1 * TILE + x0] * (1 - fx) + f[y1 * TILE + x1] * fx) * fy;
+                if (v > f1) f2 = f1, c2 = c1, f1 = v, c1 = present[j];
+                else if (v > f2) f2 = v, c2 = present[j];
+            }
+            float t = 0.5f + (f1 - (f2 < 0 ? 0 : f2)) * gain;
+            if (f2 < 0) t = 1;
+            t = t < 0 ? 0 : t > 1 ? 1 : t;
+            float r1 = 0, g1 = 0, b1 = 0, a1 = 0, r2 = 0, g2 = 0, b2 = 0, a2 = 0;
+            if (c1 != TRANSPARENT) r1 = mat[c1].r, g1 = mat[c1].g, b1 = mat[c1].b, a1 = 255;
+            if (c2 != TRANSPARENT) r2 = mat[c2].r, g2 = mat[c2].g, b2 = mat[c2].b, a2 = 255;
+            if (c1 == TRANSPARENT) r1 = r2, g1 = g2, b1 = b2;   /* colour of an edge into transparency */
+            if (c2 == TRANSPARENT) r2 = r1, g2 = g1, b2 = b1;
+            float r = r2 + (r1 - r2) * t, g = g2 + (g1 - g2) * t, b = b2 + (b1 - b2) * t, a = a2 + (a1 - a2) * t;
+            out[y * L + x] = (uint32_t)(a + 0.5f) << 24 | (uint32_t)(b + 0.5f) << 16 | (uint32_t)(g + 0.5f) << 8 | (uint32_t)(r + 0.5f);
+        }
+}
+
 static void draw(const ClassMap *cm, const Material *mat, uint32_t *out, int L)
 {
     for (int y = 0; y < L; y++)
@@ -672,7 +736,8 @@ static bool generate_style(int number)
         smooth_shade(cm.shade);
         static Lines lines;
         vectorise(&cm, &lines);
-        draw(&cm, mat, img, L);
+        if (flat) draw_fields(&cm, mat, img, L);
+        else draw(&cm, mat, img, L);
         draw_lines(&lines, mat, img, L);
         char dir[1024], path[1100];
         snprintf(dir, sizeof dir, "%s/style%03d/%s", out_dir, number, tiles[i].kind);
@@ -708,6 +773,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--light-weight") && i + 1 < argc) light_weight = (float)atof(argv[++i]);
         else if (!strcmp(argv[i], "--textured")) flat = false;
         else if (!strcmp(argv[i], "--grid") && i + 1 < argc) grid = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--sigma") && i + 1 < argc) sigma = (float)atof(argv[++i]);
         else {
             fprintf(stderr, "usage: skin_generate [--data DIR] [--out DIR] [--scale S] [--style N] [--materials K] [--min-region N]\n"
                             "Draws a new skin from scratch, using your own copy of the game only as a reference for\n"
