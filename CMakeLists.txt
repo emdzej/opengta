@@ -49,7 +49,7 @@ endforeach()
 add_executable(skin_template tools/skin-template.c ${HOST_SRC})
 target_link_libraries(skin_template PRIVATE og_core)
 target_compile_options(skin_template PRIVATE ${OG_WARN})
-# skin_generate: a seamless skin drawn from scratch, the original only a reference (docs/howto/generate-a-skin.md).
+# skin_generate: a seamless flat skin drawn from scratch, the original only a reference (tools/skin-generate.c).
 add_executable(skin_generate tools/skin-generate.c ${HOST_SRC})
 target_link_libraries(skin_generate PRIVATE og_core)
 target_compile_options(skin_generate PRIVATE ${OG_WARN})

@@ -1,23 +1,29 @@
 /* skin_generate: a new skin whose tiles join seamlessly, drawn from scratch with the original as a
-   reference only for *what is where* on each tile (docs/howto/generate-a-skin.md).
+   reference only for *what is where* on each tile, in a flat vector look with a palette per city.
 
-     skin_generate [--data DIR] [--out DIR] [--scale S] [--style N] [--materials K]
+     skin_generate [--data DIR] [--out DIR] [--scale S] [--style N] [--materials K] [--generic]
 
    How it works, per style:
    1. Materials: every colour the tiles use (side, lid and aux tiles through their default CLUTs) is
-      clustered into K materials (k-means on a colour histogram). A material is our own flat colour plus
-      a texture strength taken from how much its colours vary.
-   2. Class map: every tile pixel gets its material, or "transparent" (colour 0) — the layout of the
-      tile: where the markings, curbs, windows and letters are. No colour value of the tile reaches the
-      output, only which material is where.
-   3. Drawing at S x 64 pixels: material boundaries come from a bilinear vote of the four nearest class
-      cells (sharpened, anti-aliased), so contours are smooth instead of stair-stepped, and each
-      material is filled with procedural noise of its own.
-   4. Seams: tiles that join in the original have identical class maps along the shared edge (the
-      originals join pixel for pixel), and the votes clamp at the tile border, so boundaries meet. The
-      noise near every border is replaced by a band that depends only on the distance along the edge,
-      folded so it reads the same from both ends: the same on all four edges and under every rotation
-      and flip the map applies, so same-material neighbours meet without a seam.
+      clustered into K materials (k-means on a colour histogram).
+   2. What each tile is: the map says which ground type (road, pavement, field, water) lies on every lid;
+      aux tiles inherit the lid whose animation shows them. Everything else is a building: walls (sides)
+      and roofs (the other lids).
+   3. Class maps, no colour value of the tile reaches the output, only which class is where:
+      - ground: the tile blurred (the texture's grain gone) against the style's reference colour of each
+        ground type it is used for, plus road markings (white on asphalt, ochre wherever there is road);
+      - roofs: the materials' shade groups (one surface in light and shadow is one class), ragged
+        patches absorbed;
+      - walls: the materials as they are.
+      Then lines (long, thin, straight regions: markings, joints, frames) become strokes, noise is
+      absorbed, and on buildings box-like regions become rectangles (windows, panels).
+   4. Drawing at S x 64 pixels: smooth coverage fields per class, flat colours: the ground classes in the
+      city's palette (pavements with a tile-aligned slab grid), the materials graded towards it.
+   5. Seams: tiles that join in the original have the same classes along the shared edge; the fields
+      clamp at the border, the grid and the strokes are symmetric under the map's rotations and flips.
+      The seam check prints the colour step across the neighbouring lids of the maps against the step
+      inside them (about 1 or less: the boundaries can't be told).
+   --generic: the material classes everywhere (no semantics, no palette).
 
    The output is generated from the structure of your own copy of the game: keep it for your own use,
    don't distribute it (skin.ini says so). */
@@ -36,7 +42,7 @@
 
 enum { TILE = 64, MAXK = 64, TRANSPARENT = 255 };
 
-static int scale = 4, nmat = 12, min_region = 40;
+static int scale = 4, nmat = 32, min_region = 40;
 static bool flat = true;   /* the flat vector look (default); --textured: shading and grain */
 static const char *out_dir = "out/skins/generated";
 
@@ -174,7 +180,7 @@ static void rgbf(uint32_t c, float *r, float *g, float *b) { *r = (float)(c >> 1
 /* Colour distance for materials: chroma counts fully, lightness at light_weight, so the light and dark
    shades of one surface (streaks, shadows) are one material and only strong edges (joints, outlines)
    separate it. */
-static float light_weight = 0.15f;
+static float light_weight = 0.4f;
 static float dist2(float r, float g, float b, const Material *m)
 {
     float dr = r - m->r, dg = g - m->g, db = b - m->b;
@@ -483,7 +489,7 @@ static int classify(float r, float g, float b, const Material *mat, int k)
    strongest material, anti-aliased against the runner-up over about one output pixel. Contours become
    smooth curves at the output resolution, small wiggles below the blur disappear, corners round
    slightly. */
-static float sigma = 2.0f;
+static float sigma = 2.0f, building_sigma = 0.9f;
 static void draw_fields(const ClassMap *cm, const Material *mat, uint32_t *out, int L)
 {
     static float field[MAXK + 1][TILE * TILE], tmp[TILE * TILE];
@@ -685,6 +691,311 @@ static void seam_check(const Style *s, int number, uint32_t **gen, int L)
     map_free(m);
 }
 
+/* ---- the semantic look: what a tile is used for decides how it is drawn ----
+   The maps say what every lid is: the block type of each block that shows it (water, road, pavement,
+   field). A lid used (mostly) on the ground gets the ground classes: each pixel, blurred over 5 x 5 so the
+   texture's grain is gone, goes to the nearest of the style's reference colours for asphalt, pavement,
+   grass and water (the median colour of the lids of that type), and road markings are the light or
+   yellow pixels on asphalt. Those classes are drawn in the city's own palette, pavements with a slab
+   grid aligned to the tile (period 16, so tiles continue each other under every rotation and flip).
+   Everything else keeps the material classes, with the colours graded towards the city's palette. */
+enum { K_WATER = 1, K_ROAD = 2, K_PAVE = 3, K_FIELD = 4, NKIND = 8 };
+enum { S_ASPHALT, S_PAVE, S_GRASS, S_WATER, S_WHITE, S_YELLOW, NSEM };
+static bool semantic = true;   /* --generic: the material classes everywhere */
+
+typedef struct {
+    uint32_t sem[NSEM];   /* 0xRRGGBB */
+    uint32_t slab;        /* the pavement's joints */
+    float sat, tint, tr, tg, tb;   /* grading of the other materials: saturation, then a mix towards the tint */
+} CityPalette;
+/* Liberty City: cool slate and stone; San Andreas: warm sand under fog; Vice City: pastels and turquoise. */
+static const CityPalette PALETTES[3] = {
+    { { 0x4b5263, 0xcfc8b4, 0x6e9450, 0x3b6f9e, 0xeeeee6, 0xf0c03a }, 0xb3ab96, 0.95f, 0.14f, 140, 160, 195 },
+    { { 0x58534e, 0xd9c7a2, 0x91a457, 0x4a8fae, 0xf3efe4, 0xf2b632 }, 0xbfad88, 1.00f, 0.14f, 205, 165, 125 },
+    { { 0x4e5068, 0xecd3c6, 0x4fb36b, 0x2bb3c6, 0xfbf6ee, 0xffc93c }, 0xd8b8aa, 1.15f, 0.12f, 240, 160, 195 },
+};
+
+static void set_rgb(Material *m, uint32_t c) { m->r = (float)(c >> 16 & 0xff), m->g = (float)(c >> 8 & 0xff), m->b = (float)(c & 0xff); }
+
+/* A material's colour graded towards the city: saturation scaled around its grey, then mixed with the tint. */
+static void grade(Material *m, const CityPalette *p)
+{
+    float y = luma(m->r, m->g, m->b);
+    float *c[3] = { &m->r, &m->g, &m->b }, t[3] = { p->tr, p->tg, p->tb };
+    for (int i = 0; i < 3; i++) {
+        float v = y + (*c[i] - y) * p->sat;
+        v += (t[i] * y / 160.0f - v) * p->tint;   /* the tint at the material's own lightness */
+        *c[i] = v < 0 ? 0 : v > 255 ? 255 : v;
+    }
+}
+
+/* lid_kind[n]: the ground type lid n is mostly under (K_*), 0 if it isn't ground; aux_kind the same for
+   the aux tiles, inherited from the lid whose animation shows them. */
+static void usage_scan(const Style *s, int number, int8_t *lid_kind, int8_t *aux_kind, uint8_t *lid_allow, uint8_t *aux_allow)
+{
+    static const char *const MAPS[] = { "GTADATA/NYC.CMP", "GTADATA/SANB.CMP", "GTADATA/MIAMI.CMP" };
+    static int use[256][NKIND];
+    memset(use, 0, sizeof use);
+    memset(lid_kind, 0, 256);
+    memset(aux_kind, 0, 256);
+    memset(lid_allow, 0, 256);
+    memset(aux_allow, 0, 256);
+    char err[256];
+    Map *m = map_load(MAPS[number - 1], err, sizeof err);
+    if (!m) { fprintf(stderr, "skin_generate: %s\n", err); return; }
+    for (int y = 0; y < MAP_H; y++)
+        for (int x = 0; x < MAP_W; x++)
+            for (int z = 0; z < MAP_Z; z++) {
+                /* the ground type is the empty block's above the lid (docs/formats.md); a lid at the top of
+                   its column (a roof, mostly) counts as none */
+                const MapBlock *b = map_get_block(m, x, y, z), *a = z ? map_get_block(m, x, y, z - 1) : NULL;
+                if (b && b->lid && b->lid < s->nlid) use[b->lid][a ? a->type_map >> 4 & 7 : 7]++;
+            }
+    map_free(m);
+    for (int n = 0; n < s->nlid; n++) {
+        int total = 0, ground = 0, best = 0;
+        for (int k = 0; k < NKIND; k++) total += use[n][k];
+        for (int k = K_WATER; k <= K_FIELD; k++) {
+            ground += use[n][k];
+            if (use[n][k] > use[n][best]) best = k;
+        }
+        if (!total || ground * 10 < total * 6) continue;
+        lid_kind[n] = (int8_t)best;
+        /* the ground classes a pixel of it may take: the types it is used for (8 % or more); road and
+           pavement go together (kerbs) */
+        for (int k = K_WATER; k <= K_FIELD; k++)
+            if (k == best || use[n][k] * 100 >= total * 8) lid_allow[n] |= (uint8_t)(1u << k);
+        if (lid_allow[n] & (1u << K_ROAD | 1u << K_PAVE)) lid_allow[n] |= 1u << K_ROAD | 1u << K_PAVE;
+    }
+    for (int i = 0; i < s->nanims; i++) {
+        const uint8_t *d = s->anims[i].def;   /* block, which (0 side, 1 lid), speed, n, frames */
+        if (d[1] != 1) continue;
+        for (int f = 0; f < d[3]; f++)
+            if (d[4 + f] < s->naux) aux_kind[d[4 + f]] = lid_kind[d[0]], aux_allow[d[4 + f]] = lid_allow[d[0]];
+    }
+}
+
+/* The tile blurred over 5 x 5 (clamped at the border; transparent pixels left out). */
+static void blur_tile(const Style *s, const uint32_t *clut, int t, float (*out)[3])
+{
+    static float raw[TILE * TILE][3];
+    static bool tr[TILE * TILE];
+    for (int v = 0; v < TILE; v++)
+        for (int u = 0; u < TILE; u++) rgbf(tile_rgb(s, clut, t, u, v, &tr[v * TILE + u]), &raw[v * TILE + u][0], &raw[v * TILE + u][1], &raw[v * TILE + u][2]);
+    for (int y = 0; y < TILE; y++)
+        for (int x = 0; x < TILE; x++) {
+            float a[3] = { 0, 0, 0 };
+            int n = 0;
+            for (int dy = -2; dy <= 2; dy++)
+                for (int dx = -2; dx <= 2; dx++) {
+                    int X = x + dx, Y = y + dy;
+                    if (X < 0 || Y < 0 || X >= TILE || Y >= TILE || tr[Y * TILE + X]) continue;
+                    for (int c = 0; c < 3; c++) a[c] += raw[Y * TILE + X][c];
+                    n++;
+                }
+            for (int c = 0; c < 3; c++) out[y * TILE + x][c] = n ? a[c] / n : 0;
+        }
+}
+
+/* The reference colour of each ground type: the per-channel median of the blurred pixels of its lids. */
+static bool ground_refs(const Style *s, const int8_t *lid_kind, Material *ref)
+{
+    static uint32_t hist[NKIND][3][256];
+    static float bl[TILE * TILE][3];
+    memset(hist, 0, sizeof hist);
+    for (int n = 0; n < s->nlid; n++) {
+        if (!lid_kind[n]) continue;
+        blur_tile(s, s->lid_clut[n][0], s->lid_base + n, bl);
+        for (int i = 0; i < TILE * TILE; i++)
+            for (int c = 0; c < 3; c++) hist[lid_kind[n]][c][(int)(bl[i][c] + 0.5f) & 255]++;
+    }
+    bool any = false;
+    for (int k = 0; k < NKIND; k++) {
+        float v[3] = { 0, 0, 0 };
+        uint64_t total = 0;
+        for (int i = 0; i < 256; i++) total += hist[k][0][i];
+        ref[k].n = (double)total;
+        if (!total) continue;
+        any = true;
+        for (int c = 0; c < 3; c++) {
+            uint64_t acc = 0;
+            int i = 0;
+            while (i < 255 && (acc += hist[k][c][i]) * 2 < total) i++;
+            v[c] = (float)i;
+        }
+        ref[k].r = v[0], ref[k].g = v[1], ref[k].b = v[2];
+    }
+    return any;
+}
+
+/* Distance to a ground reference: chroma fully, lightness at 0.3 (a shadowed pavement is still pavement). */
+enum { GROUND_MATCH = 48 };
+static float ground_dist(float r, float g, float b, const Material *m)
+{
+    float dr = r - m->r, dg = g - m->g, db = b - m->b;
+    float dy = 0.299f * dr + 0.587f * dg + 0.114f * db;
+    float dcb = -0.169f * dr - 0.331f * dg + 0.5f * db, dcr = 0.5f * dr - 0.419f * dg - 0.081f * db;
+    return sqrtf(0.3f * dy * dy + 4 * (dcb * dcb + dcr * dcr));
+}
+
+/* The ground classes of one tile into cm (classes nmat + S_*); pixels far from every reference keep their
+   material class. */
+static void classify_ground(const Style *s, const uint32_t *clut, int t, uint8_t allow, const Material *ref, const Material *mat, ClassMap *cm)
+{
+    static float bl[TILE * TILE][3];
+    blur_tile(s, clut, t, bl);
+    static const int KIND_SEM[NKIND] = { -1, S_WATER, S_ASPHALT, S_PAVE, S_GRASS, -1, -1, -1 };
+    float ya = luma(ref[K_ROAD].r, ref[K_ROAD].g, ref[K_ROAD].b);
+    for (int v = 0; v < TILE; v++)
+        for (int u = 0; u < TILE; u++) {
+            int i = v * TILE + u;
+            bool tr;
+            float r, g, b;
+            rgbf(tile_rgb(s, clut, t, u, v, &tr), &r, &g, &b);
+            cm->shade[i] = 1;
+            if (tr) { cm->cls[i] = TRANSPARENT; continue; }
+            float best = 1e30f;
+            int bk = -1;
+            for (int k = K_WATER; k <= K_FIELD; k++) {
+                if (!ref[k].n || !(allow & (1u << k))) continue;
+                float d = ground_dist(bl[i][0], bl[i][1], bl[i][2], &ref[k]);
+                if (d < best) best = d, bk = k;
+            }
+            int c;
+            if (bk < 0 || best > GROUND_MATCH) c = classify(r, g, b, mat, nmat);
+            else c = nmat + KIND_SEM[bk];
+            /* markings: ochre paint (red clearly over green over blue; the beige pavements have red ~ green)
+               wherever there may be road, white only on asphalt */
+            if ((allow & 1u << K_ROAD) && r > 140 && r - g > 25 && g - b > 20) c = nmat + S_YELLOW;
+            else if (bk == K_ROAD && best <= GROUND_MATCH) {
+                float y = luma(r, g, b), mx = fmaxf(r, fmaxf(g, b)), mn = fminf(r, fminf(g, b));
+                if (y > ya + 80 && mx - mn < 70) c = nmat + S_WHITE;
+            }
+            cm->cls[i] = (uint8_t)c;
+        }
+}
+
+/* The pavement's slab joints over the drawn tile: lines on the tile's own 16-pixel grid, borders included
+   (half a joint on each side of a tile edge, so neighbours make a whole one). */
+static void draw_slabs(const ClassMap *cm, int pave, uint32_t colour, uint32_t *out, int L)
+{
+    const float period = 16, hw = 0.45f;   /* source pixels */
+    float k = (float)L / TILE;
+    float cr = (float)(colour >> 16 & 0xff), cg = (float)(colour >> 8 & 0xff), cb = (float)(colour & 0xff);
+    for (int y = 0; y < L; y++)
+        for (int x = 0; x < L; x++) {
+            float sx = (x + 0.5f) / k, sy = (y + 0.5f) / k;
+            int ux = (int)sx, uy = (int)sy;
+            if (cm->cls[(uy < TILE ? uy : TILE - 1) * TILE + (ux < TILE ? ux : TILE - 1)] != pave) continue;
+            float dx = fabsf(sx - period * floorf(sx / period + 0.5f)), dy = fabsf(sy - period * floorf(sy / period + 0.5f));
+            float d = fminf(dx, dy) * k, cov = hw * k - d + 0.5f;
+            if (cov <= 0) continue;
+            if (cov > 1) cov = 1;
+            uint32_t o = out[y * L + x];
+            float r = (float)(o & 0xff), g = (float)(o >> 8 & 0xff), b = (float)(o >> 16 & 0xff);
+            r += (cr - r) * cov, g += (cg - g) * cov, b += (cb - b) * cov;
+            out[y * L + x] = (o & 0xff000000u) | (uint32_t)(b + 0.5f) << 16 | (uint32_t)(g + 0.5f) << 8 | (uint32_t)(r + 0.5f);
+        }
+}
+
+/* Building tiles as rectangles: every region inside the tile that is box-like (it fills 60 % of its
+   bounding box or more) becomes its bounding box. Regions are painted largest box first, so a window's
+   frame stays under its glass; regions touching the border keep their pixels (the neighbour's continuation
+   of them is the same in the original), as do ragged ones. */
+static void rectify(ClassMap *cm, bool absorb_ragged)
+{
+    typedef struct { int x0, y0, x1, y1, area, nm, first; uint8_t c; bool rect; } Region;
+    static Region reg[TILE * TILE];
+    static int16_t label[TILE * TILE];
+    static int stack[TILE * TILE], order[TILE * TILE];
+    static uint8_t out[TILE * TILE];
+    int nr = 0;
+    memset(label, -1, sizeof label);
+    for (int start = 0; start < TILE * TILE; start++) {
+        if (label[start] != -1) continue;
+        uint8_t c = cm->cls[start];
+        Region *r = &reg[nr];
+        *r = (Region){ TILE, TILE, -1, -1, 0, 0, start, c, false };
+        bool border = false;
+        int sp = 0;
+        stack[sp++] = start;
+        label[start] = (int16_t)nr;
+        while (sp) {
+            int p = stack[--sp], x = p % TILE, y = p / TILE;
+            r->nm++;
+            if (x == 0 || y == 0 || x == TILE - 1 || y == TILE - 1) border = true;
+            if (x < r->x0) r->x0 = x;
+            if (x > r->x1) r->x1 = x;
+            if (y < r->y0) r->y0 = y;
+            if (y > r->y1) r->y1 = y;
+            const int nb[4] = { x > 0 ? p - 1 : -1, x < TILE - 1 ? p + 1 : -1, y > 0 ? p - TILE : -1, y < TILE - 1 ? p + TILE : -1 };
+            for (int k = 0; k < 4; k++)
+                if (nb[k] >= 0 && label[nb[k]] == -1 && cm->cls[nb[k]] == c) label[nb[k]] = (int16_t)nr, stack[sp++] = nb[k];
+        }
+        r->area = (r->x1 - r->x0 + 1) * (r->y1 - r->y0 + 1);
+        r->rect = !border && c != TRANSPARENT && r->nm >= 6 && r->nm * 10 >= r->area * 6;
+        /* (roofs) a ragged patch inside the tile, of any size up to a quarter of it, is texture: it takes the
+           class around it */
+        if (absorb_ragged && !border && !r->rect && r->nm * 2 < r->area && r->nm < TILE * TILE / 4) {
+            int count[256] = { 0 }, best = -1;
+            for (int y = r->y0; y <= r->y1; y++)
+                for (int x = r->x0; x <= r->x1; x++) {
+                    if (label[y * TILE + x] != nr) continue;
+                    const int nb[4] = { x > 0 ? -1 : 0, x < TILE - 1 ? 1 : 0, y > 0 ? -TILE : 0, y < TILE - 1 ? TILE : 0 };
+                    for (int k = 0; k < 4; k++) {
+                        int q = y * TILE + x + nb[k];
+                        if (nb[k] && label[q] != nr && cm->cls[q] != TRANSPARENT && ++count[cm->cls[q]] > (best < 0 ? 0 : count[best])) best = cm->cls[q];
+                    }
+                }
+            if (best >= 0) r->c = (uint8_t)best;
+        }
+        order[nr] = nr;
+        nr++;
+    }
+    /* largest box first (insertion sort: few hundred regions) */
+    for (int i = 1; i < nr; i++) {
+        int o = order[i], j = i;
+        while (j > 0 && reg[order[j - 1]].area < reg[o].area) order[j] = order[j - 1], j--;
+        order[j] = o;
+    }
+    for (int i = 0; i < nr; i++) {
+        const Region *r = &reg[order[i]];
+        for (int y = r->y0; y <= r->y1; y++)
+            for (int x = r->x0; x <= r->x1; x++)
+                if (r->rect || label[y * TILE + x] == order[i]) out[y * TILE + x] = r->c;
+    }
+    memcpy(cm->cls, out, sizeof out);
+}
+
+/* Shade groups: materials that are one surface in light and shadow (close in chroma, lightness within
+   45) share the colour of the most used of them. A material joins the first more used representative it
+   is close to (no chaining: black, grey and white stay apart). The same for every tile, so neighbours
+   agree. */
+static void shade_groups(const Material *mat, uint8_t *group)
+{
+    int order[MAXK];
+    for (int i = 0; i < nmat; i++) order[i] = i;
+    for (int i = 1; i < nmat; i++) {
+        int o = order[i], j = i;
+        while (j > 0 && mat[order[j - 1]].n < mat[o].n) order[j] = order[j - 1], j--;
+        order[j] = o;
+    }
+    int reps[MAXK], nr = 0;
+    for (int i = 0; i < nmat; i++) {
+        const Material *m = &mat[order[i]];
+        int g = -1;
+        for (int k = 0; k < nr && g < 0; k++) {
+            const Material *r = &mat[reps[k]];
+            float dr = m->r - r->r, dg = m->g - r->g, db = m->b - r->b;
+            float dy = 0.299f * dr + 0.587f * dg + 0.114f * db;
+            float dcb = -0.169f * dr - 0.331f * dg + 0.5f * db, dcr = 0.5f * dr - 0.419f * dg - 0.081f * db;
+            if (fabsf(dy) < 45 && dcb * dcb + dcr * dcr < 14 * 14) g = reps[k];
+        }
+        if (g < 0) reps[nr++] = g = order[i];
+        group[order[i]] = (uint8_t)g;
+    }
+}
+
 static bool generate_style(int number)
 {
     char err[256];
@@ -717,18 +1028,56 @@ static bool generate_style(int number)
     Material mat[MAXK] = { 0 };
     cluster(h, nu, mat, nmat);
     printf("style %03d: %d tiles, %d colours -> %d materials\n", number, nt, nu, nmat);
+    /* the drawing colours: the materials graded towards the city, then the semantic classes */
+    const CityPalette *pal = &PALETTES[number - 1];
+    uint8_t group[MAXK];
+    shade_groups(mat, group);
+    Material dmat[MAXK + NSEM];
+    for (int j = 0; j < nmat; j++) dmat[j] = mat[j];
+    if (semantic) {
+        /* a shade group is drawn in its members' mean colour */
+        double sr[MAXK] = { 0 }, sg[MAXK] = { 0 }, sb[MAXK] = { 0 }, sn[MAXK] = { 0 };
+        for (int j = 0; j < nmat; j++) {
+            int g = group[j];
+            sr[g] += mat[j].r * mat[j].n, sg[g] += mat[j].g * mat[j].n, sb[g] += mat[j].b * mat[j].n, sn[g] += mat[j].n;
+        }
+        for (int j = 0; j < nmat; j++)
+            if (group[j] == j && sn[j] > 0) dmat[j].r = (float)(sr[j] / sn[j]), dmat[j].g = (float)(sg[j] / sn[j]), dmat[j].b = (float)(sb[j] / sn[j]);
+    }
+    if (semantic)
+        for (int j = 0; j < nmat; j++) grade(&dmat[j], pal);
+    for (int j = 0; j < NSEM; j++) set_rgb(&dmat[nmat + j], pal->sem[j]);
+    int8_t lid_kind[256], aux_kind[256];
+    uint8_t lid_allow[256], aux_allow[256];
+    Material ref[NKIND] = { 0 };
+    bool ground = false;
+    if (semantic) {
+        usage_scan(s, number, lid_kind, aux_kind, lid_allow, aux_allow);
+        ground = ground_refs(s, lid_kind, ref);
+        int nl = 0;
+        for (int i = 0; i < s->nlid; i++) nl += lid_kind[i] != 0;
+        printf("style %03d: %d ground lids; asphalt %02x%02x%02x pavement %02x%02x%02x grass %02x%02x%02x water %02x%02x%02x\n", number, nl,
+               (int)ref[K_ROAD].r, (int)ref[K_ROAD].g, (int)ref[K_ROAD].b, (int)ref[K_PAVE].r, (int)ref[K_PAVE].g, (int)ref[K_PAVE].b,
+               (int)ref[K_FIELD].r, (int)ref[K_FIELD].g, (int)ref[K_FIELD].b, (int)ref[K_WATER].r, (int)ref[K_WATER].g, (int)ref[K_WATER].b);
+    }
     /* 2-3. class maps and drawing */
     int L = TILE * scale;
     uint32_t *img = malloc((size_t)L * L * sizeof *img);
     uint32_t **lid_img = calloc((size_t)s->nlid, sizeof *lid_img);
     ClassMap cm;
     for (int i = 0; i < nt; i++) {
-        for (int v = 0; v < TILE; v++)
+        int kind = !semantic || !ground ? 0 : !strcmp(tiles[i].kind, "lid") ? lid_kind[tiles[i].n] : !strcmp(tiles[i].kind, "aux") ? aux_kind[tiles[i].n] : 0;
+        if (kind) classify_ground(s, tiles[i].clut, tiles[i].t, tiles[i].kind[0] == 'l' ? lid_allow[tiles[i].n] : aux_allow[tiles[i].n], ref, mat, &cm);
+        /* roofs (the other lids): their materials' shade groups, so the texture's light and dark patches are
+           one surface */
+        bool roof = semantic && !kind && tiles[i].kind[0] == 'l';
+        if (!kind) for (int v = 0; v < TILE; v++)
             for (int u = 0; u < TILE; u++) {
                 bool tr;
                 float r, g, b;
                 rgbf(tile_rgb(s, tiles[i].clut, tiles[i].t, u, v, &tr), &r, &g, &b);
                 int c = tr ? TRANSPARENT : classify(r, g, b, mat, nmat);
+                if (roof && c != TRANSPARENT) c = group[c];
                 cm.cls[v * TILE + u] = (uint8_t)c;
                 float ml = c == TRANSPARENT ? 1 : luma(mat[c].r, mat[c].g, mat[c].b);
                 cm.shade[v * TILE + u] = c == TRANSPARENT ? 1 : (luma(r, g, b) + 8) / (ml + 8);
@@ -736,9 +1085,29 @@ static bool generate_style(int number)
         smooth_shade(cm.shade);
         static Lines lines;
         vectorise(&cm, &lines);
-        if (flat) draw_fields(&cm, mat, img, L);
-        else draw(&cm, mat, img, L);
-        draw_lines(&lines, mat, img, L);
+        float sg = sigma;
+        if (semantic && !kind) rectify(&cm, roof), sigma = building_sigma;   /* crisp boxes */
+        if (flat) draw_fields(&cm, dmat, img, L);
+        else draw(&cm, dmat, img, L);
+        sigma = sg;
+        if (kind) {
+            draw_slabs(&cm, nmat + S_PAVE, pal->slab, img, L);
+            /* on the ground only the markings are strokes (the rest are the texture's joints and cracks) */
+            for (int j = 0; j < lines.n;)
+                if (lines.l[j].cls != nmat + S_WHITE && lines.l[j].cls != nmat + S_YELLOW) lines.l[j] = lines.l[--lines.n];
+                else j++;
+        } else if (semantic) {
+            /* on buildings only long horizontal and vertical strokes (diagonals and short ones are shading and
+               grain) */
+            for (int j = 0; j < lines.n;) {
+                const Line *l = &lines.l[j];
+                bool axis = l->x0 == l->x1 || l->y0 == l->y1, edge = on_border(l->x0, l->y0) || on_border(l->x1, l->y1);
+                float len = hypotf(l->x1 - l->x0, l->y1 - l->y0);
+                if (!axis || len < (roof ? 32 : 16) || (len < 24 && !edge)) lines.l[j] = lines.l[--lines.n];
+                else j++;
+            }
+        }
+        draw_lines(&lines, dmat, img, L);
         char dir[1024], path[1100];
         snprintf(dir, sizeof dir, "%s/style%03d/%s", out_dir, number, tiles[i].kind);
         mkdirs(dir);
@@ -772,10 +1141,11 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--min-region") && i + 1 < argc) min_region = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--light-weight") && i + 1 < argc) light_weight = (float)atof(argv[++i]);
         else if (!strcmp(argv[i], "--textured")) flat = false;
+        else if (!strcmp(argv[i], "--generic")) semantic = false;
         else if (!strcmp(argv[i], "--grid") && i + 1 < argc) grid = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--sigma") && i + 1 < argc) sigma = (float)atof(argv[++i]);
         else {
-            fprintf(stderr, "usage: skin_generate [--data DIR] [--out DIR] [--scale S] [--style N] [--materials K] [--min-region N]\n"
+            fprintf(stderr, "usage: skin_generate [--data DIR] [--out DIR] [--scale S] [--style N] [--materials K] [--min-region N] [--generic]\n"
                             "Draws a new skin from scratch, using your own copy of the game only as a reference for\n"
                             "what is where on each tile. Keep the result for your own use: don't distribute it.\n");
             return 2;
