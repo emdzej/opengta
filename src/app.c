@@ -87,6 +87,8 @@ static void hires_setup(const uint32_t *fb)
 {
     int n = hires_param();
     bool skins = skins_setup(n);
+    char sh[16];   /* shadows=1: cast shadows from the block heights (display only) */
+    hires_shadows = plat_param("shadows", sh, sizeof sh) && strcmp(sh, "0");
     char up[16];   /* upscale=none|scale2x|scale4x|xbr|xbr4: the original art, below the skins */
     if (plat_param("upscale", up, sizeof up) && !hires_upscale_set(up))
         plat_log("OpenGTA: upscale: none, scale2x, scale4x, xbr or xbr4");

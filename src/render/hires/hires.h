@@ -9,6 +9,14 @@
    faithful frame; the faithful HUD is drawn; at present hires_frame_end() lays the pixels the HUD changed
    over the hires frame, N x N each (nearest neighbour), and the hires frame is presented. */
 #pragma once
+#include <stdbool.h>
+#include <stdint.h>
+
+/* Cast shadows (an addition, --param shadows=1): the direction towards the sun in blocks per block of
+   height, the shade's strength (0..1) and colour (0x00BBGGRR). Display only. */
+extern bool hires_shadows;
+extern float hires_sun_x, hires_sun_y, hires_shadow_strength;
+extern uint32_t hires_shadow_tint;
 #include "../../map.h"
 #include "../../style.h"
 #include "../camera.h"

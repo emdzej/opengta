@@ -10,6 +10,8 @@
 #include "../city.h"
 #include "../poly.h"
 #include "../sprite.h"
+#include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 typedef struct { int32_t f, h; } HV;   /* faithful pixel, hires sub-pixel */
@@ -559,6 +561,84 @@ static void draw_item(void *item)
     }
 }
 
+/* ---- cast shadows (an addition: --param shadows=1) ----
+   The sun is a direction; a lid point is in shadow when the ray from it towards the sun meets a block.
+   Per ground cell a 16 x 16 mask (2 x 2 samples a texel) is marched once over the map's block heights and
+   cached (the city doesn't move); it is drawn over the lid as a dark, semi-transparent texture right after
+   its layer and before the layer above, so the walls drawn later cover it where they should. */
+bool hires_shadows = false;
+float hires_sun_x = -0.8f, hires_sun_y = -0.55f;   /* towards the sun, blocks per block of height */
+float hires_shadow_strength = 0.42f;
+uint32_t hires_shadow_tint = 0x00301810;           /* 0x00BBGGRR of the shade (a cool dark) */
+
+enum { SH_RES = 16 };
+static HiresTexture *const SH_NONE = (HiresTexture *)1;
+static HiresTexture **sh_cache;                    /* [z][y][x] */
+static const Map *sh_map;
+
+static bool solid(const Map *m, int x, int y, int z)
+{
+    if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H || z < 0 || z >= MAP_Z) return false;
+    const MapBlock *b = map_get_block(m, x, y, z);
+    return b && (b->lid || b->left || b->right || b->top || b->bottom);
+}
+
+static bool in_shadow(const Map *m, float px, float py, float h0)
+{
+    for (float t = 0.02f; h0 + t < MAP_Z; t += 0.1f) {
+        float x = px + hires_sun_x * t, y = py + hires_sun_y * t, h = h0 + t;
+        int L = MAP_Z - 1 - (int)floorf(h);   /* layer z spans heights [5 - z, 6 - z) */
+        if (solid(m, (int)floorf(x), (int)floorf(y), L)) return true;
+    }
+    return false;
+}
+
+static HiresTexture *shadow_mask(const Map *m, int x, int y, int z)
+{
+    if (sh_map != m) {
+        if (sh_cache)
+            for (int i = 0; i < MAP_Z * MAP_W * MAP_H; i++)
+                if (sh_cache[i] && sh_cache[i] != SH_NONE) hr_texture_free(sh_cache[i]);
+        free(sh_cache);
+        sh_cache = calloc((size_t)MAP_Z * MAP_W * MAP_H, sizeof *sh_cache);
+        sh_map = m;
+    }
+    if (!sh_cache) return NULL;
+    HiresTexture **slot = &sh_cache[(z * MAP_H + y) * MAP_W + x];
+    if (*slot) return *slot == SH_NONE ? NULL : *slot;
+    uint32_t *px = malloc(SH_RES * SH_RES * sizeof *px);
+    int any = 0;
+    float h0 = (float)(MAP_Z - z);   /* the lid of layer z */
+    for (int j = 0; j < SH_RES; j++)
+        for (int i = 0; i < SH_RES; i++) {
+            int n = 0;
+            for (int k = 0; k < 4; k++)
+                n += in_shadow(m, x + (i + 0.25f + 0.5f * (k & 1)) / SH_RES, y + (j + 0.25f + 0.5f * (k >> 1)) / SH_RES, h0);
+            uint32_t a = (uint32_t)(n * 255 * hires_shadow_strength / 4 + 0.5f);
+            any |= n;
+            px[j * SH_RES + i] = a << 24 | hires_shadow_tint;
+        }
+    if (!any) { free(px); *slot = SH_NONE; return NULL; }
+    HiresTexture *t = calloc(1, sizeof *t);
+    *t = (HiresTexture){ SH_RES, SH_RES, px, NULL, true };
+    return *slot = t;
+}
+
+static void draw_shadows(const Map *m, const RenderRect *r, int z)
+{
+    for (int y = r->y0_rel; y <= r->y_sum - r->y0_rel; y++)
+        for (int x = r->x0_rel; x <= r->x_sum - r->x0_rel; x++) {
+            if (x < 0 || y < 0 || x + 1 > G->nx || y + 1 > G->ny) continue;
+            int wx = G->left + x, wy = G->top + y;
+            if (wx < 0 || wy < 0 || wx >= MAP_W || wy >= MAP_H) continue;
+            const MapBlock *b = map_get_block(m, wx, wy, z);
+            if (!b || !b->lid || b->type_map & 0x3f00) continue;     /* no lid, or a slope */
+            if (z > 0 && solid(m, wx, wy, z - 1)) continue;         /* covered by the block above */
+            HiresTexture *t = shadow_mask(m, wx, wy, z);
+            if (t) face_h(0x80, t, UX(x, y), UX(x + 1, y), UX(x, y + 1), UX(x + 1, y + 1), UY(x, y), UY(x + 1, y + 1));
+        }
+}
+
 /* ---- the city ---- */
 
 void hires_city_draw(const Map *m, const Style *s, const Viewport *vp, const HrTarget *target, int n)
@@ -584,5 +664,6 @@ void hires_city_draw(const Map *m, const Style *s, const Viewport *vp, const HrT
                 draw_at(m, x, r->y_sum - y, z);
                 draw_at(m, r->x_sum - x, r->y_sum - y, z);
             }
+        if (hires_shadows) draw_shadows(m, r, z);
     }
 }
