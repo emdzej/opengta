@@ -97,6 +97,7 @@ my-skin/style001/sprite/<n>.png          sprite n
 my-skin/style001/sprite/<n>_r<r>.png     sprite n with remap r (a car colour), optional
 my-skin/style001/sprite/<n>_mask.png     sprite n's paint mask, optional
 my-skin/style001/sprite/<n>_delta<k>.png sprite n's delta k (damage, a door step), optional
+my-skin/style001/sprite/<n>_index.png    sprite n's remap index map (ped clothes), optional
 my-skin/font/<FONT>/<code>.png           a glyph of a font
 my-skin/pictures/<NAME>.png              a frontend picture
 ```
@@ -204,6 +205,16 @@ Draw the paint about as bright as the car's paint looks in the game: brighter pa
 for every remap, darker paint darker ones. Your own colours show when the car is drawn without a remap.
 
 Peds have remaps too (their clothes): the same mask convention works for ped sprites.
+
+### Ped clothes: index maps
+
+A ped's remap swaps several colour ramps at once (shirt, trousers, skin, hair), which one paint mask
+can't carry. Draw `sprite/<n>_index.png` next to the image instead: the same size, opaque, its red value
+under each pixel the original CLUT index that pixel stands for (0 = keep your colour). Take the indices
+from the extracted sprite (`--extract`): the shirt's mid tone under the shirt, and so on. For each remap
+the game paints every pixel in that remap's colour of its index, shaded by your pixel's brightness, so
+shading you draw survives every outfit. Draw the map without anti-aliasing: an edge pixel names one
+index. An index map works for cars too, in place of the mask.
 
 ### Damage and doors: deltas
 

@@ -368,7 +368,7 @@ static void write_json(FILE *f)
                "  \"note\": \"Metadata of the replaceable assets of your game data (names, numbers, sizes). No game pixels. See docs/skins.md.\",\n"
                "  \"layout\": {\n"
                "    \"tile\": \"style<NNN>/<side|lid|aux>/<n>.png, variant: <n>_r<0..3>.png\",\n"
-               "    \"sprite\": \"style<NNN>/sprite/<n>.png, <n>_r<remap>.png, <n>_mask.png (paint), <n>_delta<k>.png\",\n"
+               "    \"sprite\": \"style<NNN>/sprite/<n>.png, <n>_r<remap>.png, <n>_mask.png (paint), <n>_index.png (remap index map), <n>_delta<k>.png\",\n"
                "    \"font\": \"font/<FONT>/<code>.png (code = first + glyph index, decimal)\",\n"
                "    \"picture\": \"pictures/<NAME>.png\"\n  },\n");
     fprintf(f, "  \"styles\": [");
@@ -532,7 +532,8 @@ static void write_checklist(FILE *f, const char *dir)
         for (int n = 1, k = 0; n < sm->nside; n++)
             if (!sm->side[n].uses) fprintf(f, "%s side %d", k++ ? "," : "", n);
         fprintf(f, ".\n\n### Sprites (%d)\n\nSizes are the original's in pixels (an image is stretched over that footprint: keep the aspect).\n"
-                   "Remapped sprites: `sprite/<n>_r<r>.png` per remap, or one `sprite/<n>_mask.png` paint mask. Deltas\n"
+                   "Remapped sprites: `sprite/<n>_r<r>.png` per remap, one `sprite/<n>_mask.png` paint mask (cars) or one\n"
+                   "`sprite/<n>_index.png` remap index map (ped clothes: several parts per remap). Deltas\n"
                    "(damage, doors, lights): `sprite/<n>_delta<k>.png`, else the original delta shades the image.\n", sm->nsprites);
         int last_group = -2;
         for (int n = 0; n < sm->nsprites; n++) {
@@ -720,7 +721,7 @@ static int aspect_off(int W, int H, int w, int h)
     return (int)((d - 1) * 100 + 0.5);
 }
 
-typedef struct { int style, kind, n, variant; } Seen;   /* variant: -1 plain, -2 mask, 0.. _r, 100 + k delta */
+typedef struct { int style, kind, n, variant; } Seen;   /* variant: -1 plain, -2 mask, -3 index map, 0.. _r, 100 + k delta */
 static Seen *seen;
 static int nseen;
 static bool have(int style, int kind, int n, int variant)
@@ -838,6 +839,7 @@ static int validate(const char *dir)
                     variant = number(&p, &z2);
                     bad = variant < 0 || strcmp(p, ".png") || z2;
                 } else if (!bad && !strcmp(p, "_mask.png") && kind == KIND_SPRITE) variant = -2;
+                else if (!bad && !strcmp(p, "_index.png") && kind == KIND_SPRITE) variant = -3;
                 else if (!bad && !strncmp(p, "_delta", 6) && kind == KIND_SPRITE) {
                     p += 6;
                     bool z2;
@@ -846,7 +848,7 @@ static int validate(const char *dir)
                     variant = 100 + k;
                 } else bad = true;
                 if (bad) {
-                    if (!pass) report(ERR, rel, kind == KIND_SPRITE ? "name it <n>.png, <n>_r<remap>.png, <n>_mask.png or <n>_delta<k>.png"
+                    if (!pass) report(ERR, rel, kind == KIND_SPRITE ? "name it <n>.png, <n>_r<remap>.png, <n>_mask.png, <n>_index.png or <n>_delta<k>.png"
                                                                     : "name it <n>.png or <n>_r<0..3>.png");
                     continue;
                 }
@@ -908,6 +910,14 @@ static int validate(const char *dir)
                             grey = abs(r - g) < 16 && abs(g - bl) < 16;
                         }
                         if (!grey) report(WARN, rel, "a paint mask should be grey: white = paint, black = not (colours are read as brightness)");
+                    } else if (variant == -3) {
+                        if (!remaps) report(WARN, rel, "sprite %d isn't drawn remapped by cars or peds: the index map is never used", n);
+                        const Size b = sprite_size[si_of(sm) * 0x1000 + n];
+                        if (!b.w) report(WARN, rel, "no sprite/%d.png: the index map recolours that image, it is unused", n);
+                        else if (aspect_off(w, h, b.w, b.h) > 1) report(ERR, rel, "%d x %d doesn't match sprite/%d.png (%d x %d)", w, h, n, b.w, b.h);
+                        bool any = false;
+                        for (int k = 0; k < w * h && !any; k++) any = (px[k] & 0xff) != 0;
+                        if (!any) report(WARN, rel, "every index is 0 (red channel): nothing is recoloured");
                     } else if (variant >= 100) {
                         const int k = variant - 100;
                         if (k >= sp->ndeltas) report(ERR, rel, "sprite %d has %d deltas (0..%d)", n, sp->ndeltas, sp->ndeltas - 1);

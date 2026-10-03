@@ -292,6 +292,60 @@ static void check_damage(Style *s)
     hires_skins_free();
 }
 
+/* ---- a remap index map: sprite/<n>_index.png recolours each pixel through the index it names ---- */
+
+static void check_index(Style *s)
+{
+    /* ped sprite: a grey image whose left half names the sprite's most used index, the right half 0 */
+    const int n = sprite_group_base(SPRITE_GROUP_PED);
+    const SpriteInfo *in = sprite_get_info(n);
+    int used[256] = { 0 }, e = 1;
+    for (int v = 0; v < in->h; v++)
+        for (int u = 0; u < in->w; u++) used[in->data[v * 256 + u]]++;
+    const uint32_t *own = sprite_remap_clut(in->clut, 0, 0);
+    int r = 1;
+    const uint32_t *rem = NULL;
+    for (int k = 1; k < 256; k++)
+        if (k && used[k] > used[e]) e = k;
+    /* a remap that changes that index */
+    for (r = 1; r < 64; r++) {
+        rem = sprite_remap_clut(in->clut, r, sprite_ped_palette());
+        if ((rem[e * 64] & 0xffffff) != (own[e * 64] & 0xffffff)) break;
+    }
+    CHECK(r < 64, "a ped remap that changes index %d", e);
+    const int w = in->w * 2, h = in->h * 2;
+    uint32_t *img = malloc((size_t)w * h * 4), *ix = malloc((size_t)w * h * 4);
+    for (int i = 0; i < w * h; i++) img[i] = 0xff808080u, ix[i] = 0xff000000u | (i % w < w / 2 ? (uint32_t)e : 0);
+    char dir[128], path[192];
+    snprintf(dir, sizeof dir, "out/skins/over/style001/sprite");
+    mkdir(dir, 0755);
+    snprintf(path, sizeof path, "%s/%d.png", dir, n);
+    png_write(path, img, w, h, PNG_ABGR);
+    snprintf(path, sizeof path, "%s/%d_index.png", dir, n);
+    png_write(path, ix, w, h, PNG_ABGR);
+    CHECK(hires_skins_load("over", 2, plat_log) == 1, "load over");
+    HiresTexture *plain = hires_sprite(s, n, in, own, 0, 0, own), *t = hires_sprite(s, n, in, rem, 0, r, own);
+    CHECK(plain && t && t != plain, "the remap is its own texture");
+    if (plain && t) {
+        uint32_t left = t->rgba[(t->h / 2) * t->w + 1], right = t->rgba[(t->h / 2) * t->w + t->w - 2];
+        /* left: the remap's colour of index e, scaled by the grey (0x80) against index e's own brightness */
+        uint32_t o = own[e * 64] & 0xffffff, c = rem[e * 64] & 0xffffff;
+        unsigned lo = (((o >> 16) & 0xff) * 77 + ((o >> 8) & 0xff) * 150 + (o & 0xff) * 29) / 256 + 1;
+        int off = 0;
+        for (int ch = 0; ch < 3; ch++) {   /* rgba: R in the low byte; c: 0xRRGGBB */
+            unsigned want = ((c >> (16 - 8 * ch)) & 0xff) * 0x80 / lo;
+            if (want > 255) want = 255;
+            int d = abs((int)((left >> (8 * ch)) & 0xff) - (int)want);
+            if (d > off) off = d;
+        }
+        CHECK(off <= 2, "index %d recoloured: %08x, %d off the remap's colour %06x shaded", e, left, off, c);
+        CHECK(right == 0xff808080u, "index 0 keeps the skin's colour (%08x)", right);
+        printf("  %d_index.png: index %d in remap %d -> %08x, index 0 -> %08x\n", n, e, r, left, right);
+    }
+    hires_skins_free();
+    free(img), free(ix);
+}
+
 /* ---- the skin_template tool (built next to this test): template and --validate ---- */
 
 static char tool[512];
@@ -522,6 +576,7 @@ int main(int argc, char **argv)
     check_lookup(s);
     printf("deltas on skin sprites:\n");
     check_damage(s);
+    check_index(s);
     printf("skin_template:\n");
     {
         const char *slash = strrchr(argv[0], '/');

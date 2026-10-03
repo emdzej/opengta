@@ -28,6 +28,7 @@
    The output is generated from the structure of your own copy of the game: keep it for your own use,
    don't distribute it (skin.ini says so). */
 #include "exe.h"
+#include "font.h"
 #include "game/carinfo.h"
 #include "map.h"
 #include "render/hires/hires_skin.h"
@@ -496,6 +497,7 @@ static int classify(float r, float g, float b, const Material *mat, int k)
    smooth curves at the output resolution, small wiggles below the blur disappear, corners round
    slightly. */
 static float sigma = 2.0f, building_sigma = 0.9f, sprite_sigma = 1.3f, vehicle_sigma = 1.5f;
+static bool fields_hard;   /* no anti-aliasing between classes (index maps) */
 static int field_mirror;   /* > 0: the fields are made symmetric about x = (field_mirror - 1) / 2 (cars) */
 static void draw_fields(const ClassMap *cm, const Material *mat, uint32_t *out, int L)
 {
@@ -552,7 +554,7 @@ static void draw_fields(const ClassMap *cm, const Material *mat, uint32_t *out, 
                 else if (v > f2) f2 = v, c2 = present[j];
             }
             float t = 0.5f + (f1 - (f2 < 0 ? 0 : f2)) * gain;
-            if (f2 < 0) t = 1;
+            if (f2 < 0 || fields_hard) t = 1;
             t = t < 0 ? 0 : t > 1 ? 1 : t;
             float r1 = 0, g1 = 0, b1 = 0, a1 = 0, r2 = 0, g2 = 0, b2 = 0, a2 = 0;
             if (c1 != TRANSPARENT) r1 = mat[c1].r, g1 = mat[c1].g, b1 = mat[c1].b, a1 = 255;
@@ -1024,7 +1026,8 @@ enum { P_LIGHT = MAXK, P_DARK, SPRITE_OUT = 512, VEHICLE_COLOURS = 6 };
 static bool sprite_wanted(int n, bool *vehicle)
 {
     static const int VEHICLES[] = { SPRITE_GROUP_BOAT, SPRITE_GROUP_BUS, SPRITE_GROUP_CAR, SPRITE_GROUP_TANK, SPRITE_GROUP_TRAIN, SPRITE_GROUP_BIKE };
-    static const int OTHERS[] = { SPRITE_GROUP_OBJECT, SPRITE_GROUP_TRAFFIC_LIGHTS, SPRITE_GROUP_TRDOORS, SPRITE_GROUP_BOX };
+    static const int OTHERS[] = { SPRITE_GROUP_OBJECT, SPRITE_GROUP_TRAFFIC_LIGHTS, SPRITE_GROUP_TRDOORS, SPRITE_GROUP_BOX,
+                                  SPRITE_GROUP_ARROW, SPRITE_GROUP_DIGITS, SPRITE_GROUP_SPEEDO };
     for (size_t i = 0; i < sizeof VEHICLES / sizeof *VEHICLES; i++)
         if (n >= sprite_group_base(VEHICLES[i]) && n < sprite_group_base(VEHICLES[i]) + sprite_group_count(VEHICLES[i])) return *vehicle = true;
     for (size_t i = 0; i < sizeof OTHERS / sizeof *OTHERS; i++)
@@ -1269,6 +1272,96 @@ static void draw_vehicle(const ClassMap *cm, int cw, int ch, const Material *vm,
         }
 }
 
+/* ---- peds: flat parts and a remap index map ----
+   A ped's clothes and skin are colour ramps of the CLUT that the remaps swap (shirt, trousers, skin,
+   hair). The indices the sprite uses are grouped into ramps (neighbouring indices of similar chroma), each
+   ramp into at most two tones; each tone is one flat shape in the colour of its most used index. The index
+   map (sprite/<n>_index.png) names that index under every pixel, drawn without anti-aliasing: the engine
+   recolours each part through the ped's remap. */
+static bool generate_ped(const SpriteInfo *in, int n, int number)
+{
+    const uint32_t *c0 = sprite_remap_clut(in->clut, 0, 0);
+    int used[256] = { 0 };
+    for (int v = 0; v < in->h; v++)
+        for (int u = 0; u < in->w; u++) used[in->data[v * 256 + u]]++;
+    /* ramps */
+    int part[256], np = 0, last = -10;
+    float lr = 0, lg = 0, lb = 0;
+    for (int e = 1; e < 256; e++) {
+        part[e] = -1;
+        if (!used[e]) continue;
+        float r = (float)(c0[e * 64] >> 16 & 0xff), g = (float)(c0[e * 64] >> 8 & 0xff), b = (float)(c0[e * 64] & 0xff);
+        Material m = { lr, lg, lb, 0, 0 };
+        float dr = r - m.r, dg = g - m.g, db = b - m.b;
+        float dcb = -0.169f * dr - 0.331f * dg + 0.5f * db, dcr = 0.5f * dr - 0.419f * dg - 0.081f * db;
+        bool same = e - last <= 4 && dcb * dcb + dcr * dcr < 40 * 40;
+        part[e] = same ? np - 1 : np++;
+        last = e, lr = r, lg = g, lb = b;
+    }
+    /* tones: a ramp splits at its mean lightness when it spans more than 60 */
+    int tone_of[256], ntones = 0, rep[128] = { 0 };
+    double lsum[128] = { 0 }, lcnt[128] = { 0 };
+    float lmin[128], lmax[128];
+    for (int p = 0; p < np; p++) lmin[p] = 1e9f, lmax[p] = -1;
+    for (int e = 1; e < 256; e++)
+        if (part[e] >= 0) {
+            float l = luma((float)(c0[e * 64] >> 16 & 0xff), (float)(c0[e * 64] >> 8 & 0xff), (float)(c0[e * 64] & 0xff));
+            int p = part[e];
+            lsum[p] += l * used[e], lcnt[p] += used[e];
+            if (l < lmin[p]) lmin[p] = l;
+            if (l > lmax[p]) lmax[p] = l;
+        }
+    int tone_id[128][2];
+    for (int p = 0; p < np; p++) tone_id[p][0] = tone_id[p][1] = -1;
+    int best_n[128] = { 0 };
+    for (int e = 1; e < 256; e++) {
+        tone_of[e] = -1;
+        if (part[e] < 0) continue;
+        int p = part[e];
+        float l = luma((float)(c0[e * 64] >> 16 & 0xff), (float)(c0[e * 64] >> 8 & 0xff), (float)(c0[e * 64] & 0xff));
+        int t = lmax[p] - lmin[p] > 60 && l < lsum[p] / lcnt[p] ? 1 : 0;
+        if (tone_id[p][t] < 0 && ntones < 128) tone_id[p][t] = ntones++;
+        int id = tone_id[p][t];
+        if (id < 0) continue;
+        tone_of[e] = id;
+        if (used[e] > best_n[id]) best_n[id] = used[e], rep[id] = e;
+    }
+    if (ntones > MAXK) return true;   /* (never: a ped uses a few dozen colours) */
+    ClassMap cm;
+    for (int i = 0; i < TILE * TILE; i++) cm.cls[i] = TRANSPARENT, cm.shade[i] = 1;
+    for (int v = 0; v < in->h && v < TILE; v++)
+        for (int u = 0; u < in->w && u < TILE; u++) {
+            uint8_t e = in->data[v * 256 + u];
+            if (e && tone_of[e] >= 0) cm.cls[v * TILE + u] = (uint8_t)tone_of[e];
+        }
+    Material col[MAXK + 2], idx[MAXK + 2];
+    for (int t = 0; t < ntones; t++) {
+        uint32_t c = c0[rep[t] * 64];
+        set_rgb(&col[t], c & 0xffffff);
+        set_rgb(&idx[t], (uint32_t)rep[t] << 16);   /* red = the index */
+    }
+    int cw = in->w < TILE ? in->w : TILE, ch = in->h < TILE ? in->h : TILE;
+    int q = SPRITE_OUT / (cw > ch ? cw : ch);
+    if (q > 2 * scale) q = 2 * scale;
+    if (q < 1) q = 1;
+    int L = TILE * q > SPRITE_OUT ? SPRITE_OUT : TILE * q;
+    static uint32_t img[SPRITE_OUT * SPRITE_OUT], ix[SPRITE_OUT * SPRITE_OUT];
+    float sg = sigma;
+    sigma = 0.7f;
+    draw_fields(&cm, col, img, L);
+    outline(img, L, cw * q, ch * q, 0.6f * q);
+    fields_hard = true;
+    draw_fields(&cm, idx, ix, L);
+    fields_hard = false;
+    sigma = sg;
+    for (int i = 0; i < L * L; i++) ix[i] = 0xff000000u | (ix[i] >> 24 ? ix[i] & 0xff : 0);   /* opaque, red only */
+    char name[64];
+    snprintf(name, sizeof name, "%d", n);
+    if (!write_image(number, name, img, L, cw * q, ch * q)) return false;
+    snprintf(name, sizeof name, "%d_index", n);
+    return write_image(number, name, ix, L, cw * q, ch * q);
+}
+
 static bool generate_sprites(const Style *s, int number, const CityPalette *pal)
 {
     int ns = sprite_count();
@@ -1322,6 +1415,13 @@ static bool generate_sprites(const Style *s, int number, const CityPalette *pal)
             if (sn[j] > 0) dmat[j].r = (float)(sr[j] / sn[j]), dmat[j].g = (float)(sg[j] / sn[j]), dmat[j].b = (float)(sb[j] / sn[j]);
             grade(&dmat[j], pal);
         }
+    }
+    int peds = 0;
+    for (int n = sprite_group_base(SPRITE_GROUP_PED); n < sprite_group_base(SPRITE_GROUP_PED) + sprite_group_count(SPRITE_GROUP_PED); n++) {
+        const SpriteInfo *in = sprite_get_info(n);
+        if (!in || !in->w || !in->h || !in->data) continue;
+        if (!generate_ped(in, n, number)) return false;
+        peds++;
     }
     static uint32_t img[SPRITE_OUT * SPRITE_OUT], mimg[SPRITE_OUT * SPRITE_OUT];
     static uint8_t paint[256 * 256];
@@ -1448,7 +1548,7 @@ static bool generate_sprites(const Style *s, int number, const CityPalette *pal)
             L = SPRITE_OUT;
         }
         float sg = sigma;
-        int ow = cw * q, oh = ch * q;
+        int ow = (in->w * q + f / 2) / f, oh = (in->h * q + f / 2) / f;   /* the original's aspect exactly */
         char name[64];
         bool designed = veh && field_mirror;
         if (designed && !npaint) {
@@ -1512,7 +1612,100 @@ static bool generate_sprites(const Style *s, int number, const CityPalette *pal)
         field_mirror = 0;
     }
     nmat = saved;
-    printf("style %03d: %d sprites (%d paint masks), %d sprite materials\n", number, written, masks, k);
+    printf("style %03d: %d sprites (%d paint masks), %d peds with index maps, %d sprite materials\n", number, written, masks, peds, k);
+    return true;
+}
+
+/* ---- fonts: the text and digit fonts the game draws at 640 x 480 ----
+   Per font, its colours (through the font file's palette) are clustered into at most three, the darkest
+   being the outline or shadow; each glyph's pixels take those classes and are drawn as smooth flat shapes
+   at `scale` times the glyph's box. The HUD fonts are drawn with the city's palettes (the score in the
+   player's colour, ...), so their images are grey and the engine tints them per use; the frontend fonts
+   keep their colours. */
+static const struct { const char *name; int first; bool grey; } FONTS[] = {
+    { "BIG2", 33, true }, { "SUB2", 33, true }, { "STREET2", 33, true }, { "PAGER2", 33, true },
+    { "SCORE2", 0, true }, { "MISSMUL2", 0, true }, { "EXPSCOR2", 0, true },
+    { "F_MHEAD", 33, false }, { "F_MTEXT", 33, false }, { "F_MMISS", 33, false }, { "CUTTEXT", 33, false },
+};
+
+/* a font palette entry (red in the low byte, as the PNGs) as 0xRRGGBB */
+static uint32_t font_rgb(uint32_t c) { return (c & 0xff) << 16 | (c & 0xff00) | (c >> 16 & 0xff); }
+
+static bool generate_fonts(void)
+{
+    char err[256], path[64];
+    int glyphs = 0;
+    for (size_t fi = 0; fi < sizeof FONTS / sizeof *FONTS; fi++) {
+        snprintf(path, sizeof path, "GTADATA/%s.FON", FONTS[fi].name);
+        Font *fo = font_load(path, (uint16_t)FONTS[fi].first, true, err, sizeof err);
+        if (!fo) { fprintf(stderr, "skin_generate: %s: %s\n", path, err); continue; }
+        if (!fo->pal) { font_free(fo); continue; }
+        /* the font's classes */
+        static Hist h[256];
+        int nh = 0, count[256] = { 0 };
+        for (int g = 0; g < fo->count; g++)
+            if (fo->glyph[g].px)
+                for (int k = 0; k < fo->glyph[g].w * fo->height; k++) count[fo->glyph[g].px[k]]++;
+        for (int e = 1; e < 256; e++)
+            if (count[e]) h[nh++] = (Hist){ font_rgb(fo->pal[e]), (uint32_t)count[e] };
+        qsort(h, (size_t)nh, sizeof *h, cmp_hist);
+        int k = nh < 3 ? nh : 3;
+        Material m[MAXK] = { 0 };
+        float lw = light_weight;
+        light_weight = 1;
+        if (k) cluster(h, nh, m, k);
+        int cls[256];
+        for (int e = 0; e < 256; e++) {
+            float r, g, b;
+            rgbf(font_rgb(fo->pal[e]), &r, &g, &b);
+            cls[e] = e && count[e] ? classify(r, g, b, m, k) : TRANSPARENT;
+        }
+        light_weight = lw;
+        Material col[MAXK + 2];
+        for (int j = 0; j < k; j++) {
+            col[j] = m[j];
+            if (FONTS[fi].grey) { float y = luma(m[j].r, m[j].g, m[j].b); col[j].r = col[j].g = col[j].b = y; }
+        }
+        char dir[1024];
+        snprintf(dir, sizeof dir, "%s/font/%s", out_dir, FONTS[fi].name);
+        mkdirs(dir);
+        for (int g = 0; g < fo->count; g++) {
+            int w = fo->glyph[g].w, hh = fo->height;
+            if (!w || !hh || !fo->glyph[g].px) continue;
+            int f = 1;
+            while (w > TILE * f || hh > TILE * f) f++;
+            int cw = (w + f - 1) / f, ch = (hh + f - 1) / f;
+            ClassMap cm;
+            for (int i = 0; i < TILE * TILE; i++) cm.cls[i] = TRANSPARENT, cm.shade[i] = 1;
+            for (int y = 0; y < ch; y++)
+                for (int x = 0; x < cw; x++) {
+                    int cnt[256] = { 0 }, best = TRANSPARENT;
+                    for (int v = y * f; v < (y + 1) * f && v < hh; v++)
+                        for (int u = x * f; u < (x + 1) * f && u < w; u++) {
+                            int c = cls[fo->glyph[g].px[v * w + u]];
+                            if (++cnt[c] > cnt[best]) best = c;
+                        }
+                    cm.cls[y * TILE + x] = (uint8_t)best;
+                }
+            int q = scale * f, L = TILE * q > SPRITE_OUT ? SPRITE_OUT : TILE * q;
+            if (cw * q > L || ch * q > L) q = L / (cw > ch ? cw : ch);
+            static uint32_t img[SPRITE_OUT * SPRITE_OUT];
+            float sg = sigma;
+            sigma = 0.45f + 0.006f * ch;   /* thin strokes of the small fonts stay */
+            draw_fields(&cm, col, img, L);
+            sigma = sg;
+            static uint32_t crop[SPRITE_OUT * SPRITE_OUT];
+            int ow = (w * q + f / 2) / f, oh = (hh * q + f / 2) / f;
+            for (int y = 0; y < oh; y++) memcpy(crop + y * ow, img + y * L, (size_t)ow * 4);
+            int code = FONTS[fi].first == 33 && g >= 95 ? 128 + (g - 95) : FONTS[fi].first + g;
+            char file[1100];
+            snprintf(file, sizeof file, "%s/%d.png", dir, code);
+            if (!png_write(file, crop, ow, oh, PNG_RGBA)) { fprintf(stderr, "skin_generate: can't write %s\n", file); font_free(fo); return false; }
+            glyphs++;
+        }
+        font_free(fo);
+    }
+    printf("fonts: %d glyphs in %zu fonts\n", glyphs, sizeof FONTS / sizeof *FONTS);
     return true;
 }
 
@@ -1689,5 +1882,6 @@ int main(int argc, char **argv)
     for (int n = 1; n <= 3; n++)
         if (!only || only == n)
             if (!generate_style(n)) return 1;
+    if (semantic && !only && !generate_fonts()) return 1;
     return 0;
 }

@@ -11,8 +11,8 @@ HiresFileReader hires_skin_reader = vfs_read_all;
 
 enum { SKINS_MAX = 8, SLOTS = 4096, PATH_SLOTS = 1024 };
 /* cache variants besides the remaps: the plain image, the paint mask, a sprite with its deltas applied,
-   delta overlay k (V_DELTA - k) */
-enum { V_BASE = -1, V_MASK = -2, V_DAMAGED = -3, V_DELTA = -16 };
+   the remap index map, delta overlay k (V_DELTA - k) */
+enum { V_BASE = -1, V_MASK = -2, V_DAMAGED = -3, V_INDEX = -4, V_DELTA = -16 };
 
 typedef struct {
     bool used;
@@ -230,6 +230,36 @@ static HiresTexture *recoloured(Skin *k, const HiresAsset *a, HiresTexture *base
     return t;
 }
 
+/* sprite/<n>.png recoloured through sprite/<n>_index.png: a pixel whose index (the map's red value) the
+   remap recolours takes the remap's colour of that index, shaded by the skin pixel's brightness against
+   the index's own colour; index 0 and indices the remap leaves alone keep the skin's colour. */
+static HiresTexture *reindexed(Skin *k, const HiresAsset *a, HiresTexture *base, HiresTexture *ix)
+{
+    bool found;
+    Entry *e = slot(k, a->style, a->kind, a->n, a->remap, a->clut, 0, &found);
+    if (found) return e->tex ? e->tex : base;
+    HiresTexture *t = base;
+    uint32_t *px = ix->w > 0 && ix->h > 0 ? malloc((size_t)base->w * base->h * 4) : NULL;
+    if (px) {
+        for (int y = 0; y < base->h; y++)
+            for (int x = 0; x < base->w; x++) {
+                uint32_t c = base->rgba[y * base->w + x], i = ix->rgba[(y * ix->h / base->h) * ix->w + x * ix->w / base->w] & 0xff;
+                uint32_t o = i ? a->own_clut[i * 64] & 0xffffff : 0, r = i ? a->clut[i * 64] & 0xffffff : 0;
+                if (!i || o == r) { px[y * base->w + x] = c; continue; }
+                unsigned l = lum(c), lo = lum_xrgb(o) + 1, out[3];
+                for (int ch = 0; ch < 3; ch++) {
+                    unsigned v = (r >> (16 - 8 * ch) & 0xff) * l / lo;   /* R, G, B */
+                    out[ch] = v > 255 ? 255 : v;
+                }
+                px[y * base->w + x] = (c & 0xff000000u) | out[2] << 16 | out[1] << 8 | out[0];
+            }
+        t = texture_of(px, base->w, base->h);
+        if (!t) t = base;
+    }
+    if (e) *e = (Entry){ true, a->style, a->kind, a->n, a->remap, a->clut, 0, t == base ? NULL : t }, k->nentries++;
+    return t;
+}
+
 /* A tile variant without its own image (a lid remap, a side's direction): the plain image with each
    channel scaled like the variant's CLUT scales the original tile on average (the remaps are mostly
    shading: shadowed pavements, darker walls). */
@@ -433,6 +463,11 @@ static HiresTexture *sprite_image(Skin *k, const HiresAsset *a, const char *sfx)
     }
     HiresTexture *b = file(k, a, V_BASE, "");
     if (!b || a->remap == 0 || !a->info || !a->own_clut || !a->clut) return b;
+    HiresTexture *ix = file(k, a, V_INDEX, "_index");
+    if (ix) {
+        HiresTexture *r = reindexed(k, a, b, ix);
+        return r ? r : b;
+    }
     HiresTexture *m = file(k, a, V_MASK, "_mask");
     if (!m) return b;
     HiresTexture *r = recoloured(k, a, b, m);

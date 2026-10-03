@@ -33,6 +33,7 @@ skins/<name>/style<NNN>/lid/<n>.png         lid tile n
 skins/<name>/style<NNN>/aux/<n>.png         aux tile n (the frames tile animations show)
 skins/<name>/style<NNN>/sprite/<n>.png      sprite n
 skins/<name>/style<NNN>/sprite/<n>_delta<k>.png   delta k of sprite n (damage, doors), optional
+skins/<name>/style<NNN>/sprite/<n>_index.png       remap index map of sprite n (ped clothes, car paint), optional
 skins/<name>/font/..., skins/<name>/pictures/...  fonts and frontend pictures (see below)
 ```
 
@@ -85,8 +86,16 @@ right). Sprites have a remap byte (cars: the colour of the car, peds: the clothe
 - `sprite/<n>_mask.png`, the **paint mask** convention for remapped sprites (cars): white where the image
   is paint, black elsewhere (grey blends). For remap r the masked pixels take the paint colour the remap
   gives the original (the average remapped colour of the texels the remap changes), shaded by the skin
-  pixel's brightness relative to the original paint's average. Without a mask or an `_r` image, every
-  remap shows the plain image.
+  pixel's brightness relative to the original paint's average. Paint is a texel the remap recolours by
+  more than 60 (|dR| + |dG| + |dB|; the remaps also tint glass and dark trim slightly).
+- `sprite/<n>_index.png`, a **remap index map**, for sprites whose remaps recolour several parts at once
+  (ped clothes: shirt, trousers, skin and hair are ramps of the CLUT that a remap swaps). Each pixel's red
+  value names the original CLUT index the skin pixel stands for (0: none). For remap r a pixel takes the
+  remap's colour of its index, shaded by the skin pixel's brightness against the index's own colour;
+  index 0 and the indices the remap leaves alone keep the skin's colour. Draw it at the plain image's
+  size, opaque and without anti-aliasing (an edge pixel names one index). It takes precedence over a
+  paint mask.
+- Without a mask, an index map or an `_r` image, every remap shows the plain image.
 
 ### Deltas: damage and doors
 
