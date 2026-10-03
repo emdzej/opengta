@@ -15,13 +15,9 @@ executable. **Fidelity is the product.** Reproduce the original's behaviour, inc
 If something looks wrong, check the disassembly; if the original does it, keep it and add a comment. Only
 fix deviations *of the port* from the original.
 
-**State:** early. Ported: file layer (directories, the installer's InstallShield cabinets), runtime exe
-tables (`src/exe.c`), every function named in Ghidra (`docs/re/`), map + style, camera, city renderer and
-DMA's rasteriser (32 bpp), sprites, text/fonts/frontend images, the frontend state machine, sound (Miles
-mixer port), game core (`Game_Run`, MISSION.INI loading, entity tables, collision grid), peds/player/input,
-cars and their physics, the mission interpreter, the HUD, traffic and AI drivers, police and emergency
-services, objects/explosions/fires/power-ups, trains, the intro movie (Smacker). Next: play missions
-through and compare with the original, the remaining stubs (`src/game/stubs.c`), fire engines, London.
+**State:** early, complete in scope: every single-player subsystem is ported (see `docs/guide/status.md`);
+`src/game/stubs.c` holds only the DirectPlay layer, which behaves as the original does without a network
+game. Next: play missions through and fix differences from the original; London later (see Expansions).
 
 ## Hard rules
 

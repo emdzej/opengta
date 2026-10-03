@@ -60,10 +60,10 @@ game runtime: the same module natively (`gasm-run`) and in the browser. See
 
 Early. The frontend runs as in the original: the start menu, options, player select and the city and
 mission select, with their sounds and music, and the settings saved like `PLAYER_A.DAT`. Choosing a mission
-starts the level through the ported level start and frame loop. You can walk, get into a car and drive
-through traffic, with the police, trains, explosions, the HUD and the mission script running. Whole
-missions haven't been played through and checked against the original yet. Details in
-[Status](/guide/status).
+starts the level through the ported level start and frame loop. The whole single-player game runs: you can
+walk, steal cars and drive through traffic, with the police, trains, explosions, fire engines, the HUD
+and the mission script. Whole missions haven't been played through and compared with the original yet.
+Details in [Status](/guide/status).
 
 ## Screenshots
 
@@ -71,7 +71,9 @@ All of these are OpenGTA's own output: `opengta.wasm` run headless on the game d
 `tools/screenshots.sh`.
 
 <div class="shots">
+  <figure><img src="/screenshots/intro.jpg" alt="The intro movie: the BMG Interactive logo"><figcaption>The intro movie</figcaption></figure>
   <figure><img src="/screenshots/cities.jpg" alt="The city and mission select over the map of the USA"><figcaption>City and mission select</figcaption></figure>
+  <figure><img src="/screenshots/driving.jpg" alt="Driving a stolen car off the road past traffic in Liberty City"><figcaption>Liberty City: driving through traffic</figcaption></figure>
   <figure><img src="/screenshots/mission1.jpg" alt="The start of the first Liberty City mission: the player next to a parked car"><figcaption>Liberty City, mission 1: the level start</figcaption></figure>
   <figure><img src="/screenshots/mission-miami.jpg" alt="The start of the first Vice City mission"><figcaption>Vice City</figcaption></figure>
   <figure><img src="/screenshots/players.jpg" alt="The player select screen with a portrait"><figcaption>Player select</figcaption></figure>

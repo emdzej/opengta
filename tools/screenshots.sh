@@ -36,6 +36,8 @@ shot credits   200 --input "60:KEY(Escape)"
 # Mission 1 from the menus: Play, the player, Liberty City (the game then runs at 70 calls a second, a game
 # frame every third), and the first San Andreas and Vice City sections straight from mission=.
 shot mission1  400 --input "60:KEY(Enter),100:KEY(Enter),140:KEY(Enter)"
+shot intro     120 --param intro=1
+shot driving  1150 --param mission=1 --input "100-160:KEY(ArrowRight),170-175:KEY(Enter),400-430:KEY(ArrowUp),430-480:KEY(ArrowRight+ArrowUp),480-1100:KEY(ArrowUp)"
 shot mission-sanb   300 --param mission=102
 shot mission-miami  300 --param mission=202
 # The city viewer (front=0) in the three cities.

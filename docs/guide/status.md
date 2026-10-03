@@ -1,7 +1,9 @@
 # Status
 
-OpenGTA is **early**. What follows is what runs today; the rest of the original is named and documented
-([reverse-engineering notes](/re/)) but not ported yet.
+OpenGTA is **early but complete in scope**: every part of the single-player game is reimplemented, and the
+whole game runs, from the intro movie through the menus to the three cities with their traffic, police,
+trains and missions. What it still needs is playing: whole missions haven't been played through and
+compared with the original yet, so expect differences and bugs.
 
 ## Ported
 
@@ -32,8 +34,12 @@ OpenGTA is **early**. What follows is what runs today; the rest of the original 
   session can start), in the frontend (`src/front/front_net.c`) and the game core (`src/game/stubs.c`).
 - The 8, 15 and 16 bpp render paths (the port draws the 32 bpp one).
 
-Every function the single-player game calls is ported with its original address; only the network
-layer is a stub, doing what the original does when no network game runs.
+Only the network layer is left out; it does what the original does when no network game runs.
+
+## Releases
+
+Releases ship `opengta-<version>.wasm` and ready-to-run gasm bundles for macOS, Linux and Windows
+([Installing](/guide/install)). The browser player runs the module built from `main`.
 
 ## Versions
 
