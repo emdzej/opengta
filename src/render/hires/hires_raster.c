@@ -1,9 +1,11 @@
 /* The hires rasteriser (see hires_raster.h). Integer arithmetic only (deterministic on every runner):
    sub-pixel coordinates, 16.16 texel coordinates, bilinear weights of 8 bits. */
 #include "hires_raster.h"
+#include <stddef.h>
 #include <stdlib.h>
 
 bool hr_nearest;
+HrStats hr_stats;
 
 /* ---- textures ---- */
 
@@ -36,14 +38,14 @@ void hr_texture_free(HiresTexture *t)
 
 /* ---- sampling ---- */
 
-/* a + (b - a) * f / 256 on all four bytes (f = 0..255) */
-static inline uint32_t lerp4(uint32_t a, uint32_t b, uint32_t f)
-{
-    const uint32_t g = 256 - f;
-    uint32_t rb = ((a & 0x00ff00ffu) * g + (b & 0x00ff00ffu) * f) >> 8 & 0x00ff00ffu;
-    uint32_t ag = ((a >> 8 & 0x00ff00ffu) * g + (b >> 8 & 0x00ff00ffu) * f) & 0xff00ff00u;
-    return rb | ag;
-}
+/* Colours spread to 16-bit lanes of a 64-bit word (R, B low; G, A high) and back: the blends below are
+   then one multiply for all four bytes (each lane's difference multiplied in place; a lane's borrow is
+   masked off, so the result is exactly the per-byte one). */
+static inline uint64_t spread(uint32_t c) { return (uint64_t)(c & 0x00ff00ffu) | (uint64_t)(c >> 8 & 0x00ff00ffu) << 32; }
+static inline uint32_t unspread(uint64_t x) { return (uint32_t)x | (uint32_t)(x >> 32) << 8; }
+static inline uint64_t lerp64(uint64_t A, uint64_t B, uint32_t f) { return (A + ((B - A) * f >> 8)) & 0x00ff00ff00ff00ffull; }
+/* a + (b - a) * f / 256 on all four bytes (f = 0..255), rounded down, spread */
+static inline uint64_t blend64(uint32_t a, uint32_t b, uint32_t f) { return lerp64(spread(a), spread(b), f); }
 
 static inline int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 
@@ -61,7 +63,7 @@ static inline uint32_t sample(const uint32_t *tx, int w, int h, int32_t u, int32
     int xa = clampi(x0, 0, w - 1), xb = clampi(x0 + 1, 0, w - 1);
     int ya = clampi(y0, 0, h - 1), yb = clampi(y0 + 1, 0, h - 1);
     const uint32_t *ra = tx + ya * w, *rb = tx + yb * w;
-    return lerp4(lerp4(ra[xa], ra[xb], fx), lerp4(rb[xa], rb[xb], fx), fy);
+    return unspread(lerp64(blend64(ra[xa], ra[xb], fx), blend64(rb[xa], rb[xb], fx), fy));
 }
 
 /* dst * (255 - a) / 255 + s, s premultiplied */
@@ -91,44 +93,127 @@ static inline uint32_t sample_inside(const uint32_t *tx, int w, int32_t u, int32
 {
     const uint32_t *r = tx + (v >> 16) * w + (u >> 16);
     uint32_t fx = (uint32_t)(u >> 8) & 0xff, fy = (uint32_t)(v >> 8) & 0xff;
-    return lerp4(lerp4(r[0], r[1], fx), lerp4(r[w], r[w + 1], fx), fy);
+    return unspread(lerp64(blend64(r[0], r[1], fx), blend64(r[w], r[w + 1], fx), fy));
 }
 
-#define SPAN_LOOP(SAMPLE)                                                                                        \
+/* The mode tested once per span, not per pixel. */
+#define SPAN_LOOP(STEP, SAMPLE)                                                                                  \
     do {                                                                                                         \
         if (mode == HR_OPAQUE)                                                                                   \
-            for (; n > 0; n--, dst += stride, u += du, v += dv) *dst = SAMPLE | 0xff000000u;                     \
+            for (; n > 0; n--, dst += stride, STEP) *dst = SAMPLE | 0xff000000u;                                 \
         else if (mode == HR_KEYED)                                                                               \
-            for (; n > 0; n--, dst += stride, u += du, v += dv) {                                                \
+            for (; n > 0; n--, dst += stride, STEP) {                                                            \
                 uint32_t s = SAMPLE;                                                                             \
                 if (s >> 24) *dst = over(s, *dst);                                                               \
             }                                                                                                    \
         else                                                                                                     \
-            for (; n > 0; n--, dst += stride, u += du, v += dv) {                                                \
+            for (; n > 0; n--, dst += stride, STEP) {                                                            \
                 uint32_t s = SAMPLE;                                                                             \
                 if (s >> 24) *dst = blend50(s, *dst);                                                            \
             }                                                                                                    \
     } while (0)
+
+/* The spans of the face trapezoids: one texture coordinate varies along the span, the other is constant.
+   The texels the span crosses are filtered across the constant coordinate once per span, into a line;
+   each pixel then blends two neighbours of the line. Line entries are kept spread (as above), as pairs:
+   an entry and the lane differences to the next, so a pixel is one multiply. The filter runs in the
+   other order (across, then along) than the general path's: the same up to rounding (a few units in a
+   channel at most). */
+enum { LINE_MAX = 4096 };
+typedef struct { uint64_t a, d; } Pair;
+static Pair pairs[LINE_MAX];
+
+/* The pairs of line entries lo..hi (pairs[0] = entries lo, lo + 1): entry i = blend64(p[k s], p[k s + o],
+   f), k = i clamped to 0..lim (the texture's edge). */
+static const Pair *line_pairs(const uint32_t *p, int s, ptrdiff_t o, int lim, uint32_t f, int lo, int hi)
+{
+    hr_stats.line_texels += (unsigned)(hi - lo + 1);
+    const uint32_t *q = p + (ptrdiff_t)clampi(lo, 0, lim) * s;
+    uint64_t prev = blend64(q[0], q[o], f);
+    Pair *out = pairs;
+    for (int i = lo + 1; i <= hi; i++) {
+        q = p + (ptrdiff_t)clampi(i, 0, lim) * s;
+        const uint64_t e = blend64(q[0], q[o], f);
+        *out++ = (Pair){ prev, e - prev };
+        prev = e;
+    }
+    return pairs;
+}
+/* The line at coordinate c (16.16, relative to entry lo): entry c >> 16 blended toward the next by
+   c's fraction, exactly as blend64 */
+static inline uint32_t line_at(const Pair *P, int32_t c)
+{
+    const Pair *p = &P[c >> 16];
+    return unspread((p->a + (p->d * ((uint32_t)(c >> 8) & 0xff) >> 8)) & 0x00ff00ff00ff00ffull);
+}
+
+/* A span over a line, c from entry lo: opaque spans four pixels a step (the most common loop; measurably
+   faster in wasm than one pixel a step) */
+static void line_span(uint32_t *dst, int n, int stride, int mode, const Pair *P, int32_t c, int32_t dc)
+{
+    if (mode == HR_OPAQUE) {
+        for (; n >= 4; n -= 4, dst += 4 * stride, c += 4 * dc) {
+            dst[0] = line_at(P, c) | 0xff000000u;
+            dst[stride] = line_at(P, c + dc) | 0xff000000u;
+            dst[2 * stride] = line_at(P, c + 2 * dc) | 0xff000000u;
+            dst[3 * stride] = line_at(P, c + 3 * dc) | 0xff000000u;
+        }
+        for (; n > 0; n--, dst += stride, c += dc) *dst = line_at(P, c) | 0xff000000u;
+    } else
+        SPAN_LOOP(c += dc, line_at(P, c));
+}
+
+/* A span along which v is constant (every unrotated face trapezoid: u runs along the edges): texel rows
+   y0 and y0 + 1 blended by fy, the line walked along u. */
+static bool span_row(uint32_t *dst, int n, int stride, int mode, const uint32_t *tx, int w, int h, int32_t u,
+                     int32_t v, int32_t du)
+{
+    const int32_t ue = (int32_t)((int64_t)u + (int64_t)du * (n - 1));
+    const int x_lo = (du >= 0 ? u : ue) >> 16, x_hi = ((du >= 0 ? ue : u) >> 16) + 1;
+    if (x_hi - x_lo > LINE_MAX) return false;
+    const int y0 = v >> 16, ya = clampi(y0, 0, h - 1), yb = clampi(y0 + 1, 0, h - 1);
+    const Pair *P = line_pairs(tx + ya * w, 1, (ptrdiff_t)(yb - ya) * w, w - 1, (uint32_t)(v >> 8) & 0xff, x_lo, x_hi);
+    line_span(dst, n, stride, mode, P, u - x_lo * 0x10000, du);
+    return true;
+}
+
+/* A span along which u is constant (the 90 / 270 degree faces: v runs along the edges): texel columns
+   x0 and x0 + 1 blended by fx, the line walked along v. */
+static bool span_col(uint32_t *dst, int n, int stride, int mode, const uint32_t *tx, int w, int h, int32_t u,
+                     int32_t v, int32_t dv)
+{
+    const int32_t ve = (int32_t)((int64_t)v + (int64_t)dv * (n - 1));
+    const int y_lo = (dv >= 0 ? v : ve) >> 16, y_hi = ((dv >= 0 ? ve : v) >> 16) + 1;
+    if (y_hi - y_lo > LINE_MAX) return false;
+    const int x0 = u >> 16, xa = clampi(x0, 0, w - 1), xb = clampi(x0 + 1, 0, w - 1);
+    const Pair *P = line_pairs(tx + xa, w, xb - xa, h - 1, (uint32_t)(u >> 8) & 0xff, y_lo, y_hi);
+    line_span(dst, n, stride, mode, P, v - y_lo * 0x10000, dv);
+    return true;
+}
 
 /* n pixels from dst (step `stride` words), texture coordinates (u, v) + i (du, dv) */
 static void span(uint32_t *dst, int n, int stride, int mode, HiresTexture *tex, int32_t u, int32_t v, int32_t du,
                  int32_t dv)
 {
     if (n <= 0) return;
+    hr_stats.px[mode] += (unsigned)n, hr_stats.spans++;
+    if (stride != 1) hr_stats.px_columns += (unsigned)n;
     const int w = tex->w, h = tex->h;
     const uint32_t *tx = mode == HR_OPAQUE ? tex->rgba : hr_premultiplied(tex);
     u -= 0x8000, v -= 0x8000;
     if (hr_nearest) {
-        SPAN_LOOP(sample(tx, w, h, u, v));
+        SPAN_LOOP((u += du, v += dv), sample(tx, w, h, u, v));
         return;
     }
+    if (dv == 0 && span_row(dst, n, stride, mode, tx, w, h, u, v, du)) return;
+    if (du == 0 && span_col(dst, n, stride, mode, tx, w, h, u, v, dv)) return;
     /* the footprint of both ends inside the texture (coordinates are linear along the span) */
     const int64_t ue = (int64_t)u + (int64_t)du * (n - 1), ve = (int64_t)v + (int64_t)dv * (n - 1);
     const int64_t umax = (int64_t)(w - 1) << 16, vmax = (int64_t)(h - 1) << 16;
     if (u >= 0 && v >= 0 && ue >= 0 && ve >= 0 && u < umax && v < vmax && ue < umax && ve < vmax)
-        SPAN_LOOP(sample_inside(tx, w, u, v));
+        SPAN_LOOP((u += du, v += dv), sample_inside(tx, w, u, v));
     else
-        SPAN_LOOP(sample(tx, w, h, u, v));
+        SPAN_LOOP((u += du, v += dv), sample(tx, w, h, u, v));
 }
 
 /* ---- trapezoids ---- */

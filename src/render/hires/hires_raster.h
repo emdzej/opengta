@@ -39,6 +39,11 @@ enum {
 
 extern bool hr_nearest;         /* debug: nearest-neighbour sampling instead of bilinear */
 
+/* Counters for the tests (tests/hires_perf_test.c): pixels written per mode (HR_OPAQUE, HR_KEYED,
+   HR_BLEND), spans, pixels of column spans (FaceVert), texels filtered into span lines. */
+typedef struct { uint64_t px[3], spans, px_columns, line_texels; } HrStats;
+extern HrStats hr_stats;
+
 const uint32_t *hr_premultiplied(HiresTexture *t);
 void hr_texture_free(HiresTexture *t);
 
