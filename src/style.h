@@ -80,6 +80,9 @@ Style *style_load(int n, char *err, size_t errcap);
 void style_free(Style *s);
 /* Style_ConvertPalettes 0x47cd10: rewrite the CLUT for the display format (no-op if it already is). */
 void style_convert_palettes(Style *s, const PixelFormat *fmt);
+/* Style_SetTileFrame 0x47d440: tile `block` of `which` (0 side, 1 lid) shows tile `frame` of kind 0 side,
+   1 lid, 2 aux (through Tile_SetSideEntry 0x4378a0 / Tile_SetLidEntry 0x4379c0). */
+void style_set_tile_frame(Style *s, unsigned block, int which, unsigned frame, int kind);
 /* Style_UpdateAnims 0x47d610: one game frame of tile animation. */
 void style_update_anims(Style *s);
 

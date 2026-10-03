@@ -1,10 +1,17 @@
 /* Objects (0x44c2d0-0x44ee4f): the object table (0x6b40d0, 3500 x 0x88; Obj_Get 0x44c2d0), the style's
    object_info records (Obj_LoadInfos 0x44ed60), the CMP object_pos section (Obj_SetMapObjects
-   0x44ee20) and the objects a level starts with (Obj_InitFromMap 0x44c620, Obj_CreateStatic 0x44c870,
-   Obj_Create 0x44cef0). Object behaviour (Obj_UpdateAll 0x44d790) is not ported yet. */
+   0x44ee20), the objects a level starts with (Obj_InitFromMap 0x44c620, Obj_CreateStatic 0x44c870),
+   the creators (Obj_Create 0x44cef0, Obj_CreateAttached 0x44cad0, Obj_CreateAnimated 0x44d3d0), the
+   kick (Obj_Kick 0x44d5d0) and the frame (Obj_UpdateAll 0x44d790) over the four lists:
+   - moving 0x6b40bc: kicked objects sliding, tumbling and falling (Obj_Kick pushes them);
+   - status 7 0x6b40c0: timers that explode (object_info h / depth used as counts);
+   - animated 0x728430 (status 5 / 9): fires, smoke, cycling objects;
+   - attached 0x6b40c4: objects riding a car, train, ped or object at an offset.
+   See docs/objects.md. */
 #pragma once
 #include "../render/sprite.h"
 #include "layout.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 enum { OBJ_MAX = 3500, OBJ_INFO_MAX = 0x100, OBJ_POS_SIZE = 14, OBJ_SMASHABLE_MAX = 200 };
@@ -22,12 +29,14 @@ typedef struct Obj {
     int16_t type;               /* +0x0a object_info index */
     int16_t state;              /* +0x0c frame state: 0 free, 1 normal, 7 (status 1 objects) */
     int16_t frame_timer;        /* +0x0e */
-    int16_t u10, u12;
-    int16_t owner;              /* +0x14 (-1) */
-    int16_t param;              /* +0x16 creation parameter of types 0x3f / 0x40 / 0x4d */
-    int16_t attach_kind;        /* +0x18 */
-    int16_t off_x, off_y;       /* +0x1a, +0x1c */
-    int16_t u1e;
+    int16_t u10;                /* +0x10 animation cycles done; status 7: steps of the timer */
+    int16_t u12;                /* +0x12 1: the cycles don't count (Obj_SetFlagE2, recorded fires) */
+    int16_t owner;              /* +0x14 (-1) the entity a fire burns on / an attached object rides */
+    int16_t param;              /* +0x16 creation parameter of types 0x3f / 0x40 / 0x4d (0x40: a ped) */
+    int16_t attach_kind;        /* +0x18 of the owner: 0 object, 1 / 5 car (5 turns with it), 2 / 3
+                                   train, 4 ped; for fires 0 object, 1 car, else ped */
+    int16_t off_fwd, off_side;  /* +0x1a, +0x1c attached offset (pixels) along / across the heading */
+    int16_t u1e;                /* +0x1e projectiles: the ped that fired it (its player is blamed) */
     uint8_t in_anim_list;       /* +0x20 */
     uint8_t u21;
     uint8_t pad22[2];
@@ -38,7 +47,7 @@ typedef struct Obj {
 GAME_OFS(Obj, speed, 0x02); GAME_OFS(Obj, heading, 0x06); GAME_OFS(Obj, weight, 0x08);
 GAME_OFS(Obj, type, 0x0a); GAME_OFS(Obj, state, 0x0c); GAME_OFS(Obj, frame_timer, 0x0e);
 GAME_OFS(Obj, owner, 0x14); GAME_OFS(Obj, param, 0x16); GAME_OFS(Obj, attach_kind, 0x18);
-GAME_OFS(Obj, off_x, 0x1a); GAME_OFS(Obj, in_anim_list, 0x20); GAME_OFS(Obj, u21, 0x21);
+GAME_OFS(Obj, off_fwd, 0x1a); GAME_OFS(Obj, off_side, 0x1c); GAME_OFS(Obj, u1e, 0x1e); GAME_OFS(Obj, in_anim_list, 0x20); GAME_OFS(Obj, u21, 0x21);
 GAME_OFS32(Obj, next, 0x24); GAME_OFS32(Obj, prev, 0x28); GAME_OFS32(Obj, spr, 0x2c);
 GAME_SIZE32(Obj, 0x88);
 
@@ -85,6 +94,24 @@ void obj_create_static(int slot, int type, int32_t x, int32_t y, int32_t z, int 
 /* Obj_Create 0x44cef0: a free object (highest free slot) of `type` at (x, y, z); -1 if refused. */
 int obj_create(int32_t x, int32_t y, int32_t z, int type, int angle);
 void obj_update_sprite(Obj *o);             /* Obj_UpdateSprite 0x44c3a0 */
+bool obj_is_on_screen(const Obj *o);        /* Obj_IsOnScreen 0x44c2f0 */
+void obj_set_state(int obj, int state);     /* Obj_SetState 0x44c5f0 */
+void obj_list_rotate(void);                 /* Obj_ListRotate 0x44cab0 */
+/* Obj_CreateAttached 0x44cad0: an object of `type` riding entity `owner` of `kind` (1 / 5 car, 2 / 3
+   train carriage, 4 ped, else object) side pixels across and fwd along its heading; -1 if none free. */
+int obj_create_attached(int owner, int kind, int side, int fwd, int type);
+void obj_delete_by_owner(int owner);        /* Obj_DeleteByOwner 0x44d360 */
+/* Obj_CreateAnimated 0x44d3d0: a fire-like animated object (random first frame, Fire_Register) on
+   entity `owner` of `kind` (as attach_kind; callers pass a heading where the owner is -1). */
+int obj_create_animated(int32_t x, int32_t y, int32_t z, int type, int owner, int kind);
+/* Obj_Kick 0x44d5d0: object `obj` starts moving with `speed` toward `angle` (x, y unused). */
+void obj_kick(int32_t x, int32_t y, int obj, int speed, int angle);
+void obj_update_all(void);                  /* Obj_UpdateAll 0x44d790 (ends in Proj_UpdateAll) */
 void obj_delete(int id);                    /* Obj_Delete 0x44eb90 */
 void obj_unlink_animated(int id);           /* Obj_UnlinkAnimated 0x44ea30 */
+void obj_remove_moving(int obj);            /* Obj_RemoveMoving 0x44eb30 */
+struct Car;
+void obj_on_car_wrecked(struct Car *c);     /* Obj_OnCarWrecked 0x44ecc0 */
+static inline void obj_set_flag_e2(int obj) { g_objs[(int16_t)obj].u12 = 1; }   /* Obj_SetFlagE2 0x44ed30 */
+void obj_delete_wrapper(int obj);           /* Obj_DeleteWrapper 0x44ed50 */
 int objs_in_use(void);                      /* slots with state != 0 (for checks) */

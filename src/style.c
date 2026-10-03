@@ -114,7 +114,7 @@ static bool style_init_anims(Style *s, const uint8_t *p, size_t size)
 
 /* Style_SetTileFrame 0x47d440: tile `block` (which 0 side, 1 lid) shows tile `frame` of kind 0 side,
    1 lid, 2 aux. */
-static void style_set_tile_frame(Style *s, unsigned block, int which, unsigned frame, int kind)
+void style_set_tile_frame(Style *s, unsigned block, int which, unsigned frame, int kind)
 {
     int16_t base = kind == 0 ? s->side_base : kind == 1 ? s->lid_base : kind == 2 ? s->aux_base : 0;
     if (which == 0) {

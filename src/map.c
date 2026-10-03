@@ -1,4 +1,5 @@
 #include "map.h"
+#include "exe.h"
 #include "vfs.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,6 +60,11 @@ Map *map_load(const char *rel, char *err, size_t errcap)
     m->blocks = (MapBlock *)(m->columns + m->column_size);
     m->nblocks = m->block_size / 8;
     m->data_end = (uint8_t *)m->blocks + m->block_size;
+    /* the change areas (set up at the end of Map_Load): blocks at data_end, columns 0x2000 bytes on */
+    m->chg_block = (MapBlock *)m->data_end;
+    m->chg_block_used = 0;
+    m->chg_column = (int16_t *)(m->data_end + 0x2000);
+    m->chg_column_used = 0;
 
     /* The original trusts the file; the port checks every column so that a bad file can't make it read
        outside the buffer. Valid data passes unchanged. */
@@ -156,4 +162,185 @@ int map_get_face(const Map *m, int x, int y, int z, int face)
     case 4: return b->lid;
     default: return -1;
     }
+}
+
+/* ---- map edits (0x437b50-0x438020) ---- */
+
+/* The column of (x, y) made writable: a column of the loaded data is copied (7 - h shorts: its height
+   and the block indices) to the next free place of the column change area and the base table points at
+   the copy. NULL on overflow. */
+static int16_t *cow_column(Map *m, int x, int y)
+{
+    uint32_t *base = (uint32_t *)m->buf;
+    int16_t *col = (int16_t *)(m->columns + base[y * MAP_W + x]);
+    if ((uint8_t *)col >= m->data_end) return col;
+    int n = 7 - col[0];
+    m->chg_column_used += n * 2;
+    if (m->chg_column_used > 0x2000) return NULL;   /* Error_Fatal -0x15, line 0x14 */
+    int16_t *copy = m->chg_column;
+    m->chg_column += n;
+    memcpy(copy, col, (size_t)n * 2);
+    return copy;
+}
+
+/* The block at layer z of column col made writable (a loaded block is copied to the block change
+   area). NULL on overflow. */
+static MapBlock *cow_block(Map *m, const int16_t *col, int z)
+{
+    MapBlock *b = &m->blocks[col[z - col[0] + 1]];
+    if ((uint8_t *)b >= m->data_end) return b;
+    if (m->chg_block_used + 8 > 0x2000) return NULL;   /* Error_Fatal -0x15, line 0x18 */
+    m->chg_block_used += 8;
+    MapBlock *copy = m->chg_block++;
+    *copy = *b;
+    return copy;
+}
+
+/* Both copies, then the column's entry and the base table updated (as each Map_Set* does). The source
+   block is returned in *src (Map_SetBlockKind reads it after writing the copy). */
+static MapBlock *cow(Map *m, int x, int y, int z, int16_t **colp, const MapBlock **src)
+{
+    const int16_t *old = map_column(m, x, y);
+    if (src) *src = &m->blocks[old[z - old[0] + 1]];
+    int16_t *col = cow_column(m, x, y);
+    if (!col) return NULL;
+    MapBlock *b = cow_block(m, col, z);
+    if (!b) return NULL;
+    *colp = col;
+    return b;
+}
+
+static void cow_commit(Map *m, int x, int y, int z, int16_t *col, const MapBlock *b)
+{
+    col[z - col[0] + 1] = (int16_t)(b - m->blocks);
+    ((uint32_t *)m->buf)[y * MAP_W + x] = (uint32_t)((uint8_t *)col - m->columns);
+}
+
+/* the type cache entry of (x, y, z) from type_map t */
+static void cache_set(Map *m, int x, int y, int z, uint16_t t)
+{
+    m->type_cache[z][y][x] = (uint8_t)((t & 0x7f) | (t & 0x3f00 ? 0x80 : 0));
+}
+
+/* the type_map of block (x, y, z) through the (updated) base table, 0 above the column */
+static uint16_t type_now(const Map *m, int x, int y, int z)
+{
+    const int16_t *c = map_column(m, x, y);
+    return z < c[0] ? 0 : m->blocks[c[z - c[0] + 1]].type_map;
+}
+
+/* Map_SetBlockType 0x437b50 */
+bool map_edit_block_type(Map *m, int x, int y, int z, uint32_t info)
+{
+    int16_t *col;
+    MapBlock *b = cow(m, x, y, z, &col, NULL);
+    if (!b) return false;
+    b->type_map = (uint16_t)info;
+    b->ext = (uint8_t)(info >> 16);
+    cow_commit(m, x, y, z, col, b);
+    cache_set(m, x, y, z, (uint16_t)info);
+    return true;
+}
+
+/* Map_SetBlockKind 0x437cb0 */
+bool map_edit_block_kind(Map *m, int x, int y, int z, int kind)
+{
+    int16_t *col;
+    const MapBlock *src;
+    MapBlock *b = cow(m, x, y, z, &col, &src);
+    if (!b) return false;
+    b->type_map &= 0xff8f;
+    b->type_map = (uint16_t)((kind & 0x70) | src->type_map);   /* src is b itself after an earlier edit */
+    b->ext = src->ext;
+    cow_commit(m, x, y, z, col, b);
+    cache_set(m, x, y, z, type_now(m, x, y, z));
+    return true;
+}
+
+/* Map_OrBlockFlags 0x437e70 */
+bool map_edit_or_flags(Map *m, int x, int y, int z, uint32_t flags)
+{
+    int16_t *col;
+    const MapBlock *src;
+    MapBlock *b = cow(m, x, y, z, &col, &src);
+    if (!b) return false;
+    b->type_map = (uint16_t)(src->type_map | flags);
+    b->ext = (uint8_t)(src->ext | flags >> 16);
+    cow_commit(m, x, y, z, col, b);
+    cache_set(m, x, y, z, type_now(m, x, y, z));
+    return true;
+}
+
+/* Map_SetBlockFace 0x438020 */
+bool map_edit_block_face(Map *m, int x, int y, int z, int face, int tile)
+{
+    int16_t *col;
+    MapBlock *b = cow(m, x, y, z, &col, NULL);
+    if (!b) return false;
+    switch (face) {
+    case 0: b->left = (uint8_t)tile; break;
+    case 1: b->right = (uint8_t)tile; break;
+    case 2: b->top = (uint8_t)tile; break;
+    case 3: b->bottom = (uint8_t)tile; break;
+    case 4: b->lid = (uint8_t)tile; break;
+    }
+    cow_commit(m, x, y, z, col, b);
+    return true;
+}
+
+/* Map_IsFaceSolid 0x438650 */
+bool map_is_face_solid(const Map *m, int x, int y, int z, int face)
+{
+    const int16_t *c = map_column(m, x, y);
+    if (z < c[0]) return false;
+    const MapBlock *b = &m->blocks[c[z - c[0] + 1]];
+    if (b->type_map & 0x80) {   /* flat */
+        switch (face) {
+        case 0: return b->left != 0;
+        case 2: return b->top != 0;
+        case 4: return b->lid != 0;
+        default: return false;   /* 1 and 3; others fatal (-0x4a, 0x175) */
+        }
+    }
+    if (b->type_map & 0x3f00) {
+        /* the slope table 0x4b0c88: 3 bytes per slope type, the first the high side */
+        const uint8_t *t = exe_data(0x4b0c88 + (uint32_t)(b->type_map >> 8 & 0x3f) * 3, 1);
+        int high = t ? t[0] : 0;
+        switch (face) {
+        case 0: return b->left != 0 || high == 4;
+        case 1: return b->right != 0 || high == 3;
+        case 2: return b->top != 0 || high == 1;
+        case 3: return b->bottom != 0 || high == 2;
+        case 4: return b->lid != 0;
+        default: return false;
+        }
+    }
+    switch (face) {
+    case 0: return b->left != 0;
+    case 1: return b->right != 0;
+    case 2: return b->top != 0;
+    case 3: return b->bottom != 0;
+    case 4: return b->lid != 0;
+    default: return false;
+    }
+}
+
+/* Map_IsCovered 0x438800: x and y are taken as shorts of the block (unchecked in the original; the port
+   answers false outside the map). */
+bool map_covered(const Map *m, int32_t x, int32_t y, int32_t z)
+{
+    int bx = (int16_t)(x >> 22), by = (int16_t)(y >> 22);
+    if (bx < 0 || by < 0 || bx >= MAP_W || by >= MAP_H) return false;   /* (port guard) */
+    const int16_t *c = map_column(m, bx, by);
+    int l = (int16_t)(z >> 22);
+    if (l >= c[0] && l < MAP_Z) {
+        const MapBlock *b = &m->blocks[c[l - c[0] + 1]];
+        if (b->lid && (b->type_map & 0x3f80) == 0) return true;
+    }
+    for (int k = (int16_t)((z >> 22) - 1); k >= 0; k--) {
+        if (k < c[0] || k >= MAP_Z) continue;
+        const MapBlock *b = &m->blocks[c[k - c[0] + 1]];
+        if (b->lid && !(b->type_map & 0x80)) return true;
+    }
+    return false;
 }
