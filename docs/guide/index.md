@@ -1,8 +1,8 @@
 # Introduction
 
 OpenGTA is a from-scratch reimplementation of **Grand Theft Auto** (DMA Design, 1997), the first GTA, in
-portable C11. It is ported function by function from the Windows build of the game, `WINO/Grand Theft
-Auto.exe` of Rockstar's 2002 re-release, which is the complete game: Liberty City, San Andreas and Vice
+portable C11, based on the Windows build of the game, `WINO/Grand Theft Auto.exe` of Rockstar's 2002
+re-release, which is the complete game: Liberty City, San Andreas and Vice
 City with all their missions.
 
 It is not an emulator, a wrapper or a remake. Each subsystem of the original program is read in the

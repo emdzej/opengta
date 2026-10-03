@@ -50,7 +50,7 @@ function htmlAsTextUnlessReal(md: any) {
 export default defineConfig({
   title: "OpenGTA",
   description:
-    "A faithful, function-by-function port of Grand Theft Auto (DMA Design, 1997) to C11 for the gasm runtime, using the data from your own copy of the game.",
+    "A faithful reimplementation of Grand Theft Auto (DMA Design, 1997) in C11 for the gasm runtime, using the data from your own copy of the game.",
   cleanUrls: true,
   lastUpdated: true,
   srcExclude: ["README.md", "AGENTS.md"],
@@ -64,7 +64,7 @@ export default defineConfig({
   head: [
     ["link", { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" }],
     ["meta", { name: "theme-color", content: "#f08000" }],
-    ["meta", { property: "og:title", content: "OpenGTA: Grand Theft Auto, ported function by function" }],
+    ["meta", { property: "og:title", content: "OpenGTA: Grand Theft Auto, reimplemented" }],
     [
       "meta",
       {

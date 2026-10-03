@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: OpenGTA
-  text: Grand Theft Auto, ported function by function
+  text: Grand Theft Auto, reimplemented
   tagline: A faithful reimplementation of GTA 1 (DMA Design, 1997) in C11, ported from the Windows version of Rockstar's 2002 re-release. It runs the game from your own copy, as one WebAssembly module for the gasm runtime, natively and in the browser. Early work in progress.
   image:
     src: /screenshots/menu.jpg
@@ -22,7 +22,7 @@ hero:
 
 features:
   - title: Faithful
-    details: Not an emulator and not a remake. Every subsystem is ported from the original executable, function by function, quirks and bugs included. Each ported function names its address in the original.
+    details: Not an emulator and not a remake. It reproduces the original's behaviour, quirks and bugs included.
   - title: Your own data
     details: Reads the installed game folder (GTADATA, WINO) or the unzipped installer, straight from its InstallShield cabinets. Even the original's tables are read from its executable at run time. Nothing from the game is in OpenGTA.
     link: /guide/game-data

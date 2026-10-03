@@ -2,8 +2,8 @@
 
 [![Built for gasm](https://gasm.emdzej.pl/badge/built-for-gasm-flat.svg)](https://gasm.emdzej.pl)
 
-A from-scratch, portable reimplementation of **Grand Theft Auto** (DMA Design, 1997) in C11, ported
-function by function from the Windows version of the game. It runs as `opengta.wasm`, a module for the
+A from-scratch, portable reimplementation of **Grand Theft Auto** (DMA Design, 1997) in C11, based on the
+Windows version of the game. It runs as `opengta.wasm`, a module for the
 [gasm](https://gasm.emdzej.pl) WebAssembly game runtime (macOS, Linux, Windows, browser). It contains no
 original code, assets or data: it reads the data files, and the tables of the original game program,
 from your own copy of the game.

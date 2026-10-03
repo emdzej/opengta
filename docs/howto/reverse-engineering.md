@@ -6,7 +6,7 @@ has a name. Entry 0x49dc30, WinMain 0x437230.
 
 ## Rules
 
-- **Fidelity.** Port function by function and reproduce the original's behaviour, quirks and bugs
+- **Fidelity.** Reproduce the original's behaviour, quirks and bugs
   included. If something looks wrong, check the disassembly; if the original does it, keep it and say so in
   a comment. Only fix deviations of the port from the original.
 - **Cite the original.** Every ported function names its source: `/* Map_Load 0x438200 */`.
