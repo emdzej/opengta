@@ -91,6 +91,35 @@
         </div>
       </div>
     </div>
+
+    <div class="card" id="look">
+      <h2>Resolution and skins</h2>
+      <div class="row">
+        <label for="hires">Resolution</label>
+        <select id="hires">
+          <option value="1">640 x 480, the original</option>
+          <option value="2">2x: 1280 x 960</option>
+          <option value="3">3x: 1920 x 1440</option>
+          <option value="4">4x: 2560 x 1920</option>
+        </select>
+      </div>
+      <p class="small">2x to 4x draw the city again at that resolution with OpenGTA's hires renderer (an addition,
+        not part of the original game; the game itself plays the same). It costs speed: 2x keeps up on most
+        computers, 3x and 4x often don't. The line under the game shows the frames per second: a mission runs
+        at 70.</p>
+      <h3 class="sub">Skins</h3>
+      <ul id="skin-list" class="skins"></ul>
+      <p class="small" id="skin-none">No skins added.</p>
+      <div class="row">
+        <button id="pick-skin">Add a skin folder</button>
+        <span class="small" id="skin-status"></span>
+      </div>
+      <input id="skin-input" type="file" webkitdirectory multiple hidden>
+      <p class="small">A skin is a folder of your own replacement images (with a <code>skin.ini</code>) for tiles,
+        sprites, fonts and pictures; whatever it doesn't have is drawn from the original art. Where several skins
+        that are on have the same image, the one higher in the list wins. Skins are kept in this browser like the
+        game data, and work at every resolution. To make one, see <a href="/howto/create-a-skin">Create a skin</a>.</p>
+    </div>
   </section>
 
   <section id="game" hidden>

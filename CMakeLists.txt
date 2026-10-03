@@ -44,3 +44,8 @@ foreach(src ${TEST_SRC})
   target_compile_options(${t} PRIVATE ${OG_WARN})
   add_test(NAME ${t} COMMAND ${t} WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 endforeach()
+
+# Tools (native): skin_template, the skin author's manifest and validator (docs/skins.md).
+add_executable(skin_template tools/skin-template.c ${HOST_SRC})
+target_link_libraries(skin_template PRIVATE og_core)
+target_compile_options(skin_template PRIVATE ${OG_WARN})

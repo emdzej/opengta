@@ -19,6 +19,29 @@ the browser has it, and a folder upload field elsewhere.
 The keyboard goes to the game raw, as with `gasm-run` ([Controls](/guide/controls)). Holding Esc for a
 second stops the game. Player names, scores and options are kept in the browser's storage for this site.
 
+## Skins and resolution
+
+Below the game choice, **Resolution and skins** sets two things OpenGTA adds to the original (they are
+kept for the next visit):
+
+- **Resolution**: 640 x 480 (the original) or 2x, 3x, 4x (1280 x 960 up to 2560 x 1920), the
+  [hires renderer](/hires) (`hires=N`). The game plays exactly the same; only the picture is drawn
+  again at the higher resolution. It costs speed: the browser runs the game at about the speed of
+  gasm's Node runner, plus showing the larger frames, so 2x keeps full speed on most computers and 3x
+  and 4x often fall below it. The status line under the game shows the frames per second; a mission
+  runs at 70 (the game's 23 frames a second plus the sound timer), the menus at 35.
+- **Skins**: **Add a skin folder** picks a [skin](/skins) (a folder with `skin.ini`; the PNG images and
+  `skin.ini` are copied into the site's browser storage, next to the imported game data). Each skin in
+  the list can be switched on and off, moved up and down (where two skins that are on have the same
+  image, the higher one wins) and removed. The skins that are on are passed to the game as
+  `skin=<lowest>,...,<highest>` with their files as assets `skins/<name>/...`, exactly as
+  `gasm-run --asset-dir skins=<folder> --param skin=...` does, so a skin looks the same in the browser and
+  on the desktop. Skins work at every resolution, including 640 x 480. A browser without OPFS keeps a
+  picked skin for the visit only.
+
+To make a skin, see [Create a skin](/howto/create-a-skin). `hires=` and `skin=` in the address override
+the page's choice (see below).
+
 ## Launch parameters
 
 [Launch parameters](/guide/parameters) go in the address: `/play/?mission=1`, or

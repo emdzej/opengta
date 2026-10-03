@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 enum { W = 640, H = 480 };
 static uint32_t fb[W * H];
@@ -205,6 +206,193 @@ static void check_lookup(Style *s)
     hires_skins_free();
 }
 
+/* ---- damage and door deltas on a skin sprite (sprite 72: 11 deltas) ---- */
+
+/* textures side by side on grey, each scaled to 256 rows (nearest) */
+static void write_row(const char *path, HiresTexture *const *t, int n)
+{
+    const int H2 = 256, gap = 8;
+    int ow = gap;
+    for (int i = 0; i < n; i++) ow += (t[i] ? t[i]->w * H2 / t[i]->h : 0) + gap;
+    uint32_t *o = malloc((size_t)ow * (H2 + 2 * gap) * 4);
+    for (int i = 0; i < ow * (H2 + 2 * gap); i++) o[i] = 0xff606060u;
+    int x0 = gap;
+    for (int i = 0; i < n; i++) {
+        if (!t[i]) continue;
+        const int w = t[i]->w * H2 / t[i]->h;
+        for (int y = 0; y < H2; y++)
+            for (int x = 0; x < w; x++) {
+                uint32_t c = t[i]->rgba[(size_t)(y * t[i]->h / H2) * t[i]->w + x * t[i]->w / w], a = c >> 24;
+                uint32_t bg = 0x60, out = 0xff000000u;
+                for (int ch = 0; ch < 3; ch++) out |= (((c >> (8 * ch) & 0xff) * a + bg * (255 - a)) / 255) << (8 * ch);
+                o[(size_t)(y + gap) * ow + x0 + x] = out;
+            }
+        x0 += w + gap;
+    }
+    CHECK(png_write(path, o, ow, H2 + 2 * gap, PNG_ABGR), "write %s", path);
+    free(o);
+    printf("  -> %s\n", path);
+}
+
+static int differing(const HiresTexture *a, const HiresTexture *b)
+{
+    int n = 0;
+    if (a->w != b->w || a->h != b->h) return -1;
+    for (int i = 0; i < a->w * a->h; i++) n += a->rgba[i] != b->rgba[i];
+    return n;
+}
+
+static void check_damage(Style *s)
+{
+    const SpriteInfo *in = sprite_get_info(72);
+    const uint32_t *own = sprite_remap_clut(in->clut, 0, 0), *rem = sprite_remap_clut(in->clut, 3, sprite_car_palette(2));
+    CHECK(in->ndeltas >= 10, "sprite 72 has %d deltas", in->ndeltas);
+    /* derived from the original deltas */
+    /* the original art with the same deltas, for the picture */
+    hires_skins_free();
+    HiresTexture *o_dmg = hires_sprite(s, 72, in, own, 0x3f, 0, own), *o_door = hires_sprite(s, 72, in, own, 1u << 9, 0, own);
+    CHECK(hires_skins_load("sample", 2, plat_log) == 1, "load sample");
+    HiresTexture *plain = hires_sprite(s, 72, in, own, 0, 0, own);
+    HiresTexture *dmg = hires_sprite(s, 72, in, own, 0x3f, 0, own);
+    HiresTexture *door = hires_sprite(s, 72, in, own, 1u << 9, 0, own);
+    HiresTexture *dmg_r = hires_sprite(s, 72, in, rem, 0x3f, 3, own);
+    HiresTexture *again = hires_sprite(s, 72, in, own, 0x3f, 0, own);
+    int nd = plain && dmg ? differing(plain, dmg) : -1, nr = plain && door ? differing(plain, door) : -1;
+    CHECK(plain && plain->w == 248, "skin sprite 72");
+    CHECK(dmg && dmg != plain && nd > 0, "deltas 0-5 derived on the skin image (%d pixels changed)", nd);
+    CHECK(door && door != plain && nr > 0, "delta 9 (door) derived (%d pixels changed)", nr);
+    CHECK(again == dmg, "damaged textures are cached");
+    CHECK(dmg_r && dmg_r != dmg, "a remapped car's damage is its own texture");
+    printf("  derived deltas: damage 0-5 changes %d of %d pixels, door (delta 9) %d\n", nd, plain ? plain->w * plain->h : 0, nr);
+    /* original damaged, original door open | skin, damaged, door open, damaged with remap 3 */
+    HiresTexture *row[6] = { o_dmg, o_door, plain, dmg, door, dmg_r };
+    write_row("out/skins/damage_2x.png", row, 6);
+    /* a delta image in a skin on top: skins/over/style001/sprite/72_delta9.png (a red square) + a copy of
+       the sample's sprite (so over answers sprite 72) */
+    mkdir("out/skins/over/style001/sprite", 0755);
+    size_t n;
+    uint8_t *png = read_host("assets/skins/sample/style001/sprite/72.png", &n);
+    if (png) {
+        FILE *f = fopen("out/skins/over/style001/sprite/72.png", "wb");
+        if (f) fwrite(png, 1, n, f), fclose(f);
+        free(png);
+    }
+    static uint32_t ov[62 * 64];
+    for (int y = 0; y < 64; y++)
+        for (int x = 0; x < 62; x++) ov[y * 62 + x] = x >= 2 && x < 14 && y >= 20 && y < 40 ? 0xff2020e0u : 0;
+    png_write("out/skins/over/style001/sprite/72_delta9.png", ov, 62, 64, PNG_ABGR);
+    CHECK(hires_skins_load("sample,over", 2, plat_log) == 2, "load sample,over");
+    HiresTexture *p2 = hires_sprite(s, 72, in, own, 0, 0, own), *door2 = hires_sprite(s, 72, in, own, 1u << 9, 0, own);
+    uint32_t c = door2 ? door2->rgba[(30 * door2->h / 64) * door2->w + 8 * door2->w / 62] : 0;
+    CHECK(door2 && c == 0xff2020e0u, "delta 9 from 72_delta9.png (pixel %08x)", c);
+    CHECK(p2 && door2 && differing(p2, door2) > 0, "the delta image changes the sprite");
+    printf("  72_delta9.png over the skin: pixel %08x\n", c);
+    HiresTexture *row2[2] = { p2, door2 };
+    write_row("out/skins/damage_image_2x.png", row2, 2);
+    hires_skins_free();
+}
+
+/* ---- the skin_template tool (built next to this test): template and --validate ---- */
+
+static char tool[512];
+
+static int run_tool(const char *args, char *out, size_t cap)
+{
+    char cmd[1024];
+    snprintf(cmd, sizeof cmd, "\"%s\" %s 2>&1", tool, args);
+    FILE *p = popen(cmd, "r");
+    if (!p) return -1;
+    size_t n = fread(out, 1, cap - 1, p);
+    out[n] = 0;
+    int st = pclose(p);
+    return WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+}
+
+static void copy_file(const char *from, const char *to)
+{
+    size_t n;
+    uint8_t *d = read_host(from, &n);
+    FILE *f = d ? fopen(to, "wb") : NULL;
+    if (f) fwrite(d, 1, n, f), fclose(f);
+    free(d);
+}
+
+static bool any_png(const char *dir)
+{
+    char cmd[600], line[16];
+    snprintf(cmd, sizeof cmd, "find \"%s\" -iname '*.png' | head -1", dir);
+    FILE *p = popen(cmd, "r");
+    bool found = p && fgets(line, sizeof line, p);
+    if (p) pclose(p);
+    return found;
+}
+
+static void check_tool(void)
+{
+    static char out[65536];
+    FILE *t = fopen(tool, "rb");
+    if (!t) { printf("  (no %s: skipped)\n", tool); return; }
+    fclose(t);
+    /* the template: manifest, checklist, skin.ini, folders, and not one image */
+    if (system("rm -rf out/skins/template")) printf("  (rm failed)\n");
+    int st = run_tool("out/skins/template", out, sizeof out);
+    CHECK(st == 0, "skin_template out/skins/template: exit %d\n%s", st, out);
+    size_t n;
+    char *json = (char *)read_host("out/skins/template/skin.json", &n);
+    char *md = (char *)read_host("out/skins/template/CHECKLIST.md", NULL);
+    CHECK(json && strstr(json, "\"style\": 1") && strstr(json, "\"aux_frames\": [25, 26, 27"), "skin.json: style 1, the water animation");
+    CHECK(json && strstr(json, "{ \"n\": 72, \"group\": \"car\""), "skin.json: sprite 72 is a car");
+    CHECK(md && strstr(md, "`lid/1.png`") && strstr(md, "`sprite/72.png`: 62 x 64"), "CHECKLIST.md lists lid 1, sprite 72");
+    char *ini = (char *)read_host("out/skins/template/skin.ini", NULL);
+    CHECK(ini && strstr(ini, "scale ="), "skin.ini template");
+    free(ini);
+    struct stat sb;
+    CHECK(!stat("out/skins/template/style001/sprite", &sb) && S_ISDIR(sb.st_mode), "the folders");
+    CHECK(!any_png("out/skins/template"), "the template holds no image");
+    printf("  template: skin.json %zu bytes, CHECKLIST.md, skin.ini, folders, no images\n", json ? n : 0);
+    free(json), free(md);
+    /* the sample is valid */
+    st = run_tool("--validate assets/skins/sample", out, sizeof out);
+    CHECK(st == 0 && strstr(out, " 0 errors, 0 warnings"), "sample validates clean: exit %d\n%s", st, out);
+    printf("  --validate sample: %s", strstr(out, "images;") ? strstr(out, "images;") - 3 : "?\n");
+    /* a broken skin: every kind of mistake is caught */
+    const char *B = "out/skins/broken", *S = "assets/skins/sample/style001";
+    char a[300], b[300];
+    if (system("rm -rf out/skins/broken")) printf("  (rm failed)\n");
+    const char *dirs[] = { "", "/style001", "/style001/lid", "/style001/sprite", "/style001/side", "/style001/water", "/font", "/font/BIG1", "/pictures" };
+    for (size_t i = 0; i < sizeof dirs / sizeof *dirs; i++) snprintf(a, sizeof a, "%s%s", B, dirs[i]), mkdir(a, 0755);
+    snprintf(a, sizeof a, "%s/skin.ini", B), write_file(a, "name = broken\nscale = 9\ncolour = red\n");
+    static const struct { const char *from, *to; } cp[] = {
+        { "lid/1.png", "style001/lid/01.png" },     { "lid/1.png", "style001/lid/1_r7.png" }, { "lid/1.png", "style001/lid/999.png" },
+        { "lid/8.png", "style001/sprite/72.png" },  { "sprite/72.png", "style001/sprite/72_mask.png" },
+        { "sprite/72.png", "style001/sprite/72_delta20.png" }, { "lid/1.png", "style001/side/5.PNG" },
+        { "lid/1.png", "style001/water/1.png" },    { "lid/1.png", "font/BIG1/5.png" },       { "lid/1.png", "pictures/NOPE.png" },
+    };
+    for (size_t i = 0; i < sizeof cp / sizeof *cp; i++) {
+        snprintf(a, sizeof a, "%s/%s", S, cp[i].from), snprintf(b, sizeof b, "%s/%s", B, cp[i].to);
+        copy_file(a, b);
+    }
+    snprintf(a, sizeof a, "%s/style001/lid/3.png", B), write_file(a, "not an image");
+    snprintf(a, sizeof a, "%s/notes.doc", B), write_file(a, "hello");
+    st = run_tool("--validate out/skins/broken", out, sizeof out);
+    static const char *const want[] = {
+        "lid/01.png: leading zeros", "lid/1_r7.png: lid variants are 0..3", "lid/999.png: style 1 has lid 0..",
+        "72_mask.png: 248 x 256 doesn't match sprite/72.png (256 x 256)", "72_delta20.png: sprite 72 has 11 deltas",
+        "side/5.PNG: the game asks for \".png\" in lower case", "water/1.png: unknown folder", "lid/3.png: not a PNG",
+        "font/BIG1/5.png: BIG1 has glyphs 33..", "pictures/NOPE.png: not a picture", "notes.doc: not read by the game",
+        "scale = 9", "unknown key 'colour'",
+    };
+    int caught = 0;
+    for (size_t i = 0; i < sizeof want / sizeof *want; i++) {
+        bool ok = strstr(out, want[i]) != NULL;
+        CHECK(ok, "validator should report \"%s\"", want[i]);
+        caught += ok;
+    }
+    CHECK(st == 1, "a broken skin exits 1 (%d)", st);
+    printf("  --validate broken: %d of %zu mistakes reported, exit %d\n", caught, sizeof want / sizeof *want, st);
+    if (failures) printf("%s", out);
+}
+
 /* ---- renders ---- */
 
 static CameraWorld world = { .peds = true, .cars = true };
@@ -308,8 +496,9 @@ static void render_mission(void)
     hires_skins_free();
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    (void)argc;
     char err[256];
     if (!vfs_mount_default()) { printf("SKIP: no data root\n"); return 0; }
     if (!exe_init(err, sizeof err)) { printf("SKIP: %s\n", err); return 0; }
@@ -331,6 +520,14 @@ int main(void)
     style_convert_palettes(s, &PIXFMT_32);
     printf("overlay stack (NYC, style %d):\n", s->number);
     check_lookup(s);
+    printf("deltas on skin sprites:\n");
+    check_damage(s);
+    printf("skin_template:\n");
+    {
+        const char *slash = strrchr(argv[0], '/');
+        snprintf(tool, sizeof tool, "%.*sskin_template", slash ? (int)(slash - argv[0] + 1) : 0, argv[0]);
+        check_tool();
+    }
     printf("renders:\n");
     render_scenes(m, s);
     style_free(s);

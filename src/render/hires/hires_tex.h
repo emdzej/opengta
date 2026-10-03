@@ -19,12 +19,15 @@ enum { HIRES_SIDE, HIRES_LID, HIRES_AUX, HIRES_SPRITE, HIRES_KINDS };
    sprite's remap byte, 0 = its own palette). clut is the CLUT the original art would be drawn with,
    own_clut the plain variant's (tiles: remap / direction 0; sprites: the sprite's own palette) and
    texels the original 8-bit art (tiles: 64 x 64, 256-byte rows; sprites: info->data), so a layer can
-   recolour its art the way the variant recolours the original. */
+   recolour its art the way the variant recolours the original. deltas (sprites) is the delta mask the
+   faithful renderer applies (damage, doors; 0 = the raw graphic): a layer answering a sprite applies
+   it to its own art (hires_skin.c: sprite/<n>_delta<k>.png, else the original delta's texels). */
 typedef struct {
     int style, kind, n, remap;
     const uint32_t *clut, *own_clut;
     const uint8_t *texels;
     const SpriteInfo *info;
+    uint32_t deltas;
 } HiresAsset;
 /* An overlay layer: its replacement for the asset, or NULL to let the layer below answer. The texture
    stays owned by the layer. */

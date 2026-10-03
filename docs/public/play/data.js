@@ -158,3 +158,120 @@ export function assetSpecs(source) {
   if (source === 'opfs') return [{ kind: 'opfs', dir: NAMESPACE }];
   return [{ kind: 'files', entries: source.entries }];
 }
+
+// ---- skins --------------------------------------------------------------------------------
+// A skin (docs/skins.md) is a folder with skin.ini and style<NNN>/..., font/..., pictures/... PNGs: the
+// player's own art, drawn by the hires renderer over the original. Skins are imported into OPFS under
+// SKINS/<name>/ (one folder per skin) and reach the game as assets "skins/<name>/..." (gasm's asset
+// prefix: the same names as gasm-run --asset-dir skins=<folder of skins>). The order and which are on
+// are kept in localStorage. Without OPFS a picked skin lasts for the visit (read from the picked files).
+
+/** OPFS directory of the imported skins. */
+export const SKINS = 'opengta-skins';
+const SKIN_STATE = 'opengta.skins';       // localStorage: [{ name, on }], first = drawn on top
+const SKIN_FILE = /\.(png|ini)$/i;        // what the game reads from a skin (CHECKLIST.md, skin.json stay out)
+const session = new Map();                // name -> { name, title, author, scale, entries } (no OPFS)
+
+/** The skin name the game accepts (skin=a,b: no commas; a folder name under skins/). */
+export const skinName = (s) => s.replace(/[,/\\]/g, '_').replace(/\.\.+/g, '_').trim().slice(0, 60) || 'skin';
+
+function parseIni(text) {
+  const info = { title: '', author: '', scale: 1 };
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || /^[;#[]/.test(line) || !line.includes('=')) continue;
+    const k = line.slice(0, line.indexOf('=')).trim(), v = line.slice(line.indexOf('=') + 1).trim();
+    if (k === 'name') info.title = v;
+    else if (k === 'author') info.author = v;
+    else if (k === 'scale') info.scale = Number.parseInt(v, 10) || 1;
+  }
+  return info;
+}
+
+/**
+ * A picked folder as a skin: skin.ini at its top (or one folder down). Returns { name, title, author,
+ * scale, entries: [[rel, File], ...], files, bytes, problems }.
+ */
+export async function checkSkin(folderName, entries) {
+  const ini = locate(entries, 'skin.ini', 1);
+  const problems = [];
+  if (!ini) return { name: skinName(folderName), entries: [], files: 0, bytes: 0, problems: ['no skin.ini in this folder (docs/skins.md)'] };
+  const root = ini.slice(0, ini.length - 'skin.ini'.length);
+  const kept = entries.filter(([p]) => p.startsWith(root) && SKIN_FILE.test(p)).map(([p, f]) => [p.slice(root.length), f]);
+  const iniFile = kept.find(([p]) => p === 'skin.ini')?.[1];
+  const info = parseIni(iniFile ? await iniFile.text() : '');
+  const name = skinName(root ? root.slice(0, -1).split('/').pop() : folderName);
+  const images = kept.filter(([p]) => /\.png$/i.test(p)).length;
+  if (!images) problems.push('no PNG images in it');
+  return { name, ...info, title: info.title || name, entries: kept, files: kept.length, bytes: kept.reduce((n, [, f]) => n + f.size, 0), problems };
+}
+
+export const skinFromHandle = async (handle) => checkSkin(handle.name, await directoryHandleEntries(handle));
+export const skinFromFileList = (files) => checkSkin(files[0]?.webkitRelativePath.split('/')[0] || 'skin', fileListEntries(files));
+
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(SKIN_STATE) ?? '[]').filter((s) => typeof s?.name === 'string'); } catch { return []; }
+}
+function saveState(list) { localStorage.setItem(SKIN_STATE, JSON.stringify(list.map(({ name, on }) => ({ name, on })))); }
+
+/** The skins available (imported ones and this visit's), in the saved order: [{ name, title, author, scale, on, stored }]. */
+export async function listSkins() {
+  const found = new Map();
+  try {
+    const root = await (await navigator.storage.getDirectory()).getDirectoryHandle(SKINS);
+    for await (const [name, h] of root.entries()) {
+      if (h.kind !== 'directory') continue;
+      let info = { title: name, author: '', scale: 1 };
+      try { info = { ...info, ...parseIni(await (await (await h.getFileHandle('skin.ini')).getFile()).text()) }; } catch { continue; }
+      found.set(name, { name, ...info, title: info.title || name, stored: 'opfs' });
+    }
+  } catch { /* no skins imported */ }
+  for (const s of session.values()) found.set(s.name, { name: s.name, title: s.title, author: s.author, scale: s.scale, stored: 'session' });
+  const state = loadState();
+  const out = [];
+  for (const st of state) if (found.has(st.name)) { out.push({ ...found.get(st.name), on: !!st.on }); found.delete(st.name); }
+  for (const s of found.values()) out.push({ ...s, on: true });   // new ones: on, at the bottom
+  saveState(out);
+  return out;
+}
+
+/** Store the order / on state of the list (first = drawn on top). */
+export function setSkinOrder(list) { saveState(list); }
+
+/** Import a checked skin into OPFS (replacing one of the same name), or keep it for this visit without OPFS. */
+export async function importSkin(skin, onProgress = () => {}) {
+  const state = loadState().filter((s) => s.name !== skin.name);
+  state.unshift({ name: skin.name, on: true });   // a new skin goes on top
+  if (!navigator.storage?.getDirectory) {
+    session.set(skin.name, skin);
+    saveState(state);
+    return;
+  }
+  await removeSkin(skin.name, false);
+  const fs = await opfsFileSystem({ namespace: `${SKINS}/${skin.name}` });
+  for (let i = 0; i < skin.entries.length; i++) {
+    const [path, file] = skin.entries[i];
+    await fs.write(`/${path}`, file.stream());
+    onProgress({ done: i + 1, files: skin.entries.length, file: path });
+  }
+  saveState(state);
+}
+
+export async function removeSkin(name, forget = true) {
+  session.delete(name);
+  try {
+    await clearNamespace(`${SKINS}/${name}`);
+    await (await (await navigator.storage.getDirectory()).getDirectoryHandle(SKINS)).removeEntry(name, { recursive: true });
+  } catch { /* not there */ }
+  if (forget) saveState(loadState().filter((s) => s.name !== name));
+}
+
+/** The skin= parameter for the skins that are on (the game's order: later ones win, so the top one comes last). */
+export function skinParam(list) { return list.filter((s) => s.on).map((s) => s.name).reverse().join(','); }
+
+/** gasm asset specs for the named skins: assets "skins/<name>/...". */
+export function skinAssetSpecs(names) {
+  return names.map((name) => (session.has(name)
+    ? { kind: 'files', entries: session.get(name).entries, prefix: `skins/${name}` }
+    : { kind: 'opfs', dir: `${SKINS}/${name}`, prefix: `skins/${name}` }));
+}

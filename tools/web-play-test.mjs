@@ -9,12 +9,15 @@
 // Worker API reports no stats after exit, so the page's line is the one before gasm_exit. The test checks
 // that link too: the page against gasm's own GasmHost run in Node without the exit (same package, same
 // input), and that one plus gasm_exit against gasm-run.
+// Skins and hires: the sample skin (assets/skins/sample) is added through the page's skin picker (into
+// OPFS) and 2x chosen in its resolution selector; that run must hash like gasm-run with the same
+// parameters and assets (--asset-dir skins=assets/skins --param skin=sample --param hires=2).
 //
 //   docs/scripts/copy-wasm.sh && (cd docs && scripts/vendor-web.sh && pnpm build)
 //   node tools/web-play-test.mjs [game folder] [installer folder] [out dir]
 // Defaults: ./game, ./installer (skipped if missing), /tmp/opengta-play. Needs Chrome (CHROME=<binary>) and
 // gasm-run (GASM_RUN=<binary>, default .deps/gasm-runner-macos-universal/gasm-run from
-// tools/fetch-gasm-runner.sh). Serves docs/.vitepress/dist on :8793. Never opens a window.
+// tools/fetch-gasm-runner.sh). Serves docs/.vitepress/dist on 127.0.0.1:8793. Never opens a window.
 import { spawn, execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -35,6 +38,7 @@ mkdirSync(OUT, { recursive: true });
 if (!existsSync(WASM)) { console.error('build the site first (docs/scripts/copy-wasm.sh, scripts/vendor-web.sh, pnpm build)'); process.exit(1); }
 if (!existsSync(CHROME)) { console.error(`no Chrome at ${CHROME} (CHROME=<binary>)`); process.exit(1); }
 
+const SKINS = join(repo, 'assets/skins');   // the sample skin (tools/make-sample-skin.py)
 const CASES = [
   { name: 'menu', frames: 60, input: '' },
   { name: 'mission1', frames: 400, input: '60:KEY(Enter),100:KEY(Enter),140:KEY(Enter)' },
@@ -44,6 +48,8 @@ const CASES = [
 function native(c, dir) {
   if (!existsSync(RUN)) return null;
   const args = [WASM, '--asset-dir', dir, '--headless', String(c.frames), '--param', 'intro=0'];   // the scripts drive the menus
+  for (const [prefix, d] of Object.entries(c.assets ?? {})) args.push('--asset-dir', `${prefix}=${d}`);
+  for (const [k, v] of Object.entries(c.params ?? {})) args.push('--param', `${k}=${v}`);
   if (c.input) args.push('--input', c.input);
   return execFileSync(RUN, args, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim().split('\n').join(' ');
 }
@@ -74,9 +80,10 @@ async function nodeRef(c, dir) {
     }
   };
   walk(dir, []);
+  for (const [prefix, d] of Object.entries(c.assets ?? {})) walk(d, [prefix]);
   table.finish();
   const script = new InputScript(c.input);
-  const host = new gasm.GasmHost({ assets: table, params: { intro: '0' }, storage: new gasm.MemoryStorage(), virtualTime: true, onLog: () => {},
+  const host = new gasm.GasmHost({ assets: table, params: { intro: '0', ...c.params }, storage: new gasm.MemoryStorage(), virtualTime: true, onLog: () => {},
     getPad: (p) => (p !== 0 ? 0 : script.pad(host.frameIndex)) });
   host.hashing = true;
   await host.load(await WebAssembly.compile(readFileSync(WASM)));
@@ -97,7 +104,24 @@ async function nodeRef(c, dir) {
 }
 
 const PROFILE = mkdtempSync(join(tmpdir(), 'opengta-play-chrome-'));
-const server = spawn('python3', ['-m', 'http.server', String(PORT)], { cwd: DIST, stdio: 'ignore' });
+// A static server for the site (in-process: python's http.server drops connections when the machine is
+// busy, and the page loads its modules in parallel).
+const { createServer } = await import('node:http');
+const { readFile } = await import('node:fs/promises');
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
+  '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2' };
+const server = createServer(async (req, res) => {
+  let path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  if (path.endsWith('/')) path += 'index.html';
+  const file = join(DIST, path);
+  if (!file.startsWith(DIST)) { res.writeHead(403).end(); return; }
+  try {
+    const body = await readFile(file);
+    res.writeHead(200, { 'content-type': TYPES[path.slice(path.lastIndexOf('.'))] ?? 'application/octet-stream' }).end(body);
+  } catch { res.writeHead(404).end(); }
+});
+server.kill = () => server.close();
+await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
 const chromeArgs = ['--headless=new', `--remote-debugging-port=${DEBUG}`, `--user-data-dir=${PROFILE}`,
   '--autoplay-policy=no-user-gesture-required', 'about:blank'];
 if (process.env.CI) chromeArgs.unshift('--no-sandbox');
@@ -135,7 +159,7 @@ async function cdp() {
   const open = async (url) => {
     await evaluate('delete globalThis.__opengtaChecked; delete globalThis.__opengtaResult; 0');
     await send('Page.navigate', { url });
-    await until('document.readyState === "complete" && !!globalThis.__opengtaReady', 20000);
+    await until('document.readyState === "complete" && !!globalThis.__opengtaReady', 60000);
   };
   return { send, evaluate, until, setFiles, open, logs };
 }
@@ -151,7 +175,7 @@ async function result(page, ms = 600000) {
     const r = await page.evaluate('globalThis.__opengtaResult');
     if (r) return { hash: r, secs: (Date.now() - t0) / 1000 };
     const err = await page.evaluate('document.getElementById("message").hidden ? "" : document.getElementById("message").textContent');
-    if (/could not|stopped|failed/i.test(err)) throw new Error(`page: ${err}`);
+    if (/could not|stopped|failed/i.test(err)) throw new Error(`page: ${err}\n  ${page.logs.slice(-8).join('\n  ')}`);
     if (Date.now() - t0 > ms) throw new Error('timed out');
     await sleep(200);
   }
@@ -159,7 +183,7 @@ async function result(page, ms = 600000) {
 
 let failed = false;
 const report = (ok, label, detail) => { failed ||= !ok; console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? `\n      ${detail}` : ''}`); };
-const base = `http://localhost:${PORT}/play/`;
+const base = `http://127.0.0.1:${PORT}/play/`;
 const hasInstaller = existsSync(join(INSTALLER, 'data1.cab'));
 try {
   const page = await cdp();
@@ -231,6 +255,41 @@ try {
     await page.evaluate('document.getElementById("play-opfs").click()');
     check('OPFS worker (later visit)', await result(page));
   }
+
+  // 5. skins and hires: the sample skin through the skin picker, 2x through the selector, the imported data
+  if (existsSync(join(SKINS, 'sample/skin.ini'))) {
+    const c = { name: 'mission1 skin=sample hires=2', frames: 400, input: CASES[1].input,
+      assets: { skins: SKINS }, params: { hires: '2', skin: 'sample' } };
+    const nat = native(c, GAME);
+    const ref = await nodeRef(c, GAME);
+    if (nat) {
+      console.log(`      gasm-run ${c.name}: ${nat}`);
+      report(ref.after === nat, `${c.name}: gasm's Node host + gasm_exit = gasm-run`, ref.after === nat ? '' : ref.after);
+    }
+    await page.open(`${base}?intro=0&hashframes=${c.frames}&input=${encodeURIComponent(c.input)}`);
+    if (await page.evaluate('(globalThis.__opengtaSkins ?? []).some((k) => k.name === "sample")')) {
+      await page.evaluate('globalThis.opengtaPlay.data.removeSkin("sample").then(() => globalThis.opengtaPlay.refreshSkins()).then(() => 0)');
+    }
+    await page.setFiles('#skin-input', [join(SKINS, 'sample')]);
+    await page.until('globalThis.__opengtaSkinAdded === "sample"', 30000);
+    const listed = await page.evaluate('JSON.stringify(globalThis.__opengtaSkins)');
+    report(/"name":"sample","title":"OpenGTA sample skin","on":true/.test(listed), `${c.name}: skin picker lists the sample, on`, listed);
+    await page.evaluate('(() => { const h = document.getElementById("hires"); h.value = "2"; h.dispatchEvent(new Event("change")); return 0; })()');
+    await page.evaluate('document.getElementById("play-opfs").click()');
+    const got = await result(page);
+    const want = ref.before;
+    report(got.hash === want, `${c.name}: OPFS game data + OPFS skin, page selector`,
+      `${got.hash}  (${got.secs.toFixed(1)} s)${got.hash !== want ? `\n      native: ${want}` : ''}`);
+    report(/size=1280x960/.test(got.hash), `${c.name}: presents 1280 x 960`);
+    await saveFrame(page, join(OUT, 'mission1-skin-hires2.png'));
+    // a later visit keeps the choice: the selector and the skin list come back from the browser's storage
+    await page.open(base);
+    report(await page.evaluate('document.getElementById("hires").value === "2" && globalThis.__opengtaSkins.some((k) => k.name === "sample" && k.on)'),
+      `${c.name}: choice kept for the next visit`);
+    await page.evaluate('(() => { const h = document.getElementById("hires"); h.value = "1"; h.dispatchEvent(new Event("change")); return 0; })()');
+    await page.evaluate('globalThis.opengtaPlay.data.removeSkin("sample").then(() => globalThis.opengtaPlay.refreshSkins()).then(() => 0)');
+    report(await page.evaluate('!globalThis.__opengtaSkins.length'), `${c.name}: skin removed`);
+  } else console.log(`      no ${SKINS}/sample: the skin run is skipped (python3 tools/make-sample-skin.py)`);
 
   // Real time with the keyboard: the start menu, then Enter goes to the player select.
   await page.open(base);

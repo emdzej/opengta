@@ -3,8 +3,13 @@
 // (FileReaderSync). The page keeps input, display and audio. OpenGTA draws in 2D (video_present, 640 x
 // 480): the page scales the frames up with gasm's WebGL 2 presenter ('sharp' filter), or a 2D canvas.
 //
+// Resolution and skins: the page's selector gives hires=N, the skins that are on give skin=a,b (the top of
+// the list last: later ones win), and each skin's OPFS folder goes to the worker as assets "skins/<name>/..."
+// (gasm's asset prefix, as gasm-run --asset-dir skins=<folder>). docs/skins.md, docs/guide/browser.md.
+//
 // Test and debug query parameters:
 //   front, map, x, y, z, mission   passed to the game (docs/guide/parameters.md)
+//   hires, skin    passed to the game instead of the page's resolution and skin choice
 //   hashframes=N   run N frames on virtual time as fast as possible, then print the same
 //                  "frames=... video_fnv32=... audio_fnv32=..." line as gasm-run --headless
 //                  (globalThis.__opengtaResult); in-memory storage, like gasm-run's headless runs
@@ -19,7 +24,7 @@ import * as data from './data.js';
 
 const $ = (id) => document.getElementById(id);
 const query = new URLSearchParams(location.search);
-const GAME_PARAMS = ['intro', 'front', 'map', 'x', 'y', 'z', 'mission'];
+const GAME_PARAMS = ['intro', 'front', 'map', 'x', 'y', 'z', 'mission', 'hires', 'skin'];
 const HASH_FRAMES = Number(query.get('hashframes') || 0);
 const BATCH = Number(query.get('batch') || 250);   // hash runs: frames per worker batch
 const STORAGE = 'opengta';                // gasm:storage namespace (IndexedDB): PLAYER_A.DAT
@@ -212,10 +217,15 @@ async function play(source) {
   show('setup', HASH_FRAMES > 0);      // keep the page visible in test runs
   $('status').textContent = 'Starting...';
   const params = Object.fromEntries(GAME_PARAMS.filter((k) => query.has(k)).map((k) => [k, query.get(k)]));
+  const skins = await data.listSkins().catch(() => []);
+  if (!query.has('hires') && hiresChoice() > 1) params.hires = String(hiresChoice());
+  if (!query.has('skin') && data.skinParam(skins)) params.skin = data.skinParam(skins);
+  const known = new Set(skins.map((k) => k.name));
+  const skinAssets = data.skinAssetSpecs((params.skin ?? '').split(',').map((k) => k.trim()).filter((k) => known.has(k)));
   try {
     await audioReady;
     worker = await GasmWorker.start({
-      wasm: await loadWasm(), assets: data.assetSpecs(source), params,
+      wasm: await loadWasm(), assets: [...data.assetSpecs(source), ...skinAssets], params,
       storage: HASH_FRAMES > 0 ? null : STORAGE,     // hash runs: in memory, like gasm-run --headless
       hashing: HASH_FRAMES > 0, virtualTime: HASH_FRAMES > 0, onLog, onAudio,
       onTitle: (t) => { document.title = `${t ?? 'Grand Theft Auto'} | OpenGTA`; },
@@ -293,6 +303,83 @@ async function hashRun(n) {
 }
 
 $('stop').onclick = async () => { await stopGame(); endGameView(); };
+
+// ---- resolution and skins -----------------------------------------------------------------
+const HIRES_KEY = 'opengta.hires';
+$('hires').value = ['1', '2', '3', '4'].includes(localStorage.getItem(HIRES_KEY)) ? localStorage.getItem(HIRES_KEY) : '1';
+$('hires').onchange = () => localStorage.setItem(HIRES_KEY, $('hires').value);
+function hiresChoice() { return Number($('hires').value) || 1; }
+
+let skinList = [];
+async function refreshSkins() {
+  skinList = await data.listSkins().catch(() => []);
+  const ul = $('skin-list');
+  ul.textContent = '';
+  show('skin-none', !skinList.length);
+  skinList.forEach((k, i) => {
+    const li = document.createElement('li');
+    const on = document.createElement('input');
+    on.type = 'checkbox'; on.checked = k.on; on.id = `skin-on-${i}`; on.title = 'Use this skin';
+    on.onchange = () => { k.on = on.checked; data.setSkinOrder(skinList); };
+    const label = document.createElement('label');
+    label.className = 'name'; label.htmlFor = on.id;
+    label.textContent = `${k.title}${k.author ? ` by ${k.author}` : ''}`;
+    const meta = document.createElement('span');
+    meta.className = 'small';
+    meta.textContent = ` (${k.name}, made for ${k.scale}x${k.stored === 'session' ? ', this visit only' : ''})`;
+    label.append(meta);
+    const btn = (text, title, fn, disabled) => {
+      const b = document.createElement('button');
+      b.textContent = text; b.title = title; b.disabled = disabled; b.onclick = fn;
+      return b;
+    };
+    const move = (d) => async () => {
+      [skinList[i], skinList[i + d]] = [skinList[i + d], skinList[i]];
+      data.setSkinOrder(skinList);
+      await refreshSkins();
+    };
+    li.append(on, label, btn('Up', 'Draw over the skins below', move(-1), i === 0),
+      btn('Down', 'Draw under the skins above', move(1), i === skinList.length - 1),
+      btn('Remove', 'Remove this skin from the browser', async () => {
+        await stopGame();
+        await data.removeSkin(k.name);
+        await refreshSkins();
+      }, false));
+    ul.append(li);
+  });
+  globalThis.__opengtaSkins = skinList.map(({ name, title, on, scale }) => ({ name, title, on, scale }));
+  return skinList;
+}
+
+async function addSkin(skin) {
+  if (skin.problems.length) { message(`Not a skin: ${skin.problems.join('; ')}`, 'error'); return; }
+  $('pick-skin').disabled = true;
+  try {
+    await stopGame();
+    await data.importSkin(skin, (p) => { $('skin-status').textContent = `Copying ${p.done} of ${p.files} files`; });
+    $('skin-status').textContent = `Added "${skin.title}" (${skin.files} files, ${mbText(skin.bytes)}).`;
+    globalThis.__opengtaSkinAdded = skin.name;
+  } catch (e) {
+    message(`Could not add the skin: ${e.message}`, 'error');
+  } finally {
+    $('pick-skin').disabled = false;
+    await refreshSkins();
+  }
+}
+$('pick-skin').onclick = async () => {
+  message('');
+  if (!window.showDirectoryPicker) return $('skin-input').click();
+  let handle;
+  try { handle = await showDirectoryPicker({ id: 'opengta-skin', mode: 'read' }); } catch (e) {
+    if (e.name !== 'AbortError') message(e.message, 'error');
+    return;
+  }
+  addSkin(await data.skinFromHandle(handle));
+};
+$('skin-input').onchange = async (e) => {
+  if (e.target.files.length) await addSkin(await data.skinFromFileList(e.target.files));
+  e.target.value = '';
+};
 addEventListener('pagehide', () => { worker?.exit(); });
 
 // ---- choosing and importing the data --------------------------------------------------------
@@ -405,9 +492,9 @@ async function refreshImported() {
 
 if (!hasOpfs) message('This browser has no private file storage (OPFS), so the game data can\'t be imported. Play without importing works.', 'warn');
 if (typeof Worker === 'undefined' || typeof WebAssembly === 'undefined') message('This browser can\'t run OpenGTA (it needs WebAssembly and Web Workers).', 'error');
-const ready = refreshImported();
+const ready = Promise.all([refreshImported(), refreshSkins()]).then(([info]) => info);
 ready.then((info) => {
   globalThis.__opengtaReady = true;
   if (info && query.has('autoplay')) play('opfs');
 });
-globalThis.opengtaPlay = { play, stopGame, refreshImported, framePng, data };
+globalThis.opengtaPlay = { play, stopGame, refreshImported, refreshSkins, framePng, data };

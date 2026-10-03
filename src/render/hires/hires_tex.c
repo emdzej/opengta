@@ -1,5 +1,6 @@
 /* Texture conversion and the overlay stack (see hires_tex.h). */
 #include "hires_tex.h"
+#include "hires_upscale.h"
 #include "../../surface.h"   /* blit_apply_delta */
 #include <stdlib.h>
 #include <string.h>
@@ -113,6 +114,7 @@ static bool convert_tile(const Style *s, int t, const uint32_t *clut, HiresTextu
             px[y * 64 + x] = hr_from_xrgb(clut[e * 64], e ? 0xff : 0);
         }
     *tex = (HiresTexture){ 64, 64, px, NULL, true };
+    hires_upscale_texture(tex);   /* the upscaler, if one is selected (hires_upscale.h) */
     return true;
 }
 
@@ -147,7 +149,7 @@ HiresTexture *hires_tile(const Style *s, int t, const uint32_t *clut, int remap,
     if (noverlays) {
         int kind, n;
         hires_tile_kind(s, t, &kind, &n);
-        HiresAsset a = { s->number, kind, n, remap, clut, base_clut, tile_texels(s, t), NULL };
+        HiresAsset a = { s->number, kind, n, remap, clut, base_clut, tile_texels(s, t), NULL, 0 };
         HiresTexture *o = overlay_lookup(&a);
         if (o) return o;
     }
@@ -182,6 +184,7 @@ static bool convert_sprite(const SpriteInfo *in, const uint32_t *clut, uint32_t 
             px[y * w + x] = hr_from_xrgb(clut[e * 64], e ? 0xff : 0);
         }
     *tex = (HiresTexture){ w, h, px, NULL, true };
+    hires_upscale_texture(tex);
     return true;
 }
 
@@ -190,7 +193,7 @@ HiresTexture *hires_sprite(const Style *s, int n, const SpriteInfo *in, const ui
 {
     if (!in || !clut || !ready(s)) return NULL;
     if (noverlays) {
-        HiresAsset a = { s->number, HIRES_SPRITE, n, remap, clut, own_clut, in->data, in };
+        HiresAsset a = { s->number, HIRES_SPRITE, n, remap, clut, own_clut, in->data, in, deltas };
         HiresTexture *o = overlay_lookup(&a);
         if (o) return o;
     }
