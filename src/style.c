@@ -223,7 +223,7 @@ Style *style_load(int n, char *err, size_t errcap)
     memcpy(s->pal_index, d + o, H->palette_index_size), o += H->palette_index_size;
     memcpy(s->object_info, d + o, H->object_info_size), o += H->object_info_size;
     memcpy(s->car_info, d + o, H->car_size), o += H->car_size;
-    /* Sprite_LoadInfo 0x47ca50 reads these three (and relocates the info records; not ported yet) */
+    /* Sprite_LoadInfo 0x47ca50 (render/sprite.c) reads these three and relocates the info records */
     memcpy(s->sprite_info, d + o, H->sprite_info_size), o += H->sprite_info_size;
     memcpy(s->sprite_graphics, d + o, H->sprite_graphics_size), o += H->sprite_graphics_size;
     memcpy(s->sprite_numbers, d + o, H->sprite_numbers_size), o += H->sprite_numbers_size;

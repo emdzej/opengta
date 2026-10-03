@@ -9,10 +9,10 @@
 #include "ped.h"
 #include "player.h"
 #include "powerup.h"
-#include "stubs.h"
 #include "trigger.h"
 #include "../audio/audio.h"
 #include "../map.h"
+#include "wanted.h"
 
 ExplSlot g_expl[EXPL_SLOTS];
 ExplDelayed g_expl_delayed[EXPL_DELAYED];

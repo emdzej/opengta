@@ -68,7 +68,7 @@ bool car_has_live_driver(int ped, int car); /* Car_HasLiveDriver 0x476020 */
 bool car_move_axis(int car, int target, int step, int axis);    /* Car_MoveAxis 0x476080 */
 bool car_move_towards(int car, int x, int y, int z, int step);  /* Car_MoveTowards 0x4761c0 */
 int ped_check_in_car(int ped, int mode);    /* Ped_CheckInCar 0x476340 */
-/* car_spawn_parked (thunk_Car_SpawnParked 0x4763d0) is the car module's: stubs.h */
+/* car_spawn_parked (thunk_Car_SpawnParked 0x4763d0) is the car module's: car.h */
 void car_unk_004318e0_wrap(int car, int target, int mode);   /* 0x4763e0 -> Hunt_AddCarTarget 0x4318e0 */
 int car_get_model_value(int car, int field);/* Car_GetModelValue 0x476400 */
 void mis_car_destroy(int car);              /* MisCar_Destroy 0x476440 */

@@ -9,8 +9,9 @@
 #include "obj.h"
 #include "ped.h"
 #include "player.h"
-#include "stubs.h"
 #include "trigger.h"
+#include "powerup.h"
+#include "wanted.h"
 #include <string.h>
 
 #if defined(__clang__)

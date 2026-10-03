@@ -10,7 +10,6 @@
 #include "player.h"
 #include "powerup.h"
 #include "proj.h"
-#include "stubs.h"
 #include "train.h"
 #include <stdlib.h>
 #include <string.h>

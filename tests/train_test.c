@@ -15,6 +15,7 @@
 #include "game/gmath.h"
 #include "game/input.h"
 #include "game/lights.h"
+#include "game/mapq.h"
 #include "game/mission.h"
 #include "game/ped.h"
 #include "game/ped_internal.h"

@@ -1,6 +1,5 @@
 /* The mission helpers 0x475700-0x479020 (see mission_obj.h): mission cars, block clearing, the PED_ON
-   presets, ped AI changes, briefs, alarm sound slots, the car list and thin wrappers. Calls into the
-   modules not ported yet go through stubs.h. */
+   presets, ped AI changes, briefs, alarm sound slots, the car list and thin wrappers. */
 #include "mission_obj.h"
 #include "../audio/audio.h"
 #include "../text.h"
@@ -10,8 +9,18 @@
 #include "mission_run.h"
 #include "obj.h"
 #include "player.h"
-#include "stubs.h"
 #include "trigger.h"
+#include "../front/front.h"
+#include "carcoll.h"
+#include "expl.h"
+#include "gang.h"
+#include "mapedit.h"
+#include "police.h"
+#include "sentinel.h"
+#include "traffic.h"
+#include "train.h"
+#include "wanted.h"
+#include "../hud/hud.h"
 #include <string.h>
 
 CarListEntry g_car_list[CARLIST_MAX];
@@ -359,7 +368,8 @@ void mis_car_spawn_batch(int n)
 void police_init_for_mission(void)
 {
     if (!g_game.opt.emergency || !g_game.opt.police) return;
-    uint8_t kind, value;
+    int8_t kind;
+    int32_t value = 0;
     front_get_multi_target(&kind, &value);
     if (!g_game.opt.no_patrols && g_player_count < 2) {
         g_police_no_patrols = 0;

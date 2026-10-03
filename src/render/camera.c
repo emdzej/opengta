@@ -200,6 +200,21 @@ void camera_update(CameraPlayer *p, const CameraWorld *w)
     camera_compute_view_rect(p);
 }
 
+/* Camera_StartTransition 0x43cac0: unless snapping (state 2), the camera eases from where it is to a
+   new target: the look-ahead takes up the jump of the target (its old position minus the new one,
+   pixels), the easing velocities restart, state 1 (Camera_Follow eases the look-ahead back to 0). */
+void camera_start_transition(CameraPlayer *p)
+{
+    Camera *c = &p->cam;
+    if (c->state == 2) return;
+    c->ahead_x += c->target_x - (int16_t)(p->target.x >> 16);
+    c->state = 1;
+    c->ahead_y += c->target_y - (int16_t)(p->target.y >> 16);
+    c->vel_ahead_x = c->vel_ahead_y = 0;
+    c->vel_speed_height = c->vel_speed_zoom = 0;
+    c->vel_zoom = c->vel_height = 0;
+}
+
 void camera_reset_motion(CameraPlayer *p)
 {
     Camera *c = &p->cam;

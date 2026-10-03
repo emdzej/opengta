@@ -1,7 +1,7 @@
 # Objects, explosions, fires, power-ups
 
 The object module of the original (0x44c2d0-0x44ee4f), the explosions (0x425170-0x426320), the fire
-side of the fire module (0x42e600-0x42f460), the power-ups (0x46a0a0-0x46a99f), the block animations
+module with its fire engines (0x42e600-0x430400), the power-ups (0x46a0a0-0x46a99f), the block animations
 (0x402240-0x402610) and the map edits (`Map_Set*` 0x437b50-0x438020, `Map_IsFaceSolid` 0x438650,
 `Map_IsCovered` 0x438800), and how the port mirrors them. Addresses are virtual addresses in `gta.exe`.
 
@@ -11,11 +11,12 @@ side of the fire module (0x42e600-0x42f460), the power-ups (0x46a0a0-0x46a99f), 
 |---|---|
 | `src/game/obj.c/h` | the object table and record, the object_info records, level start, `Obj_Create`, `Obj_CreateAttached`, `Obj_CreateAnimated`, `Obj_Kick`, `Obj_UpdateAll` and its four lists, `Obj_Delete` and the unlinkers, `Obj_IsOnScreen`, `Obj_OnCarWrecked` |
 | `src/game/expl.c/h` | the 25 explosion slots, `Expl_Create`, `Expl_CarExplode`, `Expl_AtFaceIfSolid`, `Expl_UpdateAll`, `Expl_DamageArea`, the delayed explosions |
-| `src/game/fire.c/h` | the 4 recorded fires: `Fire_Init`, `Fire_Register`, `Fire_IsNearActive`, `Fire_Extinguish`, `Fire_FindNearestUnattended`, `Fire_HasObjects`, `Fire_ClearObjects` |
+| `src/game/fire.c/h` | the 4 recorded fires: `Fire_Init`, `Fire_Register`, `Fire_IsNearActive`, `Fire_Extinguish`, `Fire_FindNearestUnattended`, `Fire_HasObjects`, `Fire_ClearObjects`; the fire engines `FireEngine_*` |
 | `src/game/powerup.c/h` | the 256 power-ups: `PowerUp_Add`, `_Reveal`, `_RemoveAt`, `_ExistsAt`, `_Collect` |
 | `src/game/blockanim.c/h` | the 64 animated faces (doors) |
 | `src/map.c/h`, `src/game/mapedit.c/h` | the copy-on-write map edits, `Map_IsFaceSolid`, `Map_IsCovered` (`map_covered`); mapedit.c is the game's side (the fatal error) |
 | `tests/obj_test.c` | map edits, a kick, a rocket at a parked car, a blast, a power-up, a door, against mission 1; frames in `out/obj/` |
+| `tests/fire_test.c` | a fire, the engine dispatched, driving there, spraying and heading home; frames in `out/fire/` |
 
 The explosions on block faces with debris and fires (0x425520, 0x425780, 0x4258d0) are in
 `mission_obj.c`, where the mission thunks 0x475700-0x475720 that call them were ported.
@@ -105,14 +106,53 @@ face is there (`Map_IsFaceSolid`), plus two fires beside it where `World_AnyThin
 
 ## Fires (0x511988, 4 x 0x24)
 
-{object, x, y, z (the road block next to it, pixels), engine, objects[10], extra}. `Fire_Register` (from
+{object, x, y, z (the road block next to it, pixels), engine (its car id), objects[10] (the water jet;
+the last one counts the spraying frames), extra}. `Fire_Register` (from
 the creators of fire objects) records a type 0x12 fire when the record, fire and engine counts allow,
 no recorded fire with an engine is within 40 blocks and it doesn't burn on the cars 0xb / 0xd: within 2
 blocks of a recorded fire it becomes that fire's `extra` (and burns on: u12); otherwise the nearest
 road (`Map_FindNearestRoad`) on its layer within 4 blocks gets a fire engine (`FireEngine_Dispatch`).
-The fire engines themselves (spawning at the 4 fire stations, model 0x2a, sentinel type 6, driving,
-the hose) are AI and not ported: the dispatch is a stub that sends none, so the record is dropped
-again.
+No engine to send: the record is dropped again.
+
+## Fire engines (0x42e870-0x430400)
+
+A fire engine is a sentinel of kind 6 ([Police](/police)) driving car model 0x2a. `FireEngine_Dispatch`
+0x42ec70 takes a free record (`Sentinel_FindFree`) and spawns the engine (`FireEngine_Spawn` 0x42e920)
+at the nearest (Manhattan) of the 4 fire stations of the CMP's locations, else at each in turn:
+`Car_SpawnOnRoad` with a driver (control type 6), car control 9, cruise speed 6; the record listed in
+engines[] (0x511a1c, 3) with 2500 frames to stay out (0x511978), and the hose (object 0x32) attached 1
+left and 6 back, turning with the car (its id also at car +0x11c, so the siren code leaves it alone).
+With 3 out and no free engines[] slot an engine heading home is sent instead (quirk: only sentinels
+0..2 are looked at, each against its own engines[] slot). `FireEngine_SetDestination` 0x42ea90 puts
+the siren on and starts a route search (mode 5) to the road block next to the fire.
+
+`Sentinel_DriveCar` drives it along the route and calls `FireEngine_Update` 0x42f460 every frame, a
+state machine on the record's +0x1b:
+
+| State | |
+|---|---|
+| 5, 2 | waiting for the path search (another controller holds it), the search running |
+| 1 | driving to the fire; stops (-> 10) within 4 blocks (Chebyshev, another layer counting 500 more) unless still moving and the next block is closer, or at the end of the route |
+| 10, 0x14 | braking to a stop; the hose stops turning with the car |
+| 0x64 | the hose turns 3 a frame toward the fire object (`FireEngine_AimHoseAtObject` 0x42f240) |
+| 0x6e | the jet: n = (d - 52) / 32 + 1 objects (d the hose-to-fire distance in pixels, at most 320 and n below 9): 0x30, each 0x1e ahead of the previous (the first 0x24 ahead of the hose), and a 0x31 end, shortened by the rest of the division; the fire object is deleted (its record keeps the position) |
+| 0x82 | spraying: 262 frames while the fire object's record stays where it was |
+| 0x97, 0xa0 | the jet deleted; the hose turns back to the car (`FireEngine_AimHoseAtCar` 0x42f2d0), turns with it again, the fire record is dropped (`Fire_Extinguish`) |
+| 0x1e | the nearest unattended fire (`FireEngine_ArriveCheck` 0x42ebe0: more than 2 blocks away it drives there) or home (`FireEngine_ReturnToBase` 0x42ee40: siren off, a route to the nearest station) |
+| 0x23, 0x28 | the search home running, driving home; an unattended fire on the way is taken; at the end of the route 0xff |
+| 0x27, 0xaa | giving the fire up (its object and record go) -> 0xff; a wall in the jet's way -> 0x97 |
+| 0xff | dismissed: `Sentinel_DriveCar` removes it (`FireEngine_Remove` 0x42e870: hose, car, record) once off screen |
+
+A burnt-out engine (damage 100) or one out for 2500 frames gives its fire up; burnt out, its hose is
+deleted and the fire dropped every frame. `tests/fire_test.c` lights a fire 8 blocks from a station in
+NYC: the engine stops 4 blocks from it after about 530 frames, sprays a jet of 9 objects and heads
+home at frame 910.
+
+Port notes: engines[] is filled at `engine_count`, which `FireEngine_Remove` decrements whatever slot
+it frees, so a spawn after an engine left from a lower slot overwrites a live one (which then keeps
+no timer and is never removed from the list): kept. Object -1 (the hose after a burn-out) and the
+request of the victim slot -1 (`FireEngine_ReturnToBase` writes one, 0x50caae, unused memory) are
+read as a blank object and not written.
 
 ## Power-ups (0x74f858, 256 x 0x1c)
 
@@ -177,5 +217,3 @@ edits of the same block change the copy in place. Overflow is fatal (-0x15, "Map
 - The block animation frame list stops at the end of the table (the original writes on into the next
   record, and past the last one).
 - `Map_IsCovered` answers false outside the map (unchecked in the original).
-- `Style_SetTileFrame` is a copy in blockanim.c until style.c exports it.
-- `Car_DampThrust` (car module) and `FireEngine_Dispatch` (AI) are stubs.

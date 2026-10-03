@@ -1,6 +1,6 @@
 /* Mission_Load 0x445800 and the creators it calls for the object lines (Mission_Spawn* 0x43d2c0-
    0x43e1b0). The MisCar_* helpers, Mission_ClearBlock and Mission_ObjCreate they use are in
-   mission_obj.c; entity creators of modules not ported yet are stubs (stubs.h). */
+   mission_obj.c. */
 #include "car.h"
 #include "coll.h"
 #include "game.h"
@@ -11,8 +11,9 @@
 #include "obj.h"
 #include "ped.h"
 #include "player.h"
-#include "stubs.h"
 #include "trigger.h"
+#include "gang.h"
+#include "heli.h"
 #include <string.h>
 
 /* object types (0x4b0d98) */

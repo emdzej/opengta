@@ -11,6 +11,7 @@
 #include "carcoll.h"
 #include "coll.h"
 #include "dummy.h"
+#include "fire.h"
 #include "game.h"
 #include "gmath.h"
 #include "lights.h"
@@ -24,19 +25,10 @@
 #include "train.h"
 #include "trigger.h"
 #include "wanted.h"
-#include "stubs.h"
+#include "mapq.h"
 #include <string.h>
 #include "../map.h"
 #include <stdlib.h>
-
-/* STUBS NEEDED (not ported anywhere yet; the caller's no-op result in brackets):
-   int fire_engine_update(Sentinel *s);   FireEngine_Update 0x42f460 [0: don't drive on]
-   void fire_engine_remove(Sentinel *s);  FireEngine_Remove 0x42e870 [nothing]
-   int map_test_block_attr(int what, int bx, int by, int bz);   Map_TestBlockAttr 0x44b310 (stubs.c has a
-                                          real body; declared here so this file needs no stubs.h) */
-int fire_engine_update(Sentinel *s);        /* FireEngine_Update 0x42f460 */
-void fire_engine_remove(Sentinel *s);       /* FireEngine_Remove 0x42e870 */
-int map_test_block_attr(int what, int bx, int by, int bz);   /* Map_TestBlockAttr 0x44b310 */
 
 /* The steering group (below) */
 int sentinel_is_lane_clear(int bx, int by, int bz, Car *c, int dir);           /* 0x41e6f0 */
@@ -66,21 +58,7 @@ int32_t g_sent_505848;                              /* 0x505848 (cleared by Sent
 int16_t g_car_last_wreck;                           /* 0x4bde00 the last car Car_RegisterWreck queued */
 int32_t g_sent_route_car;                           /* 0x75cd50 the car Sentinel_PlanRouteToTarget routes (a Car *; car id + 1 here) */
 
-/* ---- the car module's accessors (0x40be00-0x40c0a0), as the field accesses they are ---- */
-static inline bool c_turning(const Car *c) { return c->turn_delta != 0; }        /* Car_IsTurning 0x40be00 */
-static inline bool c_moving(const Car *c) { return c->speed > 0; }               /* Car_IsMovingForward 0x40be60 */
-static inline void c_begin_brake(Car *c) { c->brake = 1; c->thrust_in = 0; }     /* Car_BeginBrake 0x40be90 */
-static inline void c_end_brake(Car *c) { c->brake = 0; }                        /* Car_EndBrake 0x40beb0 */
-static inline void c_end_turn(Car *c)                                           /* Car_EndTurn 0x40c010 */
-{
-    c->turn_progress = 0, c->turn_delta = 0, c->turn_dirs = (int16_t)c->road_dirs;
-}
-static inline void c_end_turn_if_done(Car *c)                                   /* Car_EndTurnIfDone 0x40bfb0 */
-{
-    int p = c->turn_progress < 0 ? -c->turn_progress : c->turn_progress;
-    if (c->turn_delta == 0 || (p > 0xff && (int16_t)c->road_dirs != c->turn_dirs)) c_end_turn(c);
-}
-static inline void c_save_pos(Car *c) { c->saved_x = c->spr.x, c->saved_y = c->spr.y; }   /* Car_SavePos 0x40c0a0 */
+/* (the car module's accessors 0x40be00-0x40c0a0 are car.h's inline functions) */
 /* the turn every lane decision starts: from the current road direction, rate d (0x20 / -0x20) */
 static void c_start_turn(Car *c, int d, int speed)
 {
@@ -541,7 +519,7 @@ static void sentinel_recall_route(Sentinel *s)
         if (s->u48 == -1) s->u48 = s->route;
         s->route = s->id;
         c->speed = 0;
-        c_end_brake(c);
+        car_end_brake(c);
         c->input = 0;
         s->u4e = 0;
         s->u16 = 0;
@@ -551,16 +529,16 @@ static void sentinel_recall_route(Sentinel *s)
         return;
     case 2:
         s->u4a = 1;
-        c_begin_brake(c);
+        car_begin_brake(c);
         s->state = 0xff;
         s->u38 = 0;
         return;
     case 3: {
         if (s->sub != 0) s->state = s->sub;
-        bool fwd = c_moving(c);
+        bool fwd = car_is_moving_forward(c);
         c->input = 0;
         if (fwd) c->speed = 0;
-        c_begin_brake(c);
+        car_begin_brake(c);
         return;
     }
     }
@@ -995,8 +973,8 @@ void emergency_update_all(void)
 static void ww_turn(Car *c, int d, int bx, int by, int bz, int bdir)
 {
     c_start_turn(c, d, 2);
-    if (sentinel_is_blocked_by_stopped_car(bx, by, bz, c, bdir)) c_end_brake(c);
-    else c_begin_brake(c);
+    if (sentinel_is_blocked_by_stopped_car(bx, by, bz, c, bdir)) car_end_brake(c);
+    else car_begin_brake(c);
 }
 /* ... or, the lane being taken, a slower turn (speed 5) whose success (the lane beside clear) moves
    on to the next route node */
@@ -1013,7 +991,7 @@ static void ww_soft(Sentinel *s, Car *c, int d, int clear)
         s->u16 = 0;
         s->u14 = 0;
     } else {
-        c_begin_brake(c);
+        car_begin_brake(c);
     }
 }
 /* the lane mode change of the wrong-way logic: the car's position saved */
@@ -1066,8 +1044,8 @@ void sentinel_drive_car(Car *c)
             default: game_fatal(-0x4a, 0x180, s->kind); return;
             }
         }
-        if (!c_moving(c)) return;
-        c_begin_brake(c);
+        if (!car_is_moving_forward(c)) return;
+        car_begin_brake(c);
         c->accel = 0;
         c->input = 0;
         return;
@@ -1300,12 +1278,12 @@ void sentinel_drive_car(Car *c)
                 int16_t dxa = (int16_t)adx, dya = (int16_t)ady;
                 int turnflag;
                 if (dya + dxa == 1) {
-                    c_end_turn(c);
+                    car_end_turn(c);
                     if (c->u8e == 0 && c->speed > c->cruise) c->speed = c->cruise;   /* Car_SetCruiseSpeed 0x40bf80 */
                     turnflag = narrow;
                 } else {
                     if (c->turn_delta == 0) {
-                        c_end_turn(c);
+                        car_end_turn(c);
                         if (c->u8e == 0 && c->speed > c->cruise) c->speed = c->cruise;
                     }
                     turnflag = wide;
@@ -1317,12 +1295,12 @@ void sentinel_drive_car(Car *c)
                     if (next_x > ax) {
                         c_start_turn(c, -0x20, sp);
                         if (sentinel_is_lane_clear(ax, ay, bzb, c, 8) != 1 || !sentinel_is_blocked_by_stopped_car(ax, ay, bzb, c, 4))
-                            c_begin_brake(c);
+                            car_begin_brake(c);
                     }
                     if (next_x < ax) {
                         c_start_turn(c, 0x20, sp);
                         if (sentinel_is_lane_clear(ax, ay, bzb, c, 4) != 1 || !sentinel_is_blocked_by_stopped_car(ax, ay, bzb, c, 8))
-                            c_begin_brake(c);
+                            car_begin_brake(c);
                     }
                     break;
                 case 2:
@@ -1330,12 +1308,12 @@ void sentinel_drive_car(Car *c)
                     if (next_x > ax) {
                         c_start_turn(c, 0x20, sp);
                         if (sentinel_is_lane_clear(ax, ay, bzb, c, 8) != 1 || !sentinel_is_blocked_by_stopped_car(ax, ay, bzb, c, 4))
-                            c_begin_brake(c);
+                            car_begin_brake(c);
                     }
                     if (next_x < ax) {
                         c_start_turn(c, -0x20, sp);
                         if (sentinel_is_lane_clear(ax, ay, bzb, c, 4) != 1 || !sentinel_is_blocked_by_stopped_car(ax, ay, bzb, c, 8))
-                            c_begin_brake(c);
+                            car_begin_brake(c);
                     }
                     break;
                 case 4:
@@ -1343,12 +1321,12 @@ void sentinel_drive_car(Car *c)
                     if (next_y > ay) {
                         c_start_turn(c, 0x20, sp);
                         if (sentinel_is_lane_clear(ax, ay, bzb, c, 2) != 1 || !sentinel_is_blocked_by_stopped_car(ax, ay, bzb, c, 1))
-                            c_begin_brake(c);
+                            car_begin_brake(c);
                     }
                     if (next_y < ay) {
                         c_start_turn(c, -0x20, sp);
                         if (sentinel_is_lane_clear(ax, ay, bzb, c, 1) != 1 || !sentinel_is_blocked_by_stopped_car(ax, ay, bzb, c, 2))
-                            c_begin_brake(c);
+                            car_begin_brake(c);
                     }
                     break;
                 case 8:
@@ -1356,12 +1334,12 @@ void sentinel_drive_car(Car *c)
                     if (next_y > ay) {
                         c_start_turn(c, -0x20, sp);
                         if (sentinel_is_lane_clear(ax, ay, bzb, c, 2) != 1 || !sentinel_is_blocked_by_stopped_car(ax, ay, bzb, c, 1))
-                            c_begin_brake(c);
+                            car_begin_brake(c);
                     }
                     if (next_y < ay) {
                         c_start_turn(c, 0x20, sp);
                         if (sentinel_is_lane_clear(ax, ay, bzb, c, 1) != 1 || !sentinel_is_blocked_by_stopped_car(ax, ay, bzb, c, 2))
-                            c_begin_brake(c);
+                            car_begin_brake(c);
                     }
                     break;
                 }
@@ -1369,8 +1347,8 @@ void sentinel_drive_car(Car *c)
         }
     }
 
-    c_end_turn_if_done(c);
-    if (s->u0c == 0 && !c_turning(c) && s->u4e == 0) c_begin_brake(c);
+    car_end_turn_if_done(c);
+    if (s->u0c == 0 && !car_is_turning(c) && s->u4e == 0) car_begin_brake(c);
     if ((s->kind <= 2 || s->kind == SENT_FIRE) && (int8_t)s->u12 > 0) sentinel_handle_stuck(s, g_sent_bx, g_sent_by, g_sent_bz);
 
     /* off the road (no direction bits, not a slope; police excepted): back onto it */
@@ -1398,8 +1376,8 @@ void sentinel_drive_car(Car *c)
     /* the turn-round (+0x4e 2 -> 3 -> 0) and the wrong-way / overshoot flags */
     switch ((int8_t)s->u4e) {
     case 0: {
-        if (g_sent_dest_dist <= 3 && s->u16 < s->u14) c_begin_brake(c);
-        if (!c_turning(c) && curdirs == back) {
+        if (g_sent_dest_dist <= 3 && s->u16 < s->u14) car_begin_brake(c);
+        if (!car_is_turning(c) && curdirs == back) {
             int16_t dyn = (int16_t)(s->u0d - g_sent_by), dxn = (int16_t)(s->u0c - g_sent_bx);
             if ((c->road_dirs == 1 && dyn > 0) || (c->road_dirs == 2 && dyn < 0) ||
                 (c->road_dirs == 4 && dxn > 0) || (c->road_dirs == 8 && dxn < 0))
@@ -1413,15 +1391,15 @@ void sentinel_drive_car(Car *c)
         break;
     }
     case 2:
-        if (!c_turning(c)) s->u4e = 3;
+        if (!car_is_turning(c)) s->u4e = 3;
         break;
     case 3:
-        if (c->spr.angle % 256 == 0 || !c_moving(c)) s->u4e = 0;
+        if (c->spr.angle % 256 == 0 || !car_is_moving_forward(c)) s->u4e = 0;
         break;
     }
 
     /* the wrong way or past the node: get to the lane that leads there */
-    if (s->u0c != 0 && !c_turning(c) && c_moving(c)) {
+    if (s->u0c != 0 && !car_is_turning(c) && car_is_moving_forward(c)) {
         if (s->u1a == 1 || s->kind == SENT_ROUTE) {
             sentinel_check_ahead(s, g_sent_bx - 2 * dx + dy, g_sent_by - 2 * dy - dx, g_sent_bz, 2);
             sentinel_check_ahead(s, g_sent_bx - 2 * dx - dy, g_sent_by - 2 * dy + dx, g_sent_bz, 2);
@@ -1509,7 +1487,7 @@ void sentinel_drive_car(Car *c)
     uint8_t side_r_res = 1;         /* [0x3c] the same for the lane on the right ... */
     uint8_t side_l_res = 1;         /* [0x34] ... and on the left */
     bool turning_case = false;
-    if (c_turning(c)) {
+    if (car_is_turning(c)) {
         /* in a turn: the lane it turns into (as the original: the mask doesn't depend on the turn's
            side, since Car_IsTurning is always 1 here: 4 / 8 / 2 / 1 for previous directions 1 / 2 / 4 / 8) */
         uint8_t m = 0;
@@ -1555,7 +1533,7 @@ void sentinel_drive_car(Car *c)
             side_l_res = (uint8_t)sentinel_check_ahead(s, g_sent_bx - dy - dx, g_sent_by - dy + dx, g_sent_bz, 5);
         if (lc == 0) {
             if (curdirs == back && side_l_res == 0) {
-                c_save_pos(c);
+                car_save_pos(c);
                 c->lane_mode = 3;   /* Car_SetLaneMode3 0x40be30 */
             }
         } else {
@@ -1565,34 +1543,34 @@ void sentinel_drive_car(Car *c)
 
     bool blocked;   /* 0x41d5d5 */
     if (turning_case) {
-        blocked = c_moving(c);   /* 0x41d39c */
+        blocked = car_is_moving_forward(c);   /* 0x41d39c */
     } else if (lc == 0) {
         blocked = false;
     } else if (lc <= 2) {
         blocked = true;
     } else {
-        blocked = c_moving(c);
+        blocked = car_is_moving_forward(c);
     }
     if (!blocked && s->u20 != 0) blocked = true;
     if (!blocked) {
         /* 0x41d3ae: the way is free */
         if (s->u12 == 0 && c->udc != 2) {
-            if (c->control == 3 && !car_is_on_screen(c) && !c_turning(c)) {
+            if (c->control == 3 && !car_is_on_screen(c) && !car_is_turning(c)) {
                 c->speed = c->max_speed;
-                c_end_brake(c);
-            } else if (!c_moving(c)) {
+                car_end_brake(c);
+            } else if (!car_is_moving_forward(c)) {
                 c->input = c->accel;
                 c->udc = 0;
-                c_end_brake(c);
+                car_end_brake(c);
             } else {
                 if (c->speed < c->max_speed && (c->turn_delta == 0 || c->speed < c->cruise)) {
                     c->unkc0 = 1;
                     c->input = c->accel;
                 }
-                c_end_brake(c);
+                car_end_brake(c);
             }
         }
-    } else if (!c_moving(c)) {
+    } else if (!car_is_moving_forward(c)) {
         /* 0x41d82a: stopped before something: overtake, or (unseen) push past it */
         if (sentinel_find_overtake_lane(c, (uint8_t)g_sent_bx, (uint8_t)g_sent_by, (uint8_t)g_sent_bz) == 1) return;
         if (!car_is_on_screen(c)) lc = (int16_t)sentinel_check_ahead(s, g_sent_bx, g_sent_by, g_sent_bz, -1);
@@ -1603,14 +1581,14 @@ void sentinel_drive_car(Car *c)
             if (lc <= 5 && c->speed > 8) c->speed--;
             if (lc <= 3) {
                 if (c->speed > 8) {
-                    c_begin_brake(c);
+                    car_begin_brake(c);
                     c->input = 0;   /* Car_ClearAccel 0x40c080 */
                 } else {
                     c->speed--;
                 }
             }
             if (lc <= 2) {
-                c_begin_brake(c);
+                car_begin_brake(c);
                 c->input = 0;
             }
         }
@@ -1619,7 +1597,7 @@ void sentinel_drive_car(Car *c)
             /* a lane change to the side whose lane is clearer */
             uint8_t R = side_r_res, L = side_l_res;
             int rd = c->road_dirs;
-            c_save_pos(c);
+            car_save_pos(c);
             c->uc4 = 8;
             bool to_a;
             if (R == 0 && L == 0) {
@@ -1648,7 +1626,7 @@ void sentinel_drive_car(Car *c)
     if (c->lane_mode > 2 && c->speed < 8 && lc > 3) {
         c->speed++;
         c->input = c->accel;
-        c_end_brake(c);
+        car_end_brake(c);
     }
 }
 
@@ -1701,10 +1679,6 @@ static uint32_t type_map_at(int x, int y, int z)
 static Car *hit_car(const CollHit *h) { return car_get(((const Car *)h->owner)->id); }
 static int i16abs(int v) { return abs((int16_t)v); }
 
-/* the inlined car accessors (0x40be00-0x40c0a0) */
-static void car_begin_brake(Car *c) { c->brake = 1; c->thrust_in = 0; }   /* Car_BeginBrake 0x40be90 */
-static void car_end_brake(Car *c) { c->brake = 0; }                        /* Car_EndBrake 0x40beb0 */
-static void car_save_pos(Car *c) { c->saved_x = c->spr.x, c->saved_y = c->spr.y; }   /* Car_SavePos 0x40c0a0 */
 
 /* ---------------------------------------------------------------- probes */
 
@@ -2175,11 +2149,11 @@ void sentinel_steer(Sentinel *s, int bx, int by, int bz)
         rz = (int16_t)(c->spr.z >> 16) - (int16_t)(p->spr.z >> 16);
         tgt_x = p->spr.x, tgt_y = p->spr.y;
     } else if (crim->kind == 2) {
-        const int32_t *t = ref_get_kind1_pos_rect(crim->train);
-        rx = (int16_t)(c->spr.x >> 16) - (int16_t)(t[0] >> 16);
-        ry = (int16_t)(c->spr.y >> 16) - (int16_t)(t[1] >> 16);
-        rz = (int16_t)(c->spr.z >> 16) - (int16_t)(t[2] >> 16);
-        tgt_x = t[0], tgt_y = t[1];
+        const CameraTarget *t = ref_get_kind1_pos_rect(crim->train);
+        rx = (int16_t)(c->spr.x >> 16) - (int16_t)(t->x >> 16);
+        ry = (int16_t)(c->spr.y >> 16) - (int16_t)(t->y >> 16);
+        rz = (int16_t)(c->spr.z >> 16) - (int16_t)(t->z >> 16);
+        tgt_x = t->x, tgt_y = t->y;
     } else if (crim->kind == 0) {
         tcar = car_get(crim->car);
         if (s->u4a == 1) {

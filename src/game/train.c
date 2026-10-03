@@ -14,7 +14,7 @@
 #include "ped_internal.h"
 #include "player.h"
 #include "rail.h"
-#include "stubs.h"
+#include "mapq.h"
 #include <stdlib.h>
 #include <string.h>
 

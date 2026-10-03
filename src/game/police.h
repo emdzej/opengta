@@ -17,6 +17,7 @@
 
 enum { POLICE_CARS_MAX = 100, POLICE_OBJ_QUEUE_MAX = 0x70, ROADBLOCK_CARS = 0x24 };
 
+extern int32_t g_police_no_patrols;                    /* 0x503184 1: no patrol cars, no police radio (Police_InitForMission) */
 extern int16_t g_police_cars[POLICE_CARS_MAX];        /* 0x50f2a8 the patrol car controllers */
 extern int16_t g_police_ncars;                        /* 0x5058a2 */
 extern int16_t g_police_obj_queue[POLICE_OBJ_QUEUE_MAX];   /* 0x504f68 objects to delete off screen */

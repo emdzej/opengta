@@ -91,5 +91,6 @@ void camera_follow(CameraPlayer *p, const CameraWorld *w);               /* Came
 void camera_update(CameraPlayer *p, const CameraWorld *w);               /* Camera_Update 0x43b910 (one player) */
 void camera_compute_view_rect(CameraPlayer *p);                          /* Camera_ComputeViewRect 0x43ca30 */
 void camera_reset_motion(CameraPlayer *p);                               /* Camera_ResetMotion 0x43c640 */
+void camera_start_transition(CameraPlayer *p);                           /* Camera_StartTransition 0x43cac0 */
 void camera_snap(CameraPlayer *p, const CameraWorld *w);                 /* Camera_Snap 0x43c5d0 */
 void camera_init(CameraPlayer *p, const CameraWorld *w);                 /* Camera_InitAll 0x43c710 (one player) */

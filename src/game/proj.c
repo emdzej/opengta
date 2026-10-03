@@ -3,6 +3,9 @@
 #include "mission.h"
 #include "ped_internal.h"
 #include "trigger.h"
+#include "expl.h"
+#include "powerup.h"
+#include "wanted.h"
 #include <stdlib.h>
 
 ProjList g_proj;

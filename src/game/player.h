@@ -142,6 +142,7 @@ CameraWorld player_camera_world(int n);
 void player_apply_input(uint32_t control);   /* Player_ApplyInput 0x463ec0 (the viewed player) */
 void player_toggle_vehicle(void);            /* Player_ToggleVehicle 0x4642b0 */
 void player_update_all(void);                /* Player_UpdateAll 0x464880 */
+void player_update_frags(void);              /* Player_UpdateFrags 0x464c90 (network games) */
 int player_find_by_ped(int ped);             /* Player_FindByPed 0x464440 (-1 none) */
 void player_next_weapon(int n);              /* Player_NextWeapon 0x4619f0 */
 void player_select_weapon(int n, int w);     /* Player_SelectWeapon 0x461b00 */
@@ -159,6 +160,10 @@ void player_add_life(int n);                 /* Player_AddLife 0x4630b0 (to 99; 
 bool player_wasted(int n);                   /* Player_Wasted 0x463100 (true: a life left) */
 void player_busted(int n);                   /* Player_Busted 0x464820 */
 void player_add_score(int n, int points, int x, int y, int z, int popup);   /* Player_AddScore 0x461f20 */
+/* Player_AwardBonus 0x462000: score event `kind` (chained, by `cause`) at (x, y, z), a popup if `popup` */
+void player_award_bonus(int n, int kind, int32_t x, int32_t y, int32_t z, int popup, int cause);
+void player_inc_kills(int n, int kind);      /* Player_IncKills 0x462960 */
+void player_update_score_digits(void);       /* Player_UpdateScoreDigits 0x462ab0 (the HUD's rolling digits) */
 void player_sub_score(int n, int points);    /* Player_SubScore 0x461f90 */
 int player_get_score(int n);                 /* Player_GetScore 0x462b70 (= Player_GetScore_004643b0 0x4643b0) */
 const char *player_get_name(int n);          /* Player_GetName 0x462bd0 */
@@ -175,6 +180,11 @@ static inline int player_get_wanted_level(int n) { return g_players[n].wanted_le
 static inline int player_get_wanted_points_idx(int n) { return g_players[n].wanted_points; } /* 0x4619d0 */
 void player_set_view_target(int n, int kind, int id);   /* Player_SetViewTarget 0x462c80 */
 void player_set_view_fixed(int32_t x, int32_t y, int32_t z, int n);   /* Player_SetViewFixed 0x462cb0 (kind 3) */
+void player_set_view_fixed4(int32_t x, int32_t y, int32_t z, int n);  /* Player_SetViewFixed4 0x462d00 (kind 4) */
+static inline int player_get_view_id(int n) { return (int16_t)g_players[n].view_id; }          /* 0x462fa0 */
+static inline int player_get_multiplier(int n) { return (int16_t)g_players[(int16_t)n].mult; }  /* 0x463090 */
+int player_train_crash_kick(int train);      /* Player_TrainCrashKick 0x463b70 */
+void player_camera_start_transition(int n);  /* Camera_StartTransition 0x43cac0 on player n */
 void player_control_view_target(int n);      /* Player_ControlViewTarget 0x463000 */
 void player_reset_view(int n);               /* Player_ResetView 0x463040 */
 void player_retarget_camera(int kind, int id, int new_kind, int new_id);   /* Player_RetargetCamera 0x463b00 */

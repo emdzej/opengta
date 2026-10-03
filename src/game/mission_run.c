@@ -15,8 +15,13 @@
 #include "obj.h"
 #include "ped.h"
 #include "player.h"
-#include "stubs.h"
 #include "trigger.h"
+#include "gang.h"
+#include "heli.h"
+#include "powerup.h"
+#include "sentinel.h"
+#include "wanted.h"
+#include "../hud/hud.h"
 #include <stdio.h>
 #include <string.h>
 

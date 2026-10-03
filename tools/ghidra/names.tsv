@@ -438,18 +438,18 @@
 0042e6f0	Fire_Extinguish	fire	med	Remove a fire entry, release its objects and the attending engine.
 0042e7b0	Fire_FindNearestUnattended	fire	med	Nearest fire without an engine for a given sentinel car.
 0042e860	thunk_Sentinel_DriveCar	sentinel	high	Jump thunk to Sentinel_DriveCar.
-0042e870	FireEngine_Remove	fire	med	Remove a fire-engine sentinel and its car/crew.
-0042e920	FireEngine_Spawn	fire	med	Create a fire engine (car model 0x2a) at a fire station and bind a new sentinel (type 6) with crew.
-0042ea90	FireEngine_SetDestination	fire	med	Route a fire engine to a fire location.
-0042ebe0	FireEngine_ArriveCheck	fire	low	When near the fire, switch the engine into extinguish state.
-0042ec70	FireEngine_Dispatch	fire	med	Find/spawn an engine from the nearest of 4 fire stations and send it to a new fire.
-0042ee40	FireEngine_ReturnToBase	fire	med	Send a fire engine back to its nearest station.
+0042e870	FireEngine_Remove	fire	high	Remove a fire engine: out of engines[], hose and car deleted, path search freed, record reset.
+0042e920	FireEngine_Spawn	fire	high	Spawn a fire engine (model 0x2a, control 9) at fire station n for sentinel s (kind 6, state 1), listed at engines[count] with a 2500-frame timer, hose object 0x32.
+0042ea90	FireEngine_SetDestination	fire	high	Siren on, destination = fire block; route search mode 5 (state 2 running, 5 waiting for the search, 0x27 off road).
+0042ebe0	FireEngine_ArriveCheck	fire	high	Take fire n: more than 2 blocks away drive there (state 1), else stop for it (state 10).
+0042ec70	FireEngine_Dispatch	fire	high	Spawn an engine at the nearest of the 4 fire stations (else any), or reuse one heading home when 3 are out; returns its car id.
+0042ee40	FireEngine_ReturnToBase	fire	high	Siren off, +0x95 = 1, route home to the nearest station (state 0x28 / 0x23 searching / 0x27 failed).
 0042ef80	Fire_Register	fire	med	Register a new fire object (type 0x12) in a free slot and dispatch an engine if no fire nearby.
-0042f240	FireEngine_AimHoseAtObject	fire	low	Rotate water-cannon object toward a target object (+-3 per frame).
-0042f2d0	FireEngine_AimHoseAtCar	fire	low	Rotate water-cannon toward a car.
+0042f240	FireEngine_AimHoseAtObject	fire	high	Turn the hose object 3 a frame toward the fire object; 1 when aimed.
+0042f2d0	FireEngine_AimHoseAtCar	fire	high	Turn the hose 3 a frame back toward the car centre; 1 when aimed.
 0042f350	Fire_HasObjects	fire	low	True if a fire slot still has burning objects.
 0042f3a0	Fire_ClearObjects	fire	low	Delete all objects belonging to a fire slot.
-0042f460	FireEngine_Update	fire	med	Fire engine AI state machine (drive, stop, spray, return).
+0042f460	FireEngine_Update	fire	high	Fire engine state machine: drive, stop, aim, water jet (objects 0x30 / 0x31), spray 262 frames, jet off, next fire or home.
 00430400	Math_InitTables	math	high	sin[i]=trunc(sin(i*2pi/1024)*65536) for 0x500 entries at 0x511e28 (cos[i]=sin[i+256] at 0x512228); tan table 256 entries at 0x511a28.
 00430490	Math_FixedToFloat	math	high	16.16 fixed-point int -> float (multiply by 1/65536).
 004304a0	Font_InitKanji	text	med	Create a pseudo font descriptor for the kanji font and load kanji.idx/.bit.

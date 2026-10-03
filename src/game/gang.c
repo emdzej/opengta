@@ -240,54 +240,6 @@ int hunt_steer_towards(Car *c, int angle)
     return 0;
 }
 
-/* Car_SteerTowards 0x40bc70 (car module, not ported elsewhere: the hunters' copy). The front wheels
-   (+0x90) turn toward `angle`: above the cruise speed (+0x104) the car slows by 2; below the top
-   speed less the info's +0x14 only the turn direction (±0x20) is set; at speed it turns in steps of
-   ±0x20 with the brake on (+0xb6) until within a step. Returns 1 while still off the heading. */
-static int car_steer_towards(Car *c, int angle)
-{
-    int16_t a = c->front_heading, t = (int16_t)angle;
-    uint16_t d = (uint16_t)((t - a) & 0x3ff);
-    if (d > 0x200) d = (uint16_t)-d;
-    if (a == t) {
-        c->speed = 0;
-        c->input = 0;
-    }
-    if (c->cruise < c->speed) c->speed -= 2;
-    if (c->speed < c->max_speed - carinfo_s16(c->info, 0x14)) {
-        if (c->turn_delta == 0) {
-            if ((int16_t)d > 0) {
-                c->turn_progress = 0;
-                c->turn_delta = 0x20;
-                return 0;
-            }
-            if ((int16_t)d < 0) {
-                c->turn_delta = -0x20;
-                c->turn_progress = 0;
-            }
-        }
-        return 0;
-    }
-    if (t - c->turn_delta <= a && a <= t + c->turn_delta) {
-        c->front_heading = t;
-        c->brake = 0;
-        c->turn_delta = 0;
-        c->input = 0;
-        return 0;
-    }
-    if ((int16_t)d < 1) {
-        if ((int16_t)d >= 0) return a != t;
-        c->turn_delta = -0x20;
-    } else {
-        c->turn_delta = 0x20;
-    }
-    c->turn_progress = 0;
-    c->brake = 1;
-    c->u98 = c->turn_delta;
-    c->input = carinfo_s16(c->info, 0xe);
-    return a != t;
-}
-
 /* Hunt_ProbeAhead 0x431cb0: the road direction bits at the point `speed` pixels ahead along the front
    wheels (written to *x, *y), from the layers a block and 20 / 4 pixels above the car down to its own;
    none there: the bits of the next block along the car's road direction (+0xa2) on its layer, else

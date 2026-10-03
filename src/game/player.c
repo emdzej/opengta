@@ -4,10 +4,16 @@
 #include "game.h"
 #include "ped.h"
 #include "heli.h"
-#include "stubs.h"
 #include "mission_obj.h"
 #include "../audio/audio.h"
 #include "../text.h"
+#include "police.h"
+#include "traffic.h"
+#include "train.h"
+#include "wanted.h"
+#include "../hud/hud.h"
+#include "../front/front.h"
+#include "event.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -19,10 +25,10 @@ bool g_players_ready;
 uint32_t g_player_respawn_block;
 static int net_mode;                         /* 0x501d7c: 2 in a network game */
 
-/* Player_First 0x412a70 / Player_Next 0x412a90: the network session's slots in a network game
-   (not ported), else player 0 alone. */
-int player_first(void) { return net_mode == 2 ? 0 : 0; }   /* (Net_FirstSlot not ported) */
-int player_next(int n) { (void)n; return net_mode == 2 ? -1 : -1; }   /* (Net_NextSlot not ported) */
+/* Player_First 0x412a70 / Player_Next 0x412a90: the network session's slots in a network game (the
+   DirectPlay layer, never in a game here: stubs.h), else player 0 alone. */
+int player_first(void) { return net_mode == 2 ? 0 : 0; }   /* (in a game: Net_FirstSlot) */
+int player_next(int n) { (void)n; return net_mode == 2 ? -1 : -1; }   /* (in a game: Net_NextSlot) */
 
 /* Player_SetPed 0x461e90: also makes the ped's control type 8 (Ped_SetControlType). */
 void player_set_ped(int n, int ped)
@@ -191,20 +197,11 @@ CameraTarget player_view_target(int n)
     const Player *p = &g_players[n];
     CameraTarget t = { 0 };
     switch (p->view_kind) {
-    case CAM_TARGET_CAR: {
-        const Car *c = car_get((int16_t)p->view_id);
-        t.x = c->spr.x;
-        t.y = c->spr.y;
-        t.z = c->spr.z - c->z_offset;
-        t.angle = c->spr.angle;
-        t.speed = (int16_t)(c->speed * 3);
-        t.h = (int16_t)-c->length;
-        t.w = c->cam_w;
+    case CAM_TARGET_CAR:
+        t = *car_get_cam_target((int16_t)p->view_id);
         break;
-    }
     case CAM_TARGET_KIND1: {   /* a ridden train: Ref_GetKind1PosRect 0x45fb60 */
-        const int32_t *r = ref_get_kind1_pos_rect((int16_t)p->view_id);
-        t.x = r[0], t.y = r[1], t.z = r[2];
+        t = *ref_get_kind1_pos_rect((int16_t)p->view_id);
         break;
     }
     case CAM_TARGET_HELI: {   /* Heli_GetPos 0x40dc80 */
@@ -213,17 +210,9 @@ CameraTarget player_view_target(int n)
         t.speed = (int16_t)h->speed;
         break;
     }
-    case CAM_TARGET_PED: {
-        const Ped *d = ped_get((int16_t)p->view_id);
-        t.x = d->spr.x;
-        t.y = d->spr.y;
-        t.z = d->spr.z;
-        t.speed = d->speed;
-        t.w = 8;
-        t.h = 8;
-        t.angle = d->spr.angle;
+    case CAM_TARGET_PED:
+        t = *ped_get_pos_rect((int16_t)p->view_id);
         break;
-    }
     default:
         t.x = p->view_x;
         t.y = p->view_y;
@@ -519,6 +508,163 @@ void player_add_score(int n, int points, int x, int y, int z, int popup)
     if (p->score > 999999999) p->score = 999999999;
     if ((int16_t)popup != 0) hud_add_score_popup(x, y, z, v, n);
 }
+
+/* the score with points added for player n, capped at 999999999 (Player_AwardBonus inlines it) */
+static void add_points(Player *p, int v)
+{
+    p->score += v;
+    if (p->score > 999999999) p->score = 999999999;
+}
+
+/* Player_AwardBonus 0x462000: event `kind` scores for player n at (x, y, z) (the popup there if
+   `popup`). Events of the same kind in a row form a chain (+0x170 the kind, +0x174 its length, +0x16c
+   13 frames); the cause gives a base (2: 3, 3 / 7 / 8: 10, 4: 7, 5 / 6: 2, else 1): kind 1 counts
+   chain * base, the others base doubled per event after the first (or the chain length while that
+   stays 1). The kinds' points (times the multiplier, unless Player_AddScore adds them, which applies
+   it too):
+     1 3 4 8 9: 100,  5: 500,  6: 150,  2: 1000,  0xc: 5000,  10 0xb: 10000,  0x13 0x2c and others: 100
+     flat (Player_AddScore);  7: 100, and on the 7th in a row 12300 (the multiplier only) with the big
+     message 0x4b221c;  0xd: 500, 0xe: 100 (Player_AddScore);  0xf 0x14 0x1b 0x1c: 100;  0x10 0x11: 10;
+     0x12: 150;  0x15: 1000;  0x16 0x17: nothing (a 0 popup);  0x18: the multiplier * +0x180 * 10;
+     0x19: 10000;  0x1a: 20 (the multiplier only);  0x1e 0x21: 100,  0x23: 250,  0x24: 150,  0x22: 200,
+     0x25 0x2d: 1000,  0x1d 0x1f: 50,  0x20: 250,  0x26 0x27: 100,  0x2b: 500000 (Player_AddScore);
+     0x28 0x29 0x2a: 300.
+   Kinds 1-12 (but 0xf..0x12), 0xd, 0xe, 7 end in a random voice for the local player while a frenzy
+   runs (+0x1ae) or with a frenzy weapon. */
+void player_award_bonus(int n, int kind, int32_t x, int32_t y, int32_t z, int popup, int cause)
+{
+    Player *p = &g_players[n];
+    int base;
+    switch (cause) {
+    case 2: base = 3; break;
+    case 3: case 7: case 8: base = 10; break;
+    case 4: base = 7; break;
+    case 5: case 6: base = 2; break;
+    default: base = 1;
+    }
+    if (p->bonus_kind == kind) {
+        p->bonus_count++;
+    } else {
+        p->bonus_kind = kind;
+        p->bonus_count = 1;
+    }
+    int m = p->bonus_count;
+    p->bonus_timer = 0xd;
+    if (kind == 1) {
+        m *= base;
+    } else {
+        for (int k = p->bonus_count - 1; k > 0; k--) base *= 2;
+        if (base > 1) m = base;
+    }
+    bool show = (int16_t)popup != 0;
+    int v;   /* the points of the popup */
+    switch (kind) {
+    case 5: m *= 5; /* fall through */
+    case 1: case 3: case 4: case 8: case 9: m *= 100; goto scored;
+    case 6: m *= 0x96; goto scored;
+    case 0xc: m *= 5; /* fall through */
+    case 2: m *= 1000; goto scored;
+    case 10: case 0xb: m *= 10000; goto scored;
+    case 7:
+        v = p->mult * m * 100;
+        add_points(p, v);
+        if (show) hud_add_score_popup(x, y, z, v, n);
+        if (p->bonus_count == 7) {
+            v = p->mult * 0x300c;
+            add_points(p, v);
+            if (show) hud_add_score_popup(x, y, z, v, n);
+            hud_show_big_message_hi(text_get(exe_str(0x4b221c)));
+        }
+        goto voice;
+    scored:
+        v = p->mult * m;
+        add_points(p, v);
+        if (show) hud_add_score_popup(x, y, z, v, n);
+    voice:
+        if (n != g_player_local) return;
+        if (g_players[(int16_t)n].timers[1] == -1 && !player_has_frenzy_weapon(n)) return;
+        Snd_PlayRandomVoice();
+        return;
+    case 0xd: m *= 5; /* fall through */
+    case 0xe:
+        player_add_score(n, m * 100, x, y, z, popup);
+        goto voice;
+    case 0xf: case 0x14: v = p->mult * m * 100; break;
+    case 0x10: case 0x11: v = p->mult * m * 10; break;
+    case 0x12: v = p->mult * m * 0x96; break;
+    case 0x15: v = p->mult * m * 1000; break;
+    case 0x16: case 0x17:
+        if (p->score > 999999999) p->score = 999999999;
+        v = 0;
+        if (!show) return;
+        hud_add_score_popup(x, y, z, v, n);
+        return;
+    case 0x18: v = p->mult * p->u180 * 10; break;
+    case 0x19: v = p->mult * m * 10000; break;
+    case 0x1a: v = p->mult * 0x14; break;
+    case 0x1b: case 0x1c: v = p->mult * m * 100; break;
+    case 0x1e: case 0x21: player_add_score(n, m * 100, x, y, z, popup); return;
+    case 0x20: m *= 5; /* fall through */
+    case 0x1d: case 0x1f: player_add_score(n, m * 0x32, x, y, z, popup); return;
+    case 0x23: player_add_score(n, m * 0xfa, x, y, z, popup); return;
+    case 0x24: player_add_score(n, m * 0x96, x, y, z, popup); return;
+    case 0x25: case 0x2d: m *= 5; /* fall through */
+    case 0x22: player_add_score(n, m * 200, x, y, z, popup); return;
+    case 0x26: case 0x27: player_add_score(n, m * 100, x, y, z, popup); return;
+    case 0x28: case 0x29: case 0x2a: v = p->mult * m * 300; break;
+    case 0x2b: player_add_score(n, m * 500000, x, y, z, popup); return;
+    default: player_add_score(n, 100, x, y, z, popup); return;
+    }
+    add_points(p, v);
+    if (show) hud_add_score_popup(x, y, z, v, n);
+}
+
+/* the 9 roll counters of the score digits (shorts at +0x13c) */
+static int16_t roll_get(const Player *p, int i)
+{
+    int16_t v;
+    memcpy(&v, (const uint8_t *)p + 0x13c + 2 * i, 2);
+    return v;
+}
+static void roll_set(Player *p, int i, int16_t v) { memcpy((uint8_t *)p + 0x13c + 2 * i, &v, 2); }
+
+/* Player_UpdateScoreDigits 0x462ab0: the target digits ("%09d" of the score at +0x131); every shown
+   digit (+0x127) that differs, or is still rolling, advances its roll counter (the 9 shorts at +0x13c)
+   by 2 and steps to the next digit (9 wraps to 0) past 15. Then the multiplier string "%02d". */
+void player_update_score_digits(void)
+{
+    for (int n = player_first(); n > -1; n = player_next(n)) {
+        Player *p = &g_players[n];
+        char b[16];
+        snprintf(b, sizeof b, exe_str(0x4b222c), p->score);
+        memcpy(p->hud_score2, b, sizeof p->hud_score2 - 1);
+        p->hud_score2[9] = 0;
+        for (int i = 0; i < 9; i++) {
+            int16_t r = roll_get(p, i);
+            if (p->hud_score2[i] != p->hud_score[i] || r != 0) {
+                r = (int16_t)(r + 2);
+                if (r > 0xf) {
+                    p->hud_score[i] = p->hud_score[i] < '9' ? (char)(p->hud_score[i] + 1) : '0';
+                    r = 0;
+                }
+                roll_set(p, i, r);
+            }
+        }
+        snprintf(b, sizeof b, exe_str(0x4b2224), (int)p->mult);
+        memcpy(p->hud_mult, b, 2);   /* a multiplier over 99 runs into the score digits in the original */
+        p->hud_mult[2] = 0;
+    }
+}
+
+/* Player_IncKills 0x462960: the counters at +0xfc are shorts: [kind] this life, [10 + kind] total
+   (the original's "up to 0x7fff" test on a short is always true: they wrap) */
+void player_inc_kills(int n, int kind)
+{
+    int16_t *k = (int16_t *)(void *)g_players[n].stats;
+    k[kind] = (int16_t)(k[kind] + 1);
+    k[10 + kind] = (int16_t)(k[10 + kind] + 1);
+}
+
 void player_sub_score(int n, int points)     /* Player_SubScore 0x461f90 (not below 0) */
 {
     Player *p = &g_players[n];
@@ -529,35 +675,49 @@ int player_get_score(int n) { return g_players[n].score; }
 const char *player_get_name(int n) { return g_players[n].name; }
 const int32_t *player_get_view_rect(int n) { return &g_players[n].rect.left; }
 
-/* Player_GetControlledPos 0x462ef0: Car_GetCamTarget 0x408220, Ped_GetPosRect 0x45fb00 (one static
-   record each in the original); trains (Ref_GetKind1PosRect) and the heli (Heli_GetPos) aren't
-   ported and give a zero record; other kinds are fatal (-0x4a). */
+/* Player_GetControlledPos 0x462ef0: the static position record of what the player controls:
+   Car_GetCamTarget 0x408220 (kind 0), Ref_GetKind1PosRect 0x45fb60 (1, a train), Ped_GetPosRect
+   0x45fb00 (2), Heli_GetPos 0x40dc80 (5); other kinds are fatal (-0x4a). Each record starts with x,
+   y, z (16.16). */
 const int32_t *player_get_controlled_pos(int n)
 {
-    static CameraTarget rec;
     const Player *p = &g_players[n];
-    memset(&rec, 0, sizeof rec);
     switch (p->ctl_kind) {
-    case 0: {
-        const Car *c = car_get((int16_t)p->ctl_id);
-        rec.x = c->spr.x, rec.y = c->spr.y, rec.z = c->spr.z - c->z_offset;
-        rec.angle = c->spr.angle, rec.speed = (int16_t)(c->speed * 3);
-        rec.h = (int16_t)-c->length, rec.w = c->cam_w;
-        break;
-    }
-    case 2: {
-        const Ped *d = ped_get((int16_t)p->ctl_id);
-        rec.x = d->spr.x, rec.y = d->spr.y, rec.z = d->spr.z;
-        rec.w = rec.h = 8, rec.speed = d->speed, rec.angle = d->spr.angle;
-        break;
-    }
-    case 1: case 5: break;
+    case 0: return &car_get_cam_target(p->ctl_id)->x;
+    case 1: return &ref_get_kind1_pos_rect(p->ctl_id)->x;
+    case 2: return &ped_get_pos_rect((int16_t)p->ctl_id)->x;
+    case 5: return &heli_get_pos()->x;
     default: game_fatal(-0x4a, 0x123, p->ctl_kind);
     }
-    return &rec.x;
 }
 
 void player_set_view_target(int n, int kind, int id) { g_players[n].view_kind = kind, g_players[n].view_id = id; }
+/* Player_SetViewFixed4 0x462d00: the camera of player n on the fixed point (x, y, z), kind 4 */
+void player_set_view_fixed4(int32_t x, int32_t y, int32_t z, int n)
+{
+    Player *p = &g_players[n];
+    p->view_x = x, p->view_kind = 4, p->view_id = 0, p->view_y = y, p->view_z = z;
+}
+/* Player_TrainCrashKick 0x463b70: every player riding train t (kind 1) dies (its ped's +0x49 = 0);
+   whether there was one */
+int player_train_crash_kick(int t)
+{
+    int r = 0;
+    for (int n = player_first(); n > -1; n = player_next(n)) {
+        if (g_players[n].ctl_kind != 1 || g_players[n].ctl_id != (t & 0xff)) continue;
+        g_peds[g_players[n].ped].health = 0;
+        r = 1;
+    }
+    return r;
+}
+/* Camera_StartTransition 0x43cac0 (camera.c) on player n's camera and its target */
+void player_camera_start_transition(int n)
+{
+    CameraPlayer cp;
+    player_camera(n, &cp);
+    camera_start_transition(&cp);
+    player_camera_store(n, &cp);
+}
 void player_set_view_fixed(int32_t x, int32_t y, int32_t z, int n)   /* Player_SetViewFixed 0x462cb0 */
 {
     Player *p = &g_players[n];
@@ -579,7 +739,7 @@ void player_retarget_camera(int kind, int id, int new_kind, int new_id)
         if (p->view_kind == kind && p->view_id == (int16_t)id) {
             p->view_kind = new_kind;
             p->view_id = (int16_t)new_id;
-            camera_start_transition(n);
+            player_camera_start_transition(n);
         }
     }
 }
@@ -598,7 +758,7 @@ void player_enter_car(int ped, int car)
         p->view_kind = 0;
         p->view_id = (int16_t)car;
         car_get((int16_t)car)->control = 1;
-        camera_start_transition(n);
+        player_camera_start_transition(n);
         if (n == g_player_local) hud_show_car_name((int16_t)car);
     }
     p->ctl[2] = 0, p->ctl[5] = 0;
@@ -629,7 +789,7 @@ void player_exit_car(int ped, int car)
         p->view_id = (int16_t)ped;
         Car *c = car_get((int16_t)car);
         if (c->control != 3) c->control = -1;
-        camera_start_transition(n);
+        player_camera_start_transition(n);
     }
     p->ctl_id = (int16_t)ped;
     p->ctl_kind = 2;
@@ -843,7 +1003,7 @@ void player_toggle_vehicle(void)
         if (p->view_kind != p->ctl_kind || p->ctl_id != p->view_id) {
             p->view_kind = p->ctl_kind;
             p->view_id = p->ctl_id;
-            camera_start_transition(n);
+            player_camera_start_transition(n);
         }
     } else {
         ped_enter_exit_key(&p->ctl_kind, p->ped);
@@ -866,6 +1026,48 @@ static void player_update_car_alarm_timer(void)
     }
 }
 
+/* Player_UpdateFrags 0x464c90 (network games: more than one player): each player whose death isn't
+   counted yet (+0x1a0) takes its killer (Ped_TakeKiller 0x4772e0; -2: not dead yet). Killed by another
+   player, that one's frags (+0x19c) count up (the kills target of Front_GetMultiTarget reached: the
+   game ends in 30 frames) and the zone text says "you kill" / "kill by" (0x4b224c / 0x4b2244, type
+   199) to the local player concerned; killed otherwise (or by itself) the victim loses a frag (not
+   below 0). */
+void player_update_frags(void)
+{
+    for (int n = (int16_t)player_first(); n >= 0; n = (int16_t)player_next(n)) {
+        Player *p = &g_players[n];
+        if (p->frag_done) continue;
+        int k = (int16_t)ped_take_killer(p->ped);
+        if (k < 0) {
+            if (k == -2) continue;
+            if (p->frags > 0) p->frags--;
+            p->frag_done = 1;
+            continue;
+        }
+        p->frag_done = 1;
+        int killer = -1;
+        for (int m = player_first(); m > -1; m = player_next(m))
+            if (g_players[m].ped == k) { killer = m; break; }
+        if (killer == -1 || killer == n) {
+            if (p->frags > 0) p->frags--;
+            continue;
+        }
+        Player *q = &g_players[killer];
+        int f = q->frags++;
+        int8_t kind;
+        int32_t target = 0;
+        front_get_multi_target(&kind, &target);
+        if (kind == 1 && target <= f + 1) event_schedule_exit(0x1e, -1);
+        const char *key, *name;
+        if (killer == g_player_local) key = exe_str(0x4b224c), name = p->name;   /* "you kill" */
+        else if (n == g_player_local) key = exe_str(0x4b2244), name = q->name;   /* "kill by" */
+        else continue;
+        char buf[256];
+        snprintf(buf, sizeof buf, text_get(key), name);
+        hud_show_zone_text(buf, 199);
+    }
+}
+
 /* Player_UpdateAll 0x464880, per frame:
    1. a busted player (state 1) is processed the frame after (state 2): frenzy weapon ended, +0x1ae
       off, unless the jail-free card (+0xfa, then used up) multiplier halved, power-ups and weapons
@@ -876,7 +1078,7 @@ static void player_update_car_alarm_timer(void)
    3. the countdowns: +0x18c, the bonus chain (+0x16c; at 0 it forgets the chain), the frenzy timer
       (its end gives the weapon back), +0x1ae, +0x1b0; on foot the speed-up timer (its end slows the
       ped) and armour (none: the ped's flag off);
-   4. the car alarm timer; frags in network games (Player_UpdateFrags 0x464c90, not ported). */
+   4. the car alarm timer; frags in network games (Player_UpdateFrags 0x464c90). */
 void player_update_all(void)
 {
     for (int n = player_first(); n > -1; n = player_next(n)) {
@@ -916,7 +1118,7 @@ void player_update_all(void)
         if (x < p->rect.left + 0x40 || y < p->rect.top + 0x40 || p->rect.right - 0x40 < x ||
             p->rect.bottom - 0x40 < y) {
             player_reset_view(n);
-            camera_start_transition(n);
+            player_camera_start_transition(n);
         }
     }
     for (int n = (int16_t)player_first(); n > -1; n = (int16_t)player_next(n))
@@ -943,5 +1145,5 @@ void player_update_all(void)
     }
     player_update_car_alarm_timer();
     if (g_player_count < 2) return;
-    /* Player_UpdateFrags 0x464c90: network games only (not ported) */
+    player_update_frags();
 }

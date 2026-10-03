@@ -3,7 +3,7 @@
 #include "game.h"
 #include "player.h"
 #include "replay.h"
-#include "stubs.h"
+#include "../hud/hud.h"
 #include <string.h>
 
 /* GTA Settings' default bindings ("Controls\Control 0..9" as it creates them, the first of its three

@@ -5,7 +5,10 @@
 #include "car.h"
 #include "game.h"
 #include "player.h"
-#include "stubs.h"
+#include "ai.h"
+#include "gang.h"
+#include "path.h"
+#include "sentinel.h"
 #include <string.h>
 
 DummyGroup g_dummy_groups[DUMMY_GROUPS];

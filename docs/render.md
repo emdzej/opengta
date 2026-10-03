@@ -13,7 +13,7 @@ tables (`Math_InitTables` 0x430400, `Poly_BuildBlendTable` 0x497b16).
 `Game_Run` 0x4148a0 per frame: `Game_Frame` 0x430b20 runs `Game_Update` 0x430c00 (which steps the tile
 animation, `Style_UpdateAnims` 0x47d610, among all the game logic), then `Camera_Update(-1000)` 0x43b910
 for every player, `Render_ComputeVisibleRect` 0x43b7e0 and `Render_CopyCamera` 0x43b780. `Game_Render`
-0x430d40 then queues the visible sprites (`Render_QueueVisibleEntities` 0x437000, not ported), draws the
+0x430d40 then queues the visible sprites (`Render_QueueVisibleEntities` 0x437000, [Sprites](/sprites)), draws the
 city (`Render_DrawCity` 0x4389f0) and the HUD. `Gfx_Present` 0x414b10 flips. Nothing clears the back
 buffer: pixels no block covers keep an older frame.
 
@@ -86,7 +86,7 @@ mirroring.
     project plane 6 into grid plane 1
     for z = 5 .. 0 (lowest layer first):
         swap planes; project plane z into the new upper plane     (upper = plane z, lower = plane z + 1)
-        Sprite_DrawLevel(z)                                       (sprites of this layer; not ported)
+        Sprite_DrawLevel(z)                                       (sprites of this layer)
         for y from the rect's top to its middle, for x from its left to its middle:
             draw (x, y), (x_sum - x, y), (x, y_sum - y), (x_sum - x, y_sum - y)
 
@@ -221,18 +221,16 @@ DirectDraw surface's shifts. `Style_UpdateAnims` steps every animation each game
 frames the next aux tile is shown (`Style_SetTileFrame` 0x47d440 points the tile's remap at aux base +
 frame and copies the aux tile's CLUTs into its table entry), and after the last frame the tile itself.
 
-## Not ported yet
+## Not ported
 
-- Sprites: `Render_QueueVisibleEntities` 0x437000, `Sprite_DrawLevel` 0x47c030 between the layers, and the
-  sprite drawers `Poly_DrawSprite` 0x49787c / `Poly_DrawSpriteBlend` 0x4979c9; `Sprite_LoadInfo` 0x47ca50
-  (the sections are loaded raw).
+The sprites (`Render_QueueVisibleEntities`, `Sprite_DrawLevel`, the sprite and rectangle drawers:
+[Sprites](/sprites)), the map edits (`Map_Set*`: [Objects](/objects)) and the camera's target records
+(cars, peds, trains, the heli, fixed points: [Peds](/peds)) are ported. What isn't:
+
 - The 15/16 bpp fillers (`Poly_FaceHoriz16` 0x49b328, `Poly_FaceVert16` 0x49b778, `Poly_SpanTex16`
-  0x4994b9, `Poly_SpanBlend15` 0x4998ce, `Poly_SpanBlend16` 0x499b39) and `Poly_DrawRect` 0x49806a.
+  0x4994b9, `Poly_SpanBlend15` 0x4998ce, `Poly_SpanBlend16` 0x499b39): gasm's surface is 32 bpp, and the
+  video menu offers that mode only ([HUD](/hud)).
 - `Poly_SetupEdges`' per-vertex shade and second uv set (flags 1 and 0x10; no caller uses them).
-- The map change functions (`Map_Set*` 0x437b50-0x438020) and the object / route / nav loaders the map
-  sections feed.
-- The camera's other target kinds come from entity records not ported yet: the dev viewer and the test
-  use a ped-like target record.
 
 ## Known deviations and open questions
 

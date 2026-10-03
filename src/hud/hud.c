@@ -16,7 +16,8 @@
 #include "../game/mission_run.h"
 #include "../game/ped.h"
 #include "../game/player.h"
-#include "../game/stubs.h"
+#include "../game/gfx.h"
+#include "../game/heli.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -76,7 +77,7 @@ typedef struct {               /* 0x7847d0, 0x24 bytes per player */
     char str[16];              /* +0x18 "%8d" */
 } ScoreRec;
 
-typedef GfxModeEntry ModeName;   /* stubs.h: the gfx module is not ported */
+typedef GfxModeEntry ModeName;   /* gfx.h */
 
 static struct {
     ZoneSlot zone[ZONE_SLOTS];
@@ -230,32 +231,15 @@ static void text_at(const Font *f, const char *s, int x, int y, bool alt)
 
 /* ---- positions of things (the static records of the original) ---- */
 
-/* Car_GetCamTarget 0x408220 */
-static CameraTarget car_cam_target(int id)
-{
-    const Car *c = car_get((int16_t)id);
-    CameraTarget t = { c->spr.x, c->spr.y, c->spr.z - c->z_offset, c->cam_w, (int16_t)-c->length,
-                       (int16_t)(c->speed * 3), c->spr.angle };
-    return t;
-}
-/* Ped_GetPosRect 0x45fb00 */
-static CameraTarget ped_pos_rect(int id)
-{
-    const Ped *d = ped_get((int16_t)id);
-    CameraTarget t = { d->spr.x, d->spr.y, d->spr.z, 8, 8, d->speed, d->spr.angle };
-    return t;
-}
-/* Player_GetControlledPos 0x462e90 (trains and the heli aren't ported: their fixed point) */
+/* Car_GetCamTarget 0x408220, Ped_GetPosRect 0x45fb00 and Player_GetControlledPos 0x462ef0 (their
+   static records, copied) */
+static CameraTarget car_cam_target(int id) { return *car_get_cam_target((int16_t)id); }
+static CameraTarget ped_pos_rect(int id) { return *ped_get_pos_rect((int16_t)id); }
 static CameraTarget controlled_pos(int n)
 {
-    const Player *p = &g_players[n];
-    switch (p->ctl_kind) {
-    case PLAYER_IN_CAR: return car_cam_target(p->ctl_id);
-    case PLAYER_ON_FOOT: return ped_pos_rect(p->ctl_id);
-    case PLAYER_ON_TRAIN:
-    case 5: return (CameraTarget){ p->view_x, p->view_y, p->view_z, 0, 0, 0, 0 };
-    default: hud_fatal(-0x4a, 0x123, p->ctl_kind);
-    }
+    CameraTarget t;   /* (the heli's record Heli_GetPos is read as one too, as the original does) */
+    memcpy(&t, player_get_controlled_pos(n), sizeof t);
+    return t;
 }
 /* Player_GetViewFocusPos 0x462e10 */
 static CameraTarget focus_pos(int n)
@@ -764,40 +748,12 @@ static void draw_score_popups(void)
 
 /* ---------------------------------------------------------------- score, lives, multiplier */
 
+/* the roll counter of score digit i (the 9 shorts at +0x13c, Player_UpdateScoreDigits) */
 static int16_t roll_get(const Player *p, int i)
 {
     int16_t v;
     memcpy(&v, (const uint8_t *)p + 0x13c + 2 * i, 2);
     return v;
-}
-static void roll_set(Player *p, int i, int16_t v) { memcpy((uint8_t *)p + 0x13c + 2 * i, &v, 2); }
-
-/* Player_UpdateScoreDigits 0x462ab0: the target digits ("%09d" of the score at +0x131); every shown
-   digit (+0x127) that differs, or is still rolling, advances its roll counter (the 9 shorts at +0x13c)
-   by 2 and steps to the next digit (9 wraps to 0) past 15. Then the multiplier string "%02d". */
-void player_update_score_digits(void)
-{
-    for (int n = player_first(); n > -1; n = player_next(n)) {
-        Player *p = &g_players[n];
-        char b[16];
-        snprintf(b, sizeof b, exe_str(0x4b222c), p->score);
-        memcpy(p->hud_score2, b, sizeof p->hud_score2 - 1);
-        p->hud_score2[9] = 0;
-        for (int i = 0; i < 9; i++) {
-            int16_t r = roll_get(p, i);
-            if (p->hud_score2[i] != p->hud_score[i] || r != 0) {
-                r = (int16_t)(r + 2);
-                if (r > 0xf) {
-                    p->hud_score[i] = p->hud_score[i] < '9' ? (char)(p->hud_score[i] + 1) : '0';
-                    r = 0;
-                }
-                roll_set(p, i, r);
-            }
-        }
-        snprintf(b, sizeof b, exe_str(0x4b2224), (int)p->mult);
-        memcpy(p->hud_mult, b, 2);   /* a multiplier over 99 runs into the score digits in the original */
-        p->hud_mult[2] = 0;
-    }
 }
 
 /* HUD_DrawScore 0x484750: the 9 score digits right-aligned at the top right, row dh * player, in the
@@ -1120,7 +1076,7 @@ bool hud_handle_key(int key)
         p->local1 = 0;
         if (player_is_viewed_local()) {
             H.menu_on = false;
-            gfx_select_mode_index(H.menu_sel & 0xff);
+            gfx_select_mode(H.menu_sel & 0xff);
             if (g_game.style) style_convert_palettes(g_game.style, &PIXFMT_32);
             int m = gfx_get_mode_index() & 0xff;
             if (H.modes && m < H.mode_count) hud_show_zone_text(H.modes[m].name, 1);

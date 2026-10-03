@@ -299,7 +299,8 @@ map; rockets explode (`Proj_Detonate`).
   likewise other reads the original makes before a table with an id of -1 (ped, car, group) read
   ped / car 0 or are skipped (each is commented where it happens).
 - `Ped_UpdateAll` clears ped 0's turn where the player can't turn (the original's absolute address).
-- `Map_GetLidBelow` 0x4387b0 and `Map_TestBlockAttr` 0x44b310 are implemented in stubs.c until the
-  map module takes them.
-- Player_UpdateFrags 0x464c90 and Player_AwardBonus 0x462000 aren't ported (network frags, score
-  chains).
+- `Map_GetLidBelow` 0x4387b0 and `Map_TestBlockAttr` 0x44b310 are `src/game/mapq.c`'s (the level's
+  map queries).
+- `Player_AwardBonus` 0x462000 (player.c) scores the events with their chains: the same kind in a row
+  (13 frames) doubles the base per event, the 7th of kind 7 in a row adds 12300 times the multiplier
+  with a big message.

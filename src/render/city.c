@@ -523,7 +523,7 @@ static void draw_at(const Map *m, const Style *s, int x, int y, int z)
 
 /* Render_DrawCity 0x4389f0: layers from the lowest (z = 5) to the highest (z = 0); for each, project
    its top plane (the previous one is its bottom), draw the layer's sprites (Sprite_DrawLevel 0x47c030,
-   not ported yet), then its blocks. Rows go from the rect's top and bottom edges toward the middle and
+   sprite.c), then its blocks. Rows go from the rect's top and bottom edges toward the middle and
    columns from both sides inward, so nearer (more central) blocks overdraw farther ones. Nothing clears
    the screen: pixels no block covers keep the previous frame. */
 void render_draw_city(const Map *m, const Style *s, const Viewport *vp)

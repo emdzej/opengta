@@ -266,8 +266,8 @@ the same, so in the shipped missions the player is presumably not in that state 
 
 - The original reads outside its tables in a few places (criminal -1, ped -1, a cache layer below 0,
   the player record of a ped that is no player); the port guards them (documented at each place).
-- `Car_SteerTowards` 0x40bc70 (car module) has a copy in gang.c until the car module ports it.
-- `Area_GetSample`, `Player_IncKills`, `Player_SetViewFixed4` and `Ref_GetKind1PosRect` are in
-  stubs.c until their modules have them; `FireEngine_Update` / `FireEngine_Remove` are stubs (fire
-  engines don't drive yet).
+- `Car_SteerTowards` 0x40bc70 is car.c's, `Area_GetSample` 0x44b7b0 the area module's
+  (`src/hud/area.c`), `Player_IncKills` / `Player_SetViewFixed4` / `Player_AwardBonus` player.c's,
+  `Ref_GetKind1PosRect` 0x45fb60 ped.c's. The fire engines (kind 6) are fire.c's: see
+  [Objects](/objects#fire-engines-0x42e870-0x430400).
 - The dispatch list stores car / ped ids where the original stores record pointers.

@@ -11,7 +11,10 @@
 #include "mission_obj.h"
 #include "ped.h"
 #include "player.h"
-#include "stubs.h"
+#include "mapq.h"
+#include "obj.h"
+#include "sentinel.h"
+#include "wanted.h"
 #include <string.h>
 
 int16_t g_traffic_recycle;

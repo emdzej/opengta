@@ -33,7 +33,7 @@ typedef struct {
 extern RenderRect render_rects[7];
 extern RenderCamera render_cam;
 extern bool render_draw_blocks;            /* 0x5031c8 */
-extern bool render_draw_sprites;           /* 0x5031a4 (sprites not ported: no effect yet) */
+extern bool render_draw_sprites;           /* 0x5031a4: Sprite_DrawLevel between the layers */
 
 void render_compute_visible_rect(const Viewport *vp);   /* Render_ComputeVisibleRect 0x43b7e0 */
 void render_copy_camera(const Viewport *vp);            /* Render_CopyCamera 0x43b780 */

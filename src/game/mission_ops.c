@@ -26,8 +26,13 @@
 #include "obj.h"
 #include "ped.h"
 #include "player.h"
-#include "stubs.h"
 #include "trigger.h"
+#include "gang.h"
+#include "path.h"
+#include "powerup.h"
+#include "sentinel.h"
+#include "train.h"
+#include "../hud/hud.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -249,7 +254,8 @@ void mission_op_dummy_drive_on(void)
 }
 
 /* MissionOp_SendTo 0x43f760 (0x09 SENDTO): the dummy car of a drives to the object of d (its
-   controller in the object's parameter); continues once no ambulance call holds a sentinel. */
+   controller in the object's parameter); continues once no controller holds the path search
+   (0x4b3094: the dummy's search done). */
 void mission_op_send_to(void)
 {
     if (*step() != 0) {
@@ -258,7 +264,7 @@ void mission_op_send_to(void)
         o->param = (int16_t)dummy_start_drive(o->handle, M->scratch_x, M->scratch_y, M->scratch_z);
         *step() = 0;
     }
-    if (ambulance_busy_sentinel() != -1) return;
+    if (g_path_owner != -1) return;
     win();
 }
 
@@ -635,7 +641,7 @@ void mission_op_park(void)
     *park = -1;
     win();
     player_reset_view(cp);
-    camera_start_transition(cp);
+    player_camera_start_transition(cp);
 }
 
 /* MissionOp_RedArrow 0x441320 (0x90 RED_ARROW): (local player) the red arrow points at the object

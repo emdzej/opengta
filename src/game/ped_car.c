@@ -10,6 +10,11 @@
 #include "mission_ops.h"
 #include "route.h"
 #include "trigger.h"
+#include "fire.h"
+#include "path.h"
+#include "police.h"
+#include "train.h"
+#include "wanted.h"
 #include <stdlib.h>
 
 /* Ped_CreateInSlot 0x454090 (ped_spawn.c) */

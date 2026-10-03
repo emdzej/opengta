@@ -5,6 +5,7 @@
    records carinfo.h. See docs/cars.md. Fields whose meaning is unknown are named uNN. */
 #pragma once
 #include "../audio/audio.h"
+#include "../render/camera.h"
 #include "../render/sprite.h"
 #include "carphys.h"
 #include "coll.h"
@@ -243,6 +244,9 @@ void car_on_driver_enter(int car);          /* Car_OnDriverEnter 0x407000 */
 void car_set_driver_by_id(int car, int ped);   /* Car_SetDriverById 0x40bc20 */
 void car_set_owner_status(int car, int v);  /* Car_SetOwnerStatus 0x40bbc0 */
 bool car_info_is_convertible(int car);      /* CarInfo_IsConvertible 0x40bdb0 */
+/* Car_SteerTowards 0x40bc70: the front wheels toward `angle` (1 while still off it) */
+int car_steer_towards(Car *c, int angle);
+void car_damp_thrust(Car *c);               /* Car_DampThrust 0x40c0c0 */
 bool car_is_on_screen(const Car *c);        /* Car_IsOnScreen 0x40acd0 */
 bool pos_is_near_any_view(int32_t x, int32_t y);   /* Pos_IsNearAnyView 0x40ad40 */
 bool car_is_near_view(const Car *c);        /* Car_IsNearView 0x409960 */
@@ -250,6 +254,19 @@ bool player_is_car_view_target(int car);    /* Player_IsCarViewTarget 0x462a60 (
 static inline void car_set_status(int n, int s) { g_cars[n].status = (int16_t)s; }   /* Car_SetStatus 0x407070 */
 static inline bool car_is_burning(const Car *c) { return c->burning > 0; }          /* Car_IsBurning 0x40be40 */
 static inline bool car_is_turning(const Car *c) { return c->turn_delta != 0; }      /* Car_IsTurning 0x40be00 */
+static inline bool car_is_moving_forward(const Car *c) { return c->speed > 0; }    /* Car_IsMovingForward 0x40be60 */
+static inline void car_begin_brake(Car *c) { c->brake = 1; c->thrust_in = 0; }     /* Car_BeginBrake 0x40be90 */
+static inline void car_end_brake(Car *c) { c->brake = 0; }                        /* Car_EndBrake 0x40beb0 */
+static inline void car_end_turn(Car *c)                                           /* Car_EndTurn 0x40c010 */
+{
+    c->turn_progress = 0, c->turn_delta = 0, c->turn_dirs = (int16_t)c->road_dirs;
+}
+static inline void car_end_turn_if_done(Car *c)                                   /* Car_EndTurnIfDone 0x40bfb0 */
+{
+    int p = c->turn_progress < 0 ? -c->turn_progress : c->turn_progress;
+    if (c->turn_delta == 0 || (p > 0xff && (int16_t)c->road_dirs != c->turn_dirs)) car_end_turn(c);
+}
+static inline void car_save_pos(Car *c) { c->saved_x = c->spr.x, c->saved_y = c->spr.y; }   /* Car_SavePos 0x40c0a0 */
 
 /* ---- doors (the car side of entering / leaving: Ped_* call these) ---- */
 static inline int car_get_door1(int n) { return g_cars[n].door1; }   /* Car_GetDoor1 0x40b8a0 */
@@ -264,12 +281,9 @@ bool car_close_rear_door_step(int n);       /* Car_CloseRearDoorStep 0x40bb40 */
 void car_get_door_position(const Car *c, int32_t *x, int32_t *y);
 
 /* ---- camera (Car_GetCamTarget 0x408220: the record 0x50155c) ---- */
-typedef struct {
-    int32_t x, y, z;            /* z = sprite z - z_offset */
-    int16_t w, h;               /* car info width, -length */
-    int16_t speed;              /* speed * 3 */
-    int16_t angle;
-} CarCamTarget;
+/* the camera target record (render/camera.h): z = sprite z - z_offset, w / h the car info width /
+   -length, speed * 3, the heading */
+typedef CameraTarget CarCamTarget;
 const CarCamTarget *car_get_cam_target(int n);
 
 /* ---- sound (the fields Snd_GatherLoops and Music_UpdateRadio read; audio.h SndCar) ---- */

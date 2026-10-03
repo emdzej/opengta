@@ -2,6 +2,10 @@
    the next position, walls, slopes, water, falling, contacts with peds, cars and objects), and the
    collision responses it uses; Ped_UpdateRiding for peds attached to something. See docs/peds.md. */
 #include "ped_internal.h"
+#include "lights.h"
+#include "mapq.h"
+#include "powerup.h"
+#include "wanted.h"
 #include <stdlib.h>
 
 /* the position change of a ped: the grid node moves when the 2 x 2-block cell changes */

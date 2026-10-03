@@ -15,6 +15,15 @@
 #include "stubs.h"
 #include "traffic.h"
 #include "trigger.h"
+#include "ai.h"
+#include "expl.h"
+#include "fire.h"
+#include "gang.h"
+#include "mapq.h"
+#include "path.h"
+#include "sentinel.h"
+#include "wanted.h"
+#include "weapon.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -1574,6 +1583,61 @@ void car_set_owner_status(int n, int v)
     c->owner_status = (int16_t)v;
     c->udc = 0;
     c->input = 0;
+}
+
+/* Car_SteerTowards 0x40bc70 (the hunters' steering, gang.c). The front wheels
+   (+0x90) turn toward `angle`: above the cruise speed (+0x104) the car slows by 2; below the top
+   speed less the info's +0x14 only the turn direction (±0x20) is set; at speed it turns in steps of
+   ±0x20 with the brake on (+0xb6) until within a step. Returns 1 while still off the heading. */
+int car_steer_towards(Car *c, int angle)
+{
+    int16_t a = c->front_heading, t = (int16_t)angle;
+    uint16_t d = (uint16_t)((t - a) & 0x3ff);
+    if (d > 0x200) d = (uint16_t)-d;
+    if (a == t) {
+        c->speed = 0;
+        c->input = 0;
+    }
+    if (c->cruise < c->speed) c->speed -= 2;
+    if (c->speed < c->max_speed - carinfo_s16(c->info, 0x14)) {
+        if (c->turn_delta == 0) {
+            if ((int16_t)d > 0) {
+                c->turn_progress = 0;
+                c->turn_delta = 0x20;
+                return 0;
+            }
+            if ((int16_t)d < 0) {
+                c->turn_delta = -0x20;
+                c->turn_progress = 0;
+            }
+        }
+        return 0;
+    }
+    if (t - c->turn_delta <= a && a <= t + c->turn_delta) {
+        c->front_heading = t;
+        c->brake = 0;
+        c->turn_delta = 0;
+        c->input = 0;
+        return 0;
+    }
+    if ((int16_t)d < 1) {
+        if ((int16_t)d >= 0) return a != t;
+        c->turn_delta = -0x20;
+    } else {
+        c->turn_delta = 0x20;
+    }
+    c->turn_progress = 0;
+    c->brake = 1;
+    c->u98 = c->turn_delta;
+    c->input = carinfo_s16(c->info, 0xe);
+    return a != t;
+}
+
+/* Car_DampThrust 0x40c0c0 (the car speed power-up): an engine force below 1.4 times the car info's
+   (+0x80) grows by a tenth (the constants are the doubles 0x4a7358 and 0x4a7350; x87 arithmetic) */
+void car_damp_thrust(Car *c)
+{
+    if ((double)c->thrust < (double)carinfo_float(c->info, 0x80) * 1.4) c->thrust = (float)((double)c->thrust * 1.1);
 }
 
 /* CarInfo_IsConvertible 0x40bdb0 */

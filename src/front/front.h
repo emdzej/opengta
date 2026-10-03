@@ -213,7 +213,7 @@ typedef struct {
 } Front;
 
 /* WinMain 0x437230 up to its loop: Front_LoadSettings 0x42b4a0 (PLAYER_A.DAT, texts, chapter list,
-   video mode, volumes), Player_SetNameColour(0, "Player", 0), Movie_PlayIntro 0x44b160 (stub) and
+   video mode, volumes), Player_SetNameColour(0, "Player", 0), Movie_PlayIntro 0x44b160 (src/movie) and
    Front_Enter(4). The exe must be loaded (exe_init) and the language selected (text_init_language).
    Configure f->demo / net_active / hooks before. False if a file is missing (f->error says which). */
 bool front_init(Front *f);
@@ -246,6 +246,9 @@ const char *front_current_player_name(const Front *f);      /* Front_GetCurrentP
 int front_current_player(const Front *f);                   /* Front_GetCurrentPlayerIndex 0x4269b0 */
 /* Front_GetMultiTarget 0x4269c0: type -1 single player, 0 score, 1 kills, 2 race; target value. */
 void front_multi_target(const Front *f, int *type, int *target);
+/* the same for the game (trigger.c, mission_obj.c): the frontend between front_init and front_shutdown,
+   else single player (-1); the value is only written in a network game, as in the original */
+void front_get_multi_target(int8_t *kind, int32_t *value);
 /* The selected city / mission of the current player (chapter[net], mission[net]) and its level. */
 int front_sel_city(const Front *f);
 int front_sel_mission(const Front *f);

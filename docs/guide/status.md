@@ -20,20 +20,20 @@ OpenGTA is **early**. What follows is what runs today; the rest of the original 
 | Missions | The `MISSION.INI` interpreter with all its commands, phones, triggers, doors, cranes, timed bombs, garages, mission cars and briefs. [Missions](/missions) |
 | Intro movie | `MOVIE.SMK` through a clean-room Smacker decoder, picture and sound, before the menus (`intro=0` skips it). [Intro movie](/movie) |
 | Traffic | Cars spawning around the view and driving: lanes, junctions, traffic lights, path finding for AI drivers. [Traffic](/traffic) |
-| Police and emergency services | The wanted level and crime reports, police pursuits and roadblocks, arrests, ambulances, the gang, the scripted helicopter. [Police](/police) |
-| Objects | Moving and animated objects, explosions, fires, power-ups, animated doors, map edits. [Objects](/objects) |
+| Police and emergency services | The wanted level and crime reports, police pursuits and roadblocks, arrests, ambulances, fire engines, the gang, the scripted helicopter. [Police](/police) |
+| Objects | Moving and animated objects, explosions, fires and the fire engines that put them out, power-ups, animated doors, map edits. [Objects](/objects) |
 | Trains | The elevated trains: track following, stations, doors, passengers, riding and driving, crashes. [Trains](/trains) |
 | HUD | Score, multiplier and lives, the wanted level, weapon and ammo, the pager, subtitles, the arrow, area and car-name signs, the big messages, the pause and quit screens. [HUD](/hud) |
 
 ## Not yet
 
-- Fire engines don't drive yet (fires burn); a few helpers are still stubs (`src/game/stubs.c`).
 - Whole missions haven't been played through and checked against the original yet.
-- Networked games.
+- Networked games: the DirectPlay layer is stubbed as a machine without a service provider (no
+  session can start), in the frontend (`src/front/front_net.c`) and the game core (`src/game/stubs.c`).
 - The 8, 15 and 16 bpp render paths (the port draws the 32 bpp one).
 
-Subsystems that aren't ported are explicit stubs with the original's address (`src/game/stubs.c`), so
-the frame loop already runs in the original's order.
+Every function the single-player game calls is ported with its original address; only the network
+layer is a stub, doing what the original does when no network game runs.
 
 ## Versions
 

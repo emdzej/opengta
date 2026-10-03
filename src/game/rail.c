@@ -3,7 +3,7 @@
 #include "rail.h"
 #include "game.h"
 #include "lights.h"
-#include "stubs.h"
+#include "mapq.h"
 #include <string.h>
 
 RailState g_rail;

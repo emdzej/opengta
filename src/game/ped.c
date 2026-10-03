@@ -1,9 +1,13 @@
 /* The ped table, level start, the per-frame update loop and the small accessors of the ped module
    (see ped.h and docs/peds.md). */
 #include "ped_internal.h"
+#include "train.h"
 #include "../exe.h"
 #include "../text.h"
 #include "mission_obj.h"
+#include "sentinel.h"
+#include "wanted.h"
+#include "../hud/hud.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -384,16 +388,32 @@ void ped_remove(int id)
     coll_remove(p, p->spr.unk20);
 }
 
+/* the position record Ped_GetPosRect and Ref_GetKind1PosRect fill (0x74f10c) */
+static CameraTarget pos_rec;
+
 /* Ped_GetPosRect 0x45fb00: the camera / target record of a ped (one static record) */
 const CameraTarget *ped_get_pos_rect(int id)
 {
-    static CameraTarget rec;   /* 0x74f10c */
+    CameraTarget *r = &pos_rec;
     const Ped *p = &g_peds[id];
-    rec.x = p->spr.x, rec.y = p->spr.y, rec.z = p->spr.z;
-    rec.speed = p->speed;
-    rec.w = 8, rec.h = 8;
-    rec.angle = p->spr.angle;
-    return &rec;
+    r->x = p->spr.x, r->y = p->spr.y, r->z = p->spr.z;
+    r->speed = p->speed;
+    r->w = 8, r->h = 8;
+    r->angle = p->spr.angle;
+    return r;
+}
+
+/* Ref_GetKind1PosRect 0x45fb60: the same record for a ridden train (camera / target kind 1): the
+   board info Train_Command 7 fills, its speed divided by 10 */
+const CameraTarget *ref_get_kind1_pos_rect(int train)
+{
+    train_command(7, train);
+    const TrainBoardInfo *b = train_get_board_info();
+    CameraTarget *r = &pos_rec;
+    r->x = b->x, r->z = b->z, r->angle = b->angle, r->y = b->y;
+    r->speed = (int16_t)(b->speed / 10);
+    r->w = b->w, r->h = b->h;
+    return r;
 }
 
 /* Ped_SetAppearance 0x45fc10: graphic type and the remap of a colour. Ids outside the table (a failed

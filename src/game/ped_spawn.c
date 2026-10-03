@@ -5,6 +5,7 @@
 #include "ped_internal.h"
 #include "../exe.h"
 #include "weapon.h"
+#include "sentinel.h"
 
 /* the colour tables (read from the exe): 0x4b21b0 the 22 ambient colours in turn, 0x4b20b0 colour ->
    remap; 0x4b213f the remap of a group's members, 0x4b2144 the cop remap */

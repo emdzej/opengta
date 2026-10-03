@@ -10,7 +10,6 @@
 #include "ped_internal.h"
 #include "route.h"
 #include "sentinel.h"
-#include "stubs.h"
 #include <stdlib.h>
 
 int16_t g_ambu_crews[AMBU_CREWS_MAX];

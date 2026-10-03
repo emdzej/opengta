@@ -370,7 +370,8 @@ States: 0 queued / showing, 1 free, 3 local chat line, 4 remote chat line, 5 cou
   - Keys go through the scan code table 0x4b3618 (0x3a entries) while the processed player's chat
     slot (+0x184) is set.
   - Backspace stops at the prefix. Enter drops the cursor and lets it scroll out like a message.
-  - The network side is not ported.
+  - The network side (sending the line, `Net_BuildChatPrefix` with other players) is the stubbed
+    DirectPlay layer: in a single-player game F1..F4 do nothing, as in the original.
 
 ## Keys (`HUD_HandleKey`)
 
@@ -390,17 +391,19 @@ open only when the other isn't open and no chat line is.
 
 ## Port notes and deviations
 
-- **Missing other-module functions.** The HUD needed functions of other modules that nobody had
-  ported, so they are here:
-  - the area module (`src/hud/area.c`);
-  - `Player_UpdateScoreDigits` (hud.c, non-static: move it to player.c when the player module comes);
-  - `Map_IsCovered` (static in hud.c).
-- **Position records.** `Car_GetCamTarget`, `Ped_GetPosRect`, `Player_GetControlledPos`,
-  `Player_GetViewFocusPos` and `HUD_GetTargetPos` are local copies returning the record by value.
-  Train and heli positions aren't ported: they give the player's fixed point.
-- **Gfx is a stub** (`src/game/stubs.c`): `gfx_select_mode` calls `HUD_SetViewSize` and
-  `HUD_LoadFonts` as `Gfx_SelectMode` / `Gfx_SetVideoMode` do, and the mode list has one entry,
-  "640x480x32".
+- **Other modules' functions here.** The area module (`src/hud/area.c`: the area names and
+  `Area_GetSample` 0x44b7b0, the police radio's zone sample) lives with the HUD; `Map_IsCovered` is
+  `src/map.c`'s (a wrapper on the level's map in hud.c). `Player_UpdateScoreDigits` is player.c's.
+- **Position records.** `Car_GetCamTarget`, `Ped_GetPosRect` and `Player_GetControlledPos` are the
+  car, ped and player modules' (with `Ref_GetKind1PosRect` for a ridden train and `Heli_GetPos`);
+  `Player_GetViewFocusPos` and `HUD_GetTargetPos` copy their static records by value.
+- **The video menu's mode list** (`src/game/gfx.c`, `Gfx_GetModeLists` 0x414c20): the original lists
+  the modes SciTech MGL enumerates (DirectDraw and packed drivers, 4:3 or 16:10 up to 1600 wide) in
+  three columns by depth, 15, 16 and 32 bits, each named "w x h x bits"; gasm offers one surface, so
+  the list is "640x480x32", alone in the third column. Enter on it runs `Gfx_SelectMode` 0x414cc0
+  (`Gfx_SetVideoMode`: the viewport and `HUD_SetViewSize`; then `HUD_LoadFonts` with res 2, the mode
+  being wider than 400). The original takes its default mode from the 15- and 16-bit lists only and
+  stops (fatal -0x128) without a 640 x 480 there; the port's default is the 32-bit mode.
 - **Language.** With no language selected (a host that skips WinMain's `Text_InitLanguage`),
   `hud_text` selects English instead of failing on the first FXT lookup.
 - **Sprite infos.** Before each world sprite draw the sprite's info is looked up again from its frame:

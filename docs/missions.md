@@ -287,7 +287,8 @@ delivered +0xa, the DO_GTA pc +0xc}), the four alarm sound slots 0x773c24, and t
 (0x771080: 8 groups of a count and four AI controllers). A DUMMY car gets an AI controller of kind 9
 (state byte +0x1b): 0xfa start a path search to the destination, 2 wait for it (failed: 0x27), 5 search
 again from the nearest road, 1 arrived (the group is released), 100-103 every car of the group hunts
-player n. The controllers and path search aren't ported (stubs), so DUMMY cars don't move yet.
+player n. `Sentinel_DriveCar` drives them along the route ([Police](/police), path finding:
+[Traffic](/traffic)).
 
 ## Mission_OnBriefDone 0x445580 (delayed event type 0)
 

@@ -79,11 +79,11 @@ void pager_resume(void);                      /* Pager_Resume 0x482fb0 */
 void hud_chat_begin(int to, const char *prefix, int max_len, int min_len);
 void hud_chat_key(int slot, int ch);          /* HUD_ChatKey 0x482b10: 0xd Enter, 0x7f Backspace */
 
-/* ---- not HUD, but only the HUD uses them so far ---- */
+/* ---- not HUD: the area module (src/hud/area.c; Area_GetSample is the police radio's) ---- */
 void area_load_dir_prefixes(void);            /* Area_LoadDirPrefixes 0x44b510 (WinMain; here lazily) */
 void area_localize_names(void);               /* Area_LocalizeNames 0x44b4a0 */
 /* Area_GetName 0x44b5c0: "direction area" of block (x, y) into out (64 bytes); zone * 256 + direction,
    or -1 ("unknown area"). */
 int area_get_name(uint8_t x, uint8_t y, char *out);
 int area_sub_direction(uint8_t dx, uint8_t dy, uint8_t w, uint8_t h);   /* Area_SubDirection 0x44b6d0 */
-void player_update_score_digits(void);        /* Player_UpdateScoreDigits 0x462ab0 */
+void area_get_sample(uint8_t x, uint8_t y, uint8_t *area, uint8_t *dir);   /* Area_GetSample 0x44b7b0 */

@@ -10,7 +10,6 @@
 #include "obj.h"
 #include "ped.h"
 #include "player.h"
-#include "stubs.h"
 #include "../audio/audio.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -83,7 +82,6 @@ void ped_walk_to_car_side_b(Ped *p);        /* Ped_WalkToCarSideB 0x44f040 */
 void ped_get_cop_look(int16_t *graphic, uint8_t *remap);   /* Ped_GetCopLook 0x44f210 */
 void ped_set_destination(Ped *p, int32_t x, int32_t y, int angle, int mode);   /* Ped_SetDestination 0x45f780 */
 void ped_set_dest_objective36(Ped *p, int32_t x, int32_t y, int angle);         /* 0x45f810 */
-const CameraTarget *ped_get_pos_rect(int id);   /* Ped_GetPosRect 0x45fb00 */
 
 /* ---- ped_anim.c ---- */
 void ped_animate(Ped *p);                   /* Ped_Animate 0x44fa70 */

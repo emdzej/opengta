@@ -17,6 +17,12 @@
 #include "player.h"
 #include "route.h"
 #include "stubs.h"
+#include "../front/front.h"
+#include "blockanim.h"
+#include "gang.h"
+#include "mapedit.h"
+#include "wanted.h"
+#include "../hud/hud.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -486,7 +492,8 @@ void trigger_reset(int trigger) { R->triggers[trigger].state = TRIG_FIRE; }     
 /* Mission_ScoreTargetReached 0x4749c0: a score game (type 0) where a player has the target */
 bool mission_score_target_reached(void)
 {
-    uint8_t kind, value;
+    int8_t kind;
+    int32_t value = 0;
     front_get_multi_target(&kind, &value);
     if (kind != 0) return false;
     for (int n = player_first(); n >= 0; n = player_next(n))
@@ -1035,7 +1042,8 @@ void mission_update_triggers(void)
     gang_update();
     mission_update_timed_bombs();
     if (g_player_count > 1) {
-        uint8_t kind, value;
+        int8_t kind;
+        int32_t value = 0;
         front_get_multi_target(&kind, &value);
         if (kind == 2) {
             for (int n = player_first(); n >= 0; n = player_next(n)) {

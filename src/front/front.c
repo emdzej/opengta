@@ -134,6 +134,23 @@ void front_multi_target(const Front *f, int *type, int *target)
     *target = save_data.multi_target == 0 ? save_data.score_target : save_data.kill_target;
 }
 
+/* the frontend the game reads its multiplayer target from (front_init .. front_shutdown) */
+static const Front *front_active;
+
+/* Front_GetMultiTarget 0x4269c0 as the game calls it: without a frontend (a mission started
+   directly) the mode is single player (0x511104 = 0): type -1 */
+void front_get_multi_target(int8_t *kind, int32_t *value)
+{
+    if (!front_active) {
+        *kind = -1;
+        return;
+    }
+    int t = 0, v = 0;
+    front_multi_target(front_active, &t, &v);
+    *kind = (int8_t)t;
+    if (t != -1) *value = v;
+}
+
 /* Front_SelectMission 0x4268d0: every city of the current table is searched (a section found in a
    later city wins over an earlier one); then, unless the selection is a race, the target type and its
    value are stored. */
@@ -728,6 +745,7 @@ uint32_t front_map_key(Front *f, int code)
 bool front_init(Front *f)
 {
     f->error[0] = 0;
+    front_active = f;
     if (!exe_loaded() || !load_tables(f)) {
         snprintf(f->error, sizeof f->error, "the exe is needed for the frontend tables");
         return false;
@@ -799,6 +817,7 @@ bool front_game_over(Front *f, const FrontGameResult *res)
 
 void front_shutdown(Front *f)
 {
+    if (front_active == f) front_active = NULL;
     movie_intro_stop();
     free_cut_fonts(f);
     if (f->in_front) front_leave(f);

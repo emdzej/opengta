@@ -9,7 +9,6 @@
 #include "obj.h"
 #include "ped.h"
 #include "player.h"
-#include "stubs.h"
 
 Heli g_heli;
 static HeliPos heli_pos;                    /* 0x501bb0 */
@@ -120,9 +119,6 @@ void heli_update_shadow(Heli *h)
     coll_insert(COLL_OBJECT, o->id, o, o->spr.unk20, x, y);
 }
 
-/* Player_SetViewFixed4 0x462d00 is in stubs.c until the player module has it */
-void player_set_view_fixed4(int32_t x, int32_t y, int32_t z, int n);
-
 /* Heli_Update 0x40dfb0, by state:
      1 turn toward the landing point, then speed 5;
      2 fly (speed up to 15) until within a block of it;
@@ -183,7 +179,7 @@ void heli_update(void)
             Ped *p = ped_get(player_get_ped(0));
             coll_remove(p, p->spr.unk20);
             player_set_view_target(0, 5, 0);
-            camera_start_transition(0);
+            player_camera_start_transition(0);
         } else {
             h->timer--;
         }

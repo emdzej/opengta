@@ -13,10 +13,12 @@
 #include "game.h"
 #include "gmath.h"
 #include "lights.h"
+#include "mapq.h"
 #include "mission_obj.h"
 #include "obj.h"
 #include "path.h"
 #include "ped.h"
+#include "ped_internal.h"
 #include "player.h"
 #include "route.h"
 #include "sentinel.h"
@@ -24,19 +26,9 @@
 #include <stdio.h>
 #include <string.h>
 
-/* from ped_internal.h (which includes stubs.h, whose old police stubs clash until integration) */
-bool ped_is_near_screen(const Ped *p);       /* Ped_IsNearScreen 0x4536d0 */
-void ped_set_destination(Ped *p, int32_t x, int32_t y, int angle, int mode);   /* Ped_SetDestination 0x45f780 */
-
-/* STUBS NEEDED (not ported elsewhere yet) */
-bool obj_is_on_screen(const Obj *o);         /* Obj_IsOnScreen 0x44c2f0 (stubs.h) */
-void obj_remove_moving(int obj);             /* Obj_RemoveMoving 0x44eb30 (stubs.h) */
-int map_test_block_attr(int what, int bx, int by, int bz);   /* Map_TestBlockAttr 0x44b310 (stubs.h) */
-/* Ref_GetKind1PosRect 0x45fb60: the position record of train n {x, y, z, ?, speed} (16.16); trains
-   aren't ported: a stub returning a record of zeros will do */
-const int32_t *ref_get_kind1_pos_rect(int train);
 
 /* MODULE GLOBALS */
+int32_t g_police_no_patrols;                 /* 0x503184 */
 int16_t g_police_cars[POLICE_CARS_MAX];
 int16_t g_police_ncars;
 int16_t g_police_obj_queue[POLICE_OBJ_QUEUE_MAX];
@@ -1530,11 +1522,11 @@ int cop_update(Sentinel *s)
             s->u6e = (uint8_t)tp->speed;
         } else if (cr->kind == 2) {
             tp = ped_get(cr->ped);
-            const int32_t *pos = ref_get_kind1_pos_rect(cr->train);
-            ty = (uint8_t)(pos[1] >> 22);
-            tx = (uint8_t)(pos[0] >> 22);
-            tz = (uint8_t)(pos[2] >> 22);
-            s->u6e = (uint8_t)pos[4];
+            const CameraTarget *pos = ref_get_kind1_pos_rect(cr->train);
+            ty = (uint8_t)(pos->y >> 22);
+            tx = (uint8_t)(pos->x >> 22);
+            tz = (uint8_t)(pos->z >> 22);
+            s->u6e = (uint8_t)pos->speed;   /* (the low byte of the dword at +0x10) */
         }
         int d = imax(iabs(g_sent_by - s->dest[1] + ddy), iabs(g_sent_bx - s->dest[0] + ddx));
         if ((tc(g_sent_bx + ddx, g_sent_by + ddy, g_sent_bz) & 0xf) == 0) d = 0;

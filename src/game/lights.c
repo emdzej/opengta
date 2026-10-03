@@ -7,7 +7,8 @@
 #include "coll.h"
 #include "game.h"
 #include "obj.h"
-#include "stubs.h"
+#include "mapq.h"
+#include "rail.h"
 #include <string.h>
 
 LightsState g_lights;

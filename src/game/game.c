@@ -17,8 +17,19 @@
 #include "route.h"
 #include "mission_run.h"
 #include "sndworld.h"
+#include "gfx.h"
 #include "stubs.h"
+#include "tune.h"
 #include "../audio/audio.h"
+#include "blockanim.h"
+#include "expl.h"
+#include "fire.h"
+#include "gang.h"
+#include "lights.h"
+#include "path.h"
+#include "sentinel.h"
+#include "train.h"
+#include "../hud/hud.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -523,8 +534,7 @@ bool game_run_begin(void)
         g->quit = GAME_QUIT_NET;
         return false;
     }
-    gfx_select_mode();   /* Gfx_SelectMode 0x414cc0 -> Gfx_SetVideoMode */
-    game_set_screen(g->screen_w ? g->screen_w : 640, g->screen_h ? g->screen_h : 480);
+    gfx_select_mode(gfx_get_mode_index());   /* Gfx_SelectMode 0x414cc0 -> Gfx_SetVideoMode */
     style_convert_palettes(g->style, &PIXFMT_32);
     g->frame_time_sum = 0;
     g->frame_time_n = 0;

@@ -16,7 +16,10 @@ Addresses are virtual addresses in `gta.exe`.
 | `coll.c/h` | the collision grid 0x434180-0x437000 (init, insert / remove, hitbox, block and car queries), `Map_GetGroundZ` 0x4544e0 |
 | `route.c/h` | `Route_LoadCmp` 0x471970, the service locations, `Area_SetNavData` 0x44b590 |
 | `gmath.c/h` | `Math_Random` 0x434160 / `Math_Rand` 0x489abe and its reset 0x434170, MSVC `rand` 0x49cb27 |
-| `stubs.c/h` | every call into a subsystem that isn't ported yet, with its address |
+| `stubs.c/h` | the DirectPlay network layer the game core calls (`Net_ResetSync`, `Net_SyncFrameInputs`, `Net_BuildChatPrefix`...), as the original behaves without a network game; the level-start call counters of the tests |
+| `tune.c/h` | the car tuning file `Tune_LoadFile` 0x412d20 / `Tune_SetCarParam` 0x412e90 (`config.ini`, absent in the data) |
+| `gfx.c/h` | the display mode list and `Gfx_SelectMode` 0x414cc0 (one 640 x 480 x 32 mode) |
+| `mapq.c/h` | `Map_GetLidBelow` 0x4387b0, `Map_TestBlockAttr` 0x44b310 |
 
 ## The session (Game_Run 0x4148a0)
 
@@ -43,6 +46,30 @@ empty mission on `level001.cmp`) and, when the frontend picks a level, calls Gam
    result is the quit code: 1 mission over, 2 abandoned, 3 reload (F12), 4 network failure.
 
 The port splits it: `game_run_begin` (1-6), `game_run_step` (one iteration of 7), `game_run_end` (8).
+
+### The tuning file (Tune_LoadFile 0x412d20)
+
+`..\gtadata\config.ini`, optional (the game data has none: a development leftover), read whole into a
+0x1000-byte buffer (longer is fatal). Each `[car <model> <parameter>] <value>` overwrites a field of the
+model's car info record (`Tune_SetCarParam` 0x412e90): centre of mass x / y (bytes +0x76 / +0x77),
+moment of inertia (int +0x78), turn ratio, drive and steering wheel offset (shorts +0x98..+0x9c) take
+the integer; mass, gear 1, tyre adhesion x / y, handbrake and footbrake friction, front brake bias,
+back end and handbrake slide value (+0x7c..+0x94, +0x9e, +0xa2) the value / 65536 as a float (the
+parameter names are the exe's strings). An unknown parameter or an entry not starting with "car" is
+fatal (-0x89); a model without a record is skipped. The key and the text share one block of memory
+(0x501d88, 0x50 bytes, then the text 0x501dd8), and a key with blanks before its `]` is copied with
+the whole rest of the text over the start of the buffer: the port keeps the layout, so such a file
+parses as in the original.
+
+### The network layer
+
+The game core's network calls (`src/game/stubs.c`) are the DirectPlay layer of the original, which
+gasm doesn't have; the frontend's screens find no connection (`src/front/front_net.c`), so a network
+game never starts. Each does what the original does then: `Net_ResetSync` 0x44bd30 returns 1 (start),
+`Net_unk_0044b900` and `Net_BuildChatPrefix` 0x44c1b0 (F1..F4) do nothing, `Net_SyncFrameInputs`
+0x44b930 only counts the frame in its sequence byte (0x6b400c), and `Front_GetMultiTarget` 0x4269c0
+answers single player (-1), which turns the network rules of the scripts off (score / kills targets,
+races) and lets the police send patrol cars.
 
 ### One loop iteration
 
@@ -254,7 +281,5 @@ All 17 sections of the shipped MISSION.INI load (tests/level_test.c).
 - `Map_Load` is map.c's; the parts of it that belong to other modules run right after it in
   `game_map_load`. `Coll_Init` and `Obj_LoadInfos` (called from inside `Style_Load`) run right after
   `style_load` in `style_load_requested`.
-- Car creation (`Car_Init` 0x4067c0) is a placeholder in stubs.c: the slot the original picks, model,
-  info, size, sprite frame and palette, the grid; no physics (since replaced by the real `Car_Init`,
-  [Cars](/cars)). `Traffic_PrimeCarPool` is ported too ([Traffic](/traffic)): mission 1 primes 100
-  traffic slots.
+- Car creation is the real `Car_Init` 0x4067c0 ([Cars](/cars)); `Traffic_PrimeCarPool` is ported too
+  ([Traffic](/traffic)): mission 1 primes 100 traffic slots.

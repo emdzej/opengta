@@ -9,6 +9,7 @@
    and the steering), ped_car.c (entering / leaving cars, respawn) and ped_spawn.c (creation, ambient
    peds, panic, weapons); their shared declarations are in ped_internal.h. */
 #pragma once
+#include "../render/camera.h"
 #include "../render/sprite.h"
 #include "layout.h"
 #include "proj.h"
@@ -170,3 +171,7 @@ void player_respawn_multi(Ped *p);          /* Player_RespawnMulti 0x460500 */
 /* Map_SlopeDelta 0x454c60: the height change across a slope block of `type` (type map) from (x1, y1) to (x2, y2) */
 int map_slope_delta(uint32_t type, int32_t x1, int32_t y1, int32_t x2, int32_t y2);
 int peds_in_use(void);                      /* slots with anim != 0 (for checks) */
+const CameraTarget *ped_get_pos_rect(int id);   /* Ped_GetPosRect 0x45fb00 */
+/* Ref_GetKind1PosRect 0x45fb60: the position record of a ridden train (x, y, z 16.16, size, speed / 10,
+   angle), the static record Ped_GetPosRect 0x45fb00 fills too (0x74f10c) */
+const CameraTarget *ref_get_kind1_pos_rect(int train);

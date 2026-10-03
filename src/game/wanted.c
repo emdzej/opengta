@@ -9,8 +9,8 @@
 #include "player.h"
 #include "police.h"
 #include "sentinel.h"
-#include "stubs.h"
 #include "trigger.h"
+#include "../hud/hud.h"
 #include <string.h>
 
 Criminal g_criminals[CRIMINALS];

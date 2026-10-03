@@ -1,7 +1,7 @@
 /* Area names (area module 0x44b4a0-0x44b7a0): the CMP's nav zones named through the FXT, with a
    compass prefix for the part of the zone a block is in. The HUD shows them in the street sign
-   (zone text type 2). Area_SetNavData 0x44b590 is route.c's; Area_GetSample 0x44b7b0 (sound) isn't
-   ported. */
+   (zone text type 2). Area_SetNavData 0x44b590 is route.c's; Area_GetSample 0x44b7b0 gives the police
+   radio its zone sample and compass part. */
 #include "hud.h"
 #include "hud_internal.h"
 #include "../exe.h"
@@ -78,4 +78,24 @@ int area_get_name(uint8_t x, uint8_t y, char *out)
     }
     snprintf(out, 64, "%s", exe_str(0x4b1e64));   /* "unknown area" */
     return -1;
+}
+
+/* Area_GetSample 0x44b7b0: the first nav zone with a sample (non-zero) containing block (x, y), with
+   the exceptions of Area_GetName: its sample and the compass part of the zone the block is in (the
+   table 0x4b1dec); 0, 0 outside every zone. */
+void area_get_sample(uint8_t x, uint8_t y, uint8_t *area, uint8_t *dir)
+{
+    int style = style_requested();
+    const uint8_t *map = exe_data(0x4b1dec, 16);
+    for (int i = 0; i < g_nav_count; i++) {
+        const NavZone *z = &g_nav[i];
+        if (z->sample == 0 || x < z->x || y < z->y || x >= z->x + z->w || y >= z->y + z->h) continue;
+        if ((style == 1 && z->sample == 1) || (style == 3 && z->sample == 0xb)) continue;
+        int d = area_sub_direction((uint8_t)(x - z->x), (uint8_t)(y - z->y), z->w, z->h);
+        *dir = map ? map[d & 0xf] : 0;
+        *area = z->sample;
+        return;
+    }
+    *dir = 0;
+    *area = 0;
 }

@@ -1,7 +1,6 @@
 #include "event.h"
 #include "game.h"
 #include "mission_run.h"
-#include "stubs.h"
 #include "trigger.h"
 #include <stddef.h>
 

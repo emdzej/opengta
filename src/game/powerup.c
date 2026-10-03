@@ -5,7 +5,6 @@
 #include "obj.h"
 #include "ped.h"
 #include "player.h"
-#include "stubs.h"
 #include "../audio/audio.h"
 #include "../exe.h"
 #include "../hud/hud.h"
@@ -113,7 +112,7 @@ static void message(int n, uint32_t key_va)
 static uint32_t weapon_key(int w) { return exe_u32(0x4a8c18 + (uint32_t)w * 8); }
 static int weapon_default_ammo(int w) { return (int)exe_u32(0x4a8c1c + (uint32_t)w * 8); }
 
-/* Car_DampThrust 0x40c0c0 is the car module's (stubs.h) */
+/* Car_DampThrust 0x40c0c0 is the car module's (car.h) */
 
 /* PowerUp_Collect 0x46a560 */
 void powerup_collect(int n, int32_t x, int32_t y, int how)

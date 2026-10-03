@@ -5,6 +5,7 @@
    helper Map_SlopeDelta. See docs/peds.md. */
 #include "ped_internal.h"
 #include "trigger.h"
+#include "mapq.h"
 #include <math.h>
 #include <stdlib.h>
 

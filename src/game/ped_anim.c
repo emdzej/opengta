@@ -29,6 +29,8 @@
      0xe9..0xed  electrocuted (flashing remap), then dead */
 #include "ped_internal.h"
 #include "trigger.h"
+#include "sentinel.h"
+#include "wanted.h"
 
 static int bk(int32_t v) { return v >> 22; }
 

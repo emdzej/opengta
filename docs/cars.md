@@ -235,5 +235,8 @@ fields the sound module reads (+0x80, +0x88, +0x110, +0x11a, +0x136, +0x138, +0x
   neighbouring memory.
 - sin / cos precision as above.
 - Traffic driving (`Car_DummyFollowRoad`, `Car_DummyDrive`, `Car_DummyKeepLane`, `Car_SetHorn`) is in
-  `src/game/traffic.c` ([Traffic](/traffic)). Not ported here (stubs): the AI drivers, hunters, explosions, the objects attached to tanks, the peds'
-  side (`Ped_EjectDriver`, `Ped_PanicNear`), power-ups.
+  `src/game/traffic.c` ([Traffic](/traffic)). The AI drivers are
+  `src/game/sentinel.c` ([Police](/police)), the hunters `src/game/gang.c`, explosions, attached objects
+  and power-ups the object modules ([Objects](/objects)). `Car_SteerTowards` 0x40bc70 and
+  `Car_DampThrust` 0x40c0c0 (the speed power-up) are car.c's; the tank's gun `Car_FireRocket` 0x489300
+  is with the projectiles (weapon.c).

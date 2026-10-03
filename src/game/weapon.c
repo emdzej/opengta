@@ -1,4 +1,4 @@
-/* Weapons fired on foot (0x488e20-0x4892ff): see weapon.h. */
+/* Weapons fired on foot (0x488e20-0x4892ff) and the tank's gun (Car_FireRocket 0x489300): see weapon.h. */
 #include "weapon.h"
 #include "ped_internal.h"
 #include "proj.h"
@@ -127,4 +127,37 @@ void weapon_fire_rocket(Ped *p)
         o->u21 = 1;
         coll_remove(o, o->spr.unk20);
     }
+}
+
+/* Car_FireRocket 0x489300: a tank driven by a player (whose +0x1ae isn't -1) fires a rocket (object
+   0x1f, life 1) from 60 pixels along the turret (model 0x25: the turret object at +0x11a; other cars
+   their heading), a block higher, at the car's speed + 2 (at least 4), with the sound 0x24; at most
+   40 projectiles, not from a wreck (damage 100), 16 frames between shots (+0xd0 counts them). The
+   rocket stays in the grid (unlike a ped's). */
+void car_fire_rocket(Car *c)
+{
+    int n = (int16_t)player_find_by_ped(c->driver);
+    if (n == -1) return;
+    if (g_players[n].timers[1] == -1 || g_proj.count >= PROJ_MAX || c->damage >= 100 || c->frames <= 0xf) return;
+    Snd_PlayAtXY(c->spr.x, c->spr.y, 0x24);
+    uint16_t a;
+    int32_t x, y;
+    if (c->model == 0x25) {
+        const Obj *t = obj_get(c->horn);
+        a = (uint16_t)t->spr.angle, x = t->spr.x, y = t->spr.y;
+    } else {
+        a = (uint16_t)c->spr.angle, x = c->spr.x, y = c->spr.y;
+    }
+    int id = obj_create(x + SIN((int16_t)a) * 0x3c, y + COS((int16_t)a) * 0x3c, c->spr.z + 0x10000, PROJ_ROCKET, a);
+    if ((int16_t)id < 0) return;
+    Obj *o = add_proj(id);
+    int16_t sp = (int16_t)(c->speed + 2);
+    o->speed = sp;
+    if (sp < 4) o->speed = 4;
+    o->life = 1;
+    o->spr.angle = (int16_t)((a - 0x200) & 0x3ff);
+    o->heading = (int16_t)(a & 0x3ff);
+    o->weight = PROJ_ROCKET;
+    o->u1e = c->driver;
+    c->frames = 0;
 }

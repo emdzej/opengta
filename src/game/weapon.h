@@ -8,3 +8,4 @@ void weapon_fire_bullet(Ped *p);             /* Weapon_FireBullet 0x488e20 (pist
 void weapon_fire_bullet_flag(Ped *p);        /* Weapon_FireBulletFlag 0x488fb0 */
 void weapon_fire_flame(Ped *p);              /* Weapon_FireFlame 0x488fd0 */
 void weapon_fire_rocket(Ped *p);             /* Weapon_FireRocket 0x489150 */
+void car_fire_rocket(struct Car *c);         /* Car_FireRocket 0x489300 (a tank's gun) */
