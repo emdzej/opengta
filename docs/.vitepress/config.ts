@@ -206,7 +206,7 @@ export default defineConfig({
 
     footer: {
       message:
-        "OpenGTA is released under the GPL-3.0. Grand Theft Auto is © 1997 DMA Design / Rockstar Games. OpenGTA contains no original code or assets and is not affiliated with them: it runs the game from your own copy. It runs on <a href=\"https://gasm.emdzej.pl\">gasm</a>.",
+        "OpenGTA is released under the GPL-3.0. Grand Theft Auto is © 1997 DMA Design / Rockstar Games. OpenGTA contains no original code or assets and is not affiliated with them: it runs the game from your own copy. It runs on <a href=\"https://gasm.emdzej.pl\">gasm</a>. <a href=\"/credits\">Credits</a>",
     },
   },
 });
