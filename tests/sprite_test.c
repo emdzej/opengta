@@ -215,9 +215,7 @@ static uint32_t frame(CameraPlayer *p, const Map *m, const Style *s, const Sprit
     render_copy_camera(&p->vp);
     memset(fb, 0xff, sizeof fb);
     render_queue_visible_entities(w, &p->rect);
-    render_draw_city(m, s, &p->vp);
-    /* TODO: Render_DrawCity calls Sprite_DrawLevel(z) between its layers; until city.c has that hook
-       the levels are drawn here after the whole city (so sprites also cover the buildings above them). */
+    render_draw_city(m, s, &p->vp);   /* draws each level's sprites between its layers */
     return crc32(fb, sizeof fb);
 }
 

@@ -251,11 +251,11 @@ includes the walls of buildings next to it, even the ones behind it from the cam
 
 ## Port notes and deviations
 
-- `poly_sprite.c` has its own copy of `poly.c`'s polygon filler and of the target state (scanline table,
-  clip, blend table), because `poly.c` keeps them static. Callers set both
-  (`poly_sprite_set_screen_rows` / `_set_clip` / `_set_blend`) until `poly.c` exposes them.
-- `city.c` does not call `sprite_draw_level` yet. `tests/sprite_test.c` draws the six levels after the city,
-  so its frames show sprites over buildings that would hide them in the original.
+- The rasteriser is split over two files, `poly.c` (tiles, faces, polygons) and `poly_sprite.c` (sprites
+  and rectangles), which share its state (scanline table, clip, blend table) and the polygon filler
+  through `poly_internal.h`; in the original they are one module.
+- `Render_DrawCity` (`city.c`) draws each layer's sprites between the layers (`sprite_draw_level`), as the
+  original does.
 - Out-of-range reads in the original are guarded: angles outside 0..1023 (masked), depth keys outside the
   six trees (dropped), palette index entries past the index (entry 0), writes off the screen in the
   rect filler and `Sprite_DrawScreen` (dropped), `vmax` = 0 in `Poly_DrawRect` (nothing drawn, the

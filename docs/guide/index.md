@@ -20,8 +20,9 @@ the point: where the port differs from the original, the port is wrong.
 
 ## How far it is
 
-Early: the menus work and a mission starts, but you can't play it yet. Read [Status](/guide/status)
-before you expect a game.
+Early but complete in scope: the whole single-player game runs, from the intro movie through the menus
+to the three cities with their traffic, police, trains and missions. Whole missions haven't been played
+through and compared with the original yet, so expect differences and bugs. See [Status](/guide/status).
 
 ## Where next
 
