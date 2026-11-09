@@ -34,6 +34,10 @@ game. Next: play missions through and fix differences from the original; London 
    describe layouts, formulas and addresses.
 5. Prior art (Carnage3D, MIT; DMA's cds.doc) may inform format understanding; the exe is the authority and
    no code is copied.
+6. **Explain the game, not only port it.** Keep `docs/re/`, the data formats (`docs/formats.md`) and the
+   subsystem pages (`docs/*.md`) accurate as each subsystem is ported. Keep `docs/guide/theory.md`, the
+   theory of operation, up to date: how the game was designed and how it works, in prose, for someone who
+   wants to build such a game. No decompiler text, no game data, no addresses in the main text.
 
 ## Layout
 
@@ -50,7 +54,7 @@ game. Next: play missions through and fix differences from the original; London 
 | `tests/` | Headless tests (`*_test.c`, one executable each) against the real data |
 | `tools/` | `gtafmt.py` (reference decoders/renderers, stdlib only), `fetch-gasm-sdk.sh`, `fetch-gasm-runner.sh`, `ghidra/` scripts; gasm bundles: `package-gasm.sh`, `smoke-gasm-bundle.sh`, `gasm-bundle/` (launchers), `icon.py`, `make-icns.sh`; `screenshots.sh`, `web-play-test.mjs` |
 | `.github/workflows/` | `ci.yml` (build + tests, GCC, `opengta.wasm`, package and smoke the gasm bundles), `release.yml` (wasm + four bundles on tag), `pages.yml` (site) |
-| `docs/` | Reverse-engineering notes (`docs/re/`: inventory per address range, formats) |
+| `docs/` | Reverse-engineering notes (`docs/re/`: inventory per address range, formats), subsystem pages (`docs/*.md`), the theory of operation (`docs/guide/theory.md`) |
 
 ## Game data
 

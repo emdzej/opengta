@@ -29,4 +29,5 @@ before you expect a game.
 - [Running on gasm](/guide/running) and [Launch parameters](/guide/parameters).
 - [Playing in the browser](/guide/browser).
 - [Controls](/guide/controls) and [Troubleshooting](/guide/troubleshooting).
+- [How GTA works](/guide/theory): the theory of operation, how the game is designed and built.
 - [Build from source](/howto/build-from-source), if you want the latest module or to help.

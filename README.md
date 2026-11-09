@@ -12,6 +12,9 @@ from your own copy of the game.
 with traffic, police, trains, explosions, the HUD and the mission script. Whole missions haven't been
 played through and compared with the original yet, so expect differences and bugs. Details: [opengta.emdzej.pl/guide/status](https://opengta.emdzej.pl/guide/status).
 
+How the game is designed and how it works, for anyone who wants to build one like it:
+[How GTA works](https://opengta.emdzej.pl/guide/theory).
+
 ## High resolution and skins
 
 Optional additions that aren't part of the original: `--param hires=2|3|4` renders the game, HUD and menus

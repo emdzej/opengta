@@ -101,6 +101,7 @@ export default defineConfig({
           items: [
             { text: "Introduction", link: "/guide/" },
             { text: "Status", link: "/guide/status" },
+            { text: "How GTA works", link: "/guide/theory" },
             { text: "Installing", link: "/guide/install" },
             { text: "Game data", link: "/guide/game-data" },
             { text: "Running on gasm", link: "/guide/running" },
